@@ -927,10 +927,10 @@ func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
 
 		if fromField != nil {
 			if relationship := fromField.Relationship; relationship != nil {
-				if relationship.Kind == "many_to_many" {
+				if relationship.Kind == MANY_TO_MANY {
 					joinTableHandler := relationship.JoinTableHandler
 					scope.Err(joinTableHandler.JoinWith(joinTableHandler, toScope.db, scope.Value).Find(value).Error)
-				} else if relationship.Kind == "belongs_to" {
+				} else if relationship.Kind == BELONGS_TO {
 					query := toScope.db
 					for idx, foreignKey := range relationship.ForeignDBNames {
 						if field, ok := scope.FieldByName(foreignKey); ok {
@@ -938,7 +938,7 @@ func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
 						}
 					}
 					scope.Err(query.Find(value).Error)
-				} else if relationship.Kind == "has_many" || relationship.Kind == "has_one" {
+				} else if relationship.Kind == HAS_MANY || relationship.Kind == HAS_ONE {
 					query := toScope.db
 					for idx, foreignKey := range relationship.ForeignDBNames {
 						if field, ok := scope.FieldByName(relationship.AssociationForeignDBNames[idx]); ok {
@@ -1346,7 +1346,7 @@ func (scope *Scope) GetModelStruct() *ModelStruct {
 
 							if elemType.Kind() == reflect.Struct {
 								if many2many := field.TagSettings["MANY2MANY"]; many2many != "" {
-									relationship.Kind = "many_to_many"
+									relationship.Kind = MANY_TO_MANY
 
 									// if no foreign keys defined with tag
 									if len(foreignKeys) == 0 {
@@ -1390,7 +1390,7 @@ func (scope *Scope) GetModelStruct() *ModelStruct {
 									// User has many comments, associationType is User, comment use UserID as foreign key
 									var associationType = reflectType.Name()
 									var toFields = toScope.GetStructFields()
-									relationship.Kind = "has_many"
+									relationship.Kind = HAS_MANY
 
 									if polymorphic := field.TagSettings["POLYMORPHIC"]; polymorphic != "" {
 										// Dog has many toys, tag polymorphic is Owner, then associationType is Owner
@@ -1565,7 +1565,7 @@ func (scope *Scope) GetModelStruct() *ModelStruct {
 							}
 
 							if len(relationship.ForeignFieldNames) != 0 {
-								relationship.Kind = "has_one"
+								relationship.Kind = HAS_ONE
 								field.Relationship = relationship
 							} else {
 								var foreignKeys = tagForeignKeys
@@ -1624,7 +1624,7 @@ func (scope *Scope) GetModelStruct() *ModelStruct {
 								}
 
 								if len(relationship.ForeignFieldNames) != 0 {
-									relationship.Kind = "belongs_to"
+									relationship.Kind = BELONGS_TO
 									field.Relationship = relationship
 								}
 							}

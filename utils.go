@@ -9,10 +9,10 @@ import (
 	"reflect"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"unicode"
-	"strconv"
 )
 
 //============================================
@@ -136,7 +136,7 @@ func createCallback(scope *Scope) {
 						columns = append(columns, scope.Quote(field.DBName))
 						placeholders = append(placeholders, scope.AddToVars(field.Field.Interface()))
 					}
-				} else if field.Relationship != nil && field.Relationship.Kind == "belongs_to" {
+				} else if field.Relationship != nil && field.Relationship.Kind == BELONGS_TO {
 					for _, foreignKey := range field.Relationship.ForeignDBNames {
 						if foreignField, ok := scope.FieldByName(foreignKey); ok && !scope.changeableField(foreignField) {
 							columns = append(columns, scope.Quote(foreignField.DBName))
@@ -245,7 +245,7 @@ func saveBeforeAssociationsCallback(scope *Scope) {
 	}
 	for _, field := range scope.Fields() {
 		if scope.changeableField(field) && !field.IsBlank && !field.IsIgnored {
-			if relationship := field.Relationship; relationship != nil && relationship.Kind == "belongs_to" {
+			if relationship := field.Relationship; relationship != nil && relationship.Kind == BELONGS_TO {
 				fieldValue := field.Field.Addr().Interface()
 				scope.Err(scope.NewDB().Save(fieldValue).Error)
 				if len(relationship.ForeignFieldNames) != 0 {
@@ -268,8 +268,7 @@ func saveAfterAssociationsCallback(scope *Scope) {
 	}
 	for _, field := range scope.Fields() {
 		if scope.changeableField(field) && !field.IsBlank && !field.IsIgnored {
-			if relationship := field.Relationship; relationship != nil &&
-				(relationship.Kind == "has_one" || relationship.Kind == "has_many" || relationship.Kind == "many_to_many") {
+			if relationship := field.Relationship; relationship != nil && relationship.Kind <= HAS_ONE {
 				value := field.Field
 
 				switch value.Kind() {
@@ -368,7 +367,7 @@ func updateCallback(scope *Scope) {
 				if scope.changeableField(field) {
 					if !field.IsPrimaryKey && field.IsNormal {
 						sqls = append(sqls, fmt.Sprintf("%v = %v", scope.Quote(field.DBName), scope.AddToVars(field.Field.Interface())))
-					} else if relationship := field.Relationship; relationship != nil && relationship.Kind == "belongs_to" {
+					} else if relationship := field.Relationship; relationship != nil && relationship.Kind == BELONGS_TO {
 						for _, foreignKey := range relationship.ForeignDBNames {
 							if foreignField, ok := scope.FieldByName(foreignKey); ok && !scope.changeableField(foreignField) {
 								sqls = append(sqls,
@@ -535,13 +534,13 @@ func preloadCallback(scope *Scope) {
 					}
 
 					switch field.Relationship.Kind {
-					case "has_one":
+					case HAS_ONE:
 						currentScope.handleHasOnePreload(field, currentPreloadConditions)
-					case "has_many":
+					case HAS_MANY:
 						currentScope.handleHasManyPreload(field, currentPreloadConditions)
-					case "belongs_to":
+					case BELONGS_TO:
 						currentScope.handleBelongsToPreload(field, currentPreloadConditions)
-					case "many_to_many":
+					case MANY_TO_MANY:
 						currentScope.handleManyToManyPreload(field, currentPreloadConditions)
 					default:
 						scope.Err(errors.New("unsupported relation"))

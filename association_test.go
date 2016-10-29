@@ -193,7 +193,7 @@ func TestBelongsToOverrideForeignKey1(t *testing.T) {
 	}
 
 	if relation, ok := TestDB.NewScope(&User{}).FieldByName("Profile"); ok {
-		if relation.Relationship.Kind != "belongs_to" ||
+		if relation.Relationship.Kind != BELONGS_TO ||
 			!reflect.DeepEqual(relation.Relationship.ForeignFieldNames, []string{"ProfileRefer"}) ||
 			!reflect.DeepEqual(relation.Relationship.AssociationForeignFieldNames, []string{"ID"}) {
 			t.Errorf("Override belongs to foreign key with tag")
@@ -216,7 +216,7 @@ func TestBelongsToOverrideForeignKey2(t *testing.T) {
 	}
 
 	if relation, ok := TestDB.NewScope(&User{}).FieldByName("Profile"); ok {
-		if relation.Relationship.Kind != "belongs_to" ||
+		if relation.Relationship.Kind != BELONGS_TO ||
 			!reflect.DeepEqual(relation.Relationship.ForeignFieldNames, []string{"ProfileID"}) ||
 			!reflect.DeepEqual(relation.Relationship.AssociationForeignFieldNames, []string{"Refer"}) {
 			t.Errorf("Override belongs to foreign key with tag")
@@ -385,7 +385,7 @@ func TestHasOneOverrideForeignKey1(t *testing.T) {
 	}
 
 	if relation, ok := TestDB.NewScope(&User{}).FieldByName("Profile"); ok {
-		if relation.Relationship.Kind != "has_one" ||
+		if relation.Relationship.Kind != HAS_ONE ||
 			!reflect.DeepEqual(relation.Relationship.ForeignFieldNames, []string{"UserRefer"}) ||
 			!reflect.DeepEqual(relation.Relationship.AssociationForeignFieldNames, []string{"ID"}) {
 			t.Errorf("Override belongs to foreign key with tag")
@@ -408,7 +408,7 @@ func TestHasOneOverrideForeignKey2(t *testing.T) {
 	}
 
 	if relation, ok := TestDB.NewScope(&User{}).FieldByName("Profile"); ok {
-		if relation.Relationship.Kind != "has_one" ||
+		if relation.Relationship.Kind != HAS_ONE ||
 			!reflect.DeepEqual(relation.Relationship.ForeignFieldNames, []string{"UserID"}) ||
 			!reflect.DeepEqual(relation.Relationship.AssociationForeignFieldNames, []string{"Refer"}) {
 			t.Errorf("Override belongs to foreign key with tag")
@@ -570,7 +570,7 @@ func TestHasManyOverrideForeignKey1(t *testing.T) {
 	}
 
 	if relation, ok := TestDB.NewScope(&User{}).FieldByName("Profile"); ok {
-		if relation.Relationship.Kind != "has_many" ||
+		if relation.Relationship.Kind != HAS_MANY ||
 			!reflect.DeepEqual(relation.Relationship.ForeignFieldNames, []string{"UserRefer"}) ||
 			!reflect.DeepEqual(relation.Relationship.AssociationForeignFieldNames, []string{"ID"}) {
 			t.Errorf("Override belongs to foreign key with tag")
@@ -593,7 +593,7 @@ func TestHasManyOverrideForeignKey2(t *testing.T) {
 	}
 
 	if relation, ok := TestDB.NewScope(&User{}).FieldByName("Profile"); ok {
-		if relation.Relationship.Kind != "has_many" ||
+		if relation.Relationship.Kind != HAS_MANY ||
 			!reflect.DeepEqual(relation.Relationship.ForeignFieldNames, []string{"UserID"}) ||
 			!reflect.DeepEqual(relation.Relationship.AssociationForeignFieldNames, []string{"Refer"}) {
 			t.Errorf("Override belongs to foreign key with tag")

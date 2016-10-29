@@ -15,6 +15,11 @@ import (
 const (
 	lower strCase = false
 	upper strCase = true
+
+	MANY_TO_MANY uint8 = 1
+	HAS_MANY     uint8 = 2
+	HAS_ONE      uint8 = 3
+	BELONGS_TO   uint8 = 4
 )
 
 type (
@@ -29,7 +34,7 @@ type (
 
 	// Relationship described the relationship between models
 	Relationship struct {
-		Kind                         string
+		Kind                         uint8
 		PolymorphicType              string
 		PolymorphicDBName            string
 		PolymorphicValue             string

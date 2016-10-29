@@ -18,7 +18,7 @@ func (association *Association) Append(values ...interface{}) *Association {
 		return association
 	}
 
-	if relationship := association.field.Relationship; relationship.Kind == "has_one" {
+	if relationship := association.field.Relationship; relationship.Kind == HAS_ONE {
 		return association.Replace(values...)
 	}
 	return association.saveAssociations(values...)
@@ -42,7 +42,7 @@ func (association *Association) Replace(values ...interface{}) *Association {
 	association.saveAssociations(values...)
 
 	// Belongs To
-	if relationship.Kind == "belongs_to" {
+	if relationship.Kind == BELONGS_TO {
 		// Set foreign key to be null when clearing value (length equals 0)
 		if len(values) == 0 {
 			// Set foreign key to be nil
@@ -61,7 +61,7 @@ func (association *Association) Replace(values ...interface{}) *Association {
 		// Delete Relations except new created
 		if len(values) > 0 {
 			var associationForeignFieldNames, associationForeignDBNames []string
-			if relationship.Kind == "many_to_many" {
+			if relationship.Kind == MANY_TO_MANY {
 				// if many to many relations, get association fields name from association foreign keys
 				associationScope := scope.New(reflect.New(field.Type()).Interface())
 				for idx, dbName := range relationship.AssociationForeignFieldNames {
@@ -86,7 +86,7 @@ func (association *Association) Replace(values ...interface{}) *Association {
 			}
 		}
 
-		if relationship.Kind == "many_to_many" {
+		if relationship.Kind == MANY_TO_MANY {
 			// if many to many relations, delete related relations from join table
 			var sourceForeignFieldNames []string
 
@@ -101,7 +101,7 @@ func (association *Association) Replace(values ...interface{}) *Association {
 
 				association.setErr(relationship.JoinTableHandler.Delete(relationship.JoinTableHandler, newDB, relationship))
 			}
-		} else if relationship.Kind == "has_one" || relationship.Kind == "has_many" {
+		} else if relationship.Kind == HAS_ONE || relationship.Kind == HAS_MANY {
 			// has_one or has_many relations, set foreign key to be nil (TODO or delete them?)
 			var foreignKeyMap = map[string]interface{}{}
 			for idx, foreignKey := range relationship.ForeignDBNames {
@@ -143,7 +143,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 
 	deletingPrimaryKeys := scope.getColumnAsArray(deletingResourcePrimaryFieldNames, values...)
 
-	if relationship.Kind == "many_to_many" {
+	if relationship.Kind == MANY_TO_MANY {
 		// source value's foreign keys
 		for idx, foreignKey := range relationship.ForeignDBNames {
 			if field, ok := scope.FieldByName(relationship.ForeignFieldNames[idx]); ok {
@@ -172,7 +172,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 			foreignKeyMap[foreignKey] = nil
 		}
 
-		if relationship.Kind == "belongs_to" {
+		if relationship.Kind == BELONGS_TO {
 			// find with deleting relation's foreign keys
 			primaryKeys := scope.getColumnAsArray(relationship.AssociationForeignFieldNames, values...)
 			newDB = newDB.Where(
@@ -189,7 +189,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 			} else {
 				association.setErr(results.Error)
 			}
-		} else if relationship.Kind == "has_one" || relationship.Kind == "has_many" {
+		} else if relationship.Kind == HAS_ONE || relationship.Kind == HAS_MANY {
 			// find all relations
 			primaryKeys := scope.getColumnAsArray(relationship.AssociationForeignFieldNames, scope.Value)
 			newDB = newDB.Where(
@@ -259,15 +259,15 @@ func (association *Association) Count() int {
 		query        = scope.DB()
 	)
 
-	if relationship.Kind == "many_to_many" {
+	if relationship.Kind == MANY_TO_MANY {
 		query = relationship.JoinTableHandler.JoinWith(relationship.JoinTableHandler, query, scope.Value)
-	} else if relationship.Kind == "has_many" || relationship.Kind == "has_one" {
+	} else if relationship.Kind == HAS_MANY || relationship.Kind == HAS_ONE {
 		primaryKeys := scope.getColumnAsArray(relationship.AssociationForeignFieldNames, scope.Value)
 		query = query.Where(
 			fmt.Sprintf("%v IN (%v)", toQueryCondition(scope, relationship.ForeignDBNames), toQueryMarks(primaryKeys)),
 			toQueryValues(primaryKeys)...,
 		)
-	} else if relationship.Kind == "belongs_to" {
+	} else if relationship.Kind == BELONGS_TO {
 		primaryKeys := scope.getColumnAsArray(relationship.ForeignFieldNames, scope.Value)
 		query = query.Where(
 			fmt.Sprintf("%v IN (%v)", toQueryCondition(scope, relationship.AssociationForeignDBNames), toQueryMarks(primaryKeys)),
@@ -303,7 +303,7 @@ func (association *Association) saveAssociations(values ...interface{}) *Associa
 		}
 
 		// value has to been saved for many2many
-		if relationship.Kind == "many_to_many" {
+		if relationship.Kind == MANY_TO_MANY {
 			if scope.New(reflectValue.Interface()).PrimaryKeyZero() {
 				association.setErr(scope.NewDB().Save(reflectValue.Interface()).Error)
 			}
@@ -328,7 +328,7 @@ func (association *Association) saveAssociations(values ...interface{}) *Associa
 			}
 		}
 
-		if relationship.Kind == "many_to_many" {
+		if relationship.Kind == MANY_TO_MANY {
 			association.setErr(relationship.JoinTableHandler.Add(relationship.JoinTableHandler, scope.NewDB(), scope.Value, reflectValue.Interface()))
 		} else {
 			association.setErr(scope.NewDB().Select(field.Name).Save(scope.Value).Error)
