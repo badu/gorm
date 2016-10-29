@@ -529,7 +529,7 @@ func preloadCallback(scope *Scope) {
 				}
 
 				for _, field := range currentFields {
-					if field.Name != preloadField || field.Relationship == nil {
+					if field.GetName() != preloadField || field.Relationship == nil {
 						continue
 					}
 
@@ -656,19 +656,19 @@ func ParseFieldStructForDialect(field *StructField) (fieldValue reflect.Value, s
 	getScannerValue(fieldValue)
 
 	// Default Size
-	if num, ok := field.TagSettings["SIZE"]; ok {
+	if num, ok := field.TagSettings[SIZE]; ok {
 		size, _ = strconv.Atoi(num)
 	} else {
 		size = 255
 	}
 
 	// Default type from tag setting
-	additionalType = field.TagSettings["NOT NULL"] + " " + field.TagSettings["UNIQUE"]
-	if value, ok := field.TagSettings["DEFAULT"]; ok {
+	additionalType = field.TagSettings[NOT_NULL] + " " + field.TagSettings[UNIQUE]
+	if value, ok := field.TagSettings[DEFAULT]; ok {
 		additionalType = additionalType + " DEFAULT " + value
 	}
 
-	return fieldValue, field.TagSettings["TYPE"], size, strings.TrimSpace(additionalType)
+	return fieldValue, field.TagSettings[TYPE], size, strings.TrimSpace(additionalType)
 }
 
 func isByteArrayOrSlice(value reflect.Value) bool {
@@ -931,24 +931,29 @@ func newModelStructsMap() *safeModelStructsMap {
 
 func getForeignField(column string, fields []*StructField) *StructField {
 	for _, field := range fields {
-		if field.Name == column || field.DBName == column || field.DBName == ToDBName(column) {
+		if field.GetName() == column || field.DBName == column || field.DBName == ToDBName(column) {
 			return field
 		}
 	}
 	return nil
 }
-
-func parseTagSetting(tags reflect.StructTag) map[string]string {
-	setting := map[string]string{}
+//TODO : @Badu - remove this function from here
+func parseTagSetting(tags reflect.StructTag) map[uint8]string {
+	setting := map[uint8]string{}
 	for _, str := range []string{tags.Get("sql"), tags.Get("gorm")} {
 		tags := strings.Split(str, ";")
 		for _, value := range tags {
 			v := strings.Split(value, ":")
 			k := strings.TrimSpace(strings.ToUpper(v[0]))
-			if len(v) >= 2 {
-				setting[k] = strings.Join(v[1:], ":")
+			uint8Key, ok := tagSettingMap[k]
+			if ok {
+				if len(v) >= 2 {
+					setting[uint8Key] = strings.Join(v[1:], ":")
+				} else {
+					setting[uint8Key] = k
+				}
 			} else {
-				setting[k] = k
+				fmt.Errorf("ERROR : COULDN'T FIND KEY FOR %q", k)
 			}
 		}
 	}

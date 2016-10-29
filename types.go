@@ -15,21 +15,66 @@ import (
 const (
 	lower strCase = false
 	upper strCase = true
-
+	//Relationship Kind constants
 	MANY_TO_MANY uint8 = 1
 	HAS_MANY     uint8 = 2
 	HAS_ONE      uint8 = 3
 	BELONGS_TO   uint8 = 4
+	//StructField TagSettings constants
+	MANY2MANY               uint8 = 1
+	AUTO_INCREMENT          uint8 = 2
+	INDEX                   uint8 = 3
+	NOT_NULL                uint8 = 4
+	SIZE                    uint8 = 5
+	UNIQUE_INDEX            uint8 = 6
+	IS_JOINTABLE_FOREIGNKEY uint8 = 7
+	PRIMARY_KEY             uint8 = 8
+	DEFAULT                 uint8 = 9
+	IGNORED                 uint8 = 10
+	EMBEDDED                uint8 = 11
+	EMBEDDED_PREFIX         uint8 = 12
+	FOREIGNKEY              uint8 = 13
+	ASSOCIATIONFOREIGNKEY   uint8 = 14
+	POLYMORPHIC             uint8 = 15
+	POLYMORPHIC_VALUE       uint8 = 16
+	COLUMN                  uint8 = 17
+	TYPE                    uint8 = 18
+	UNIQUE                  uint8 = 19
 )
 
 type (
-	strCase bool
-	// Association Mode contains some helper methods to handle relationship things easily.
-	Association struct {
-		Error  error
-		scope  *Scope
-		column string
-		field  *Field
+	/**
+	reflect.StructField{
+		// Name is the field name.
+		Name string
+		// PkgPath is the package path that qualifies a lower case (unexported)
+		// field name. It is empty for upper case (exported) field names.
+		// See https://golang.org/ref/spec#Uniqueness_of_identifiers
+		PkgPath string
+
+		Type      Type      // field type
+		Tag       StructTag // field tag string
+		Offset    uintptr   // offset within struct, in bytes
+		Index     []int     // index sequence for Type.FieldByIndex
+		Anonymous bool      // is an embedded field
+	}
+	*/
+	// StructField model field's struct definition
+	//TODO : @Badu - instead of having this bunch of flags - a bitflag seems better
+	//TODO : @Badu - a StructField should support multiple relationships
+	StructField struct {
+		IsPrimaryKey    bool
+		IsNormal        bool
+		IsIgnored       bool
+		IsScanner       bool
+		HasDefaultValue bool
+		IsForeignKey    bool
+
+		DBName       string
+		Names        []string
+		TagSettings  map[uint8]string
+		Struct       reflect.StructField
+		Relationship *Relationship
 	}
 
 	// Relationship described the relationship between models
@@ -45,22 +90,16 @@ type (
 		JoinTableHandler             JoinTableHandlerInterface
 	}
 
-	// StructField model field's struct definition
-	StructField struct {
-		DBName          string
-		Name            string
-		Names           []string
-		IsPrimaryKey    bool
-		IsNormal        bool
-		IsIgnored       bool
-		IsScanner       bool
-		HasDefaultValue bool
-		Tag             reflect.StructTag
-		TagSettings     map[string]string
-		Struct          reflect.StructField
-		IsForeignKey    bool
-		Relationship    *Relationship
+	strCase bool
+	// Association Mode contains some helper methods to handle relationship things easily.
+	Association struct {
+		Error  error
+		scope  *Scope
+		column string
+		field  *Field
 	}
+
+
 
 	// ModelStruct model definition
 	ModelStruct struct {
@@ -86,6 +125,8 @@ type (
 		args []interface{}
 	}
 
+	//TODO : @Badu - should be swallowed by StructField, because
+	// adds just another flag and the reflected value
 	// Field model field definition
 	Field struct {
 		*StructField
@@ -329,6 +370,30 @@ type (
 )
 
 var (
+	//this is a map for transforming strings into uint8 when reading tags of structs
+	//@See : &StructField{}.ParseTagSettings()
+	tagSettingMap = map[string]uint8{
+		"MANY2MANY":               MANY2MANY,
+		"AUTO_INCREMENT":          AUTO_INCREMENT,
+		"INDEX":                   INDEX,
+		"NOT NULL":                NOT_NULL,
+		"SIZE":                    SIZE,
+		"UNIQUE_INDEX":            UNIQUE_INDEX,
+		"IS_JOINTABLE_FOREIGNKEY": IS_JOINTABLE_FOREIGNKEY,
+		"PRIMARY_KEY":             PRIMARY_KEY,
+		"DEFAULT":                 DEFAULT,
+		"-":                       IGNORED,
+		"EMBEDDED":                EMBEDDED,
+		"EMBEDDED_PREFIX":         EMBEDDED_PREFIX,
+		"FOREIGNKEY":              FOREIGNKEY,
+		"ASSOCIATIONFOREIGNKEY":   ASSOCIATIONFOREIGNKEY,
+		"POLYMORPHIC":             POLYMORPHIC,
+		"POLYMORPHIC_VALUE":       POLYMORPHIC_VALUE,
+		"COLUMN":                  COLUMN,
+		"TYPE":                    TYPE,
+		"UNIQUE":                  UNIQUE,
+	}
+
 	dialectsMap = map[string]Dialect{}
 
 	// DefaultCallback default callbacks defined by gorm

@@ -66,14 +66,14 @@ func (association *Association) Replace(values ...interface{}) *Association {
 				associationScope := scope.New(reflect.New(field.Type()).Interface())
 				for idx, dbName := range relationship.AssociationForeignFieldNames {
 					if field, ok := associationScope.FieldByName(dbName); ok {
-						associationForeignFieldNames = append(associationForeignFieldNames, field.Name)
+						associationForeignFieldNames = append(associationForeignFieldNames, field.GetName())
 						associationForeignDBNames = append(associationForeignDBNames, relationship.AssociationForeignDBNames[idx])
 					}
 				}
 			} else {
 				// If has one/many relations, use primary keys
 				for _, field := range scope.New(reflect.New(field.Type()).Interface()).PrimaryFields() {
-					associationForeignFieldNames = append(associationForeignFieldNames, field.Name)
+					associationForeignFieldNames = append(associationForeignFieldNames, field.GetName())
 					associationForeignDBNames = append(associationForeignDBNames, field.DBName)
 				}
 			}
@@ -92,7 +92,7 @@ func (association *Association) Replace(values ...interface{}) *Association {
 
 			for _, dbName := range relationship.ForeignFieldNames {
 				if field, ok := scope.FieldByName(dbName); ok {
-					sourceForeignFieldNames = append(sourceForeignFieldNames, field.Name)
+					sourceForeignFieldNames = append(sourceForeignFieldNames, field.GetName())
 				}
 			}
 
@@ -137,7 +137,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 
 	var deletingResourcePrimaryFieldNames, deletingResourcePrimaryDBNames []string
 	for _, field := range scope.New(reflect.New(field.Type()).Interface()).PrimaryFields() {
-		deletingResourcePrimaryFieldNames = append(deletingResourcePrimaryFieldNames, field.Name)
+		deletingResourcePrimaryFieldNames = append(deletingResourcePrimaryFieldNames, field.GetName())
 		deletingResourcePrimaryDBNames = append(deletingResourcePrimaryDBNames, field.DBName)
 	}
 
@@ -156,7 +156,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 		var associationForeignFieldNames []string
 		for _, associationDBName := range relationship.AssociationForeignFieldNames {
 			if field, ok := associationScope.FieldByName(associationDBName); ok {
-				associationForeignFieldNames = append(associationForeignFieldNames, field.Name)
+				associationForeignFieldNames = append(associationForeignFieldNames, field.GetName())
 			}
 		}
 
@@ -331,7 +331,7 @@ func (association *Association) saveAssociations(values ...interface{}) *Associa
 		if relationship.Kind == MANY_TO_MANY {
 			association.setErr(relationship.JoinTableHandler.Add(relationship.JoinTableHandler, scope.NewDB(), scope.Value, reflectValue.Interface()))
 		} else {
-			association.setErr(scope.NewDB().Select(field.Name).Save(scope.Value).Error)
+			association.setErr(scope.NewDB().Select(field.GetName()).Save(scope.Value).Error)
 
 			if setFieldBackToValue {
 				reflectValue.Elem().Set(field.Field)
