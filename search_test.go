@@ -6,6 +6,7 @@ import (
 )
 
 func TestCloneSearch(t *testing.T) {
+	t.Log("129) TestCloneSearch")
 	s := new(search)
 	s.Where("name = ?", "jinzhu").Order("name").Attrs("name", "jinzhu").Select("name, age")
 

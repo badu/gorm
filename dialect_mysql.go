@@ -10,14 +10,6 @@ import (
 	"unicode/utf8"
 )
 
-type mysql struct {
-	commonDialect
-}
-
-func init() {
-	RegisterDialect("mysql", &mysql{})
-}
-
 func (mysql) GetName() string {
 	return "mysql"
 }

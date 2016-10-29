@@ -1,12 +1,11 @@
-package gorm_test
+package gorm
 
 import (
 	"testing"
-
-	"github.com/jinzhu/gorm"
 )
 
 func TestToDBNameGenerateFriendlyName(t *testing.T) {
+	t.Log("144) TestToDBNameGenerateFriendlyName")
 	var maps = map[string]string{
 		"":                          "",
 		"ThisIsATest":               "this_is_a_test",
@@ -23,8 +22,8 @@ func TestToDBNameGenerateFriendlyName(t *testing.T) {
 	}
 
 	for key, value := range maps {
-		if gorm.ToDBName(key) != value {
-			t.Errorf("%v ToDBName should equal %v, but got %v", key, value, gorm.ToDBName(key))
+		if ToDBName(key) != value {
+			t.Errorf("%v ToDBName should equal %v, but got %v", key, value, ToDBName(key))
 		}
 	}
 }

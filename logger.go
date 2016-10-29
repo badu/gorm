@@ -3,32 +3,9 @@ package gorm
 import (
 	"database/sql/driver"
 	"fmt"
-	"log"
-	"os"
 	"reflect"
-	"regexp"
 	"time"
-	"unicode"
 )
-
-var (
-	defaultLogger = Logger{log.New(os.Stdout, "\r\n", 0)}
-	sqlRegexp     = regexp.MustCompile(`(\$\d+)|\?`)
-)
-
-type logger interface {
-	Print(v ...interface{})
-}
-
-// LogWriter log writer interface
-type LogWriter interface {
-	Println(v ...interface{})
-}
-
-// Logger default logger
-type Logger struct {
-	LogWriter
-}
 
 // Print format & print log
 func (logger Logger) Print(values ...interface{}) {
@@ -87,13 +64,4 @@ func (logger Logger) Print(values ...interface{}) {
 		}
 		logger.Println(messages...)
 	}
-}
-
-func isPrintable(s string) bool {
-	for _, r := range s {
-		if !unicode.IsPrint(r) {
-			return false
-		}
-	}
-	return true
 }

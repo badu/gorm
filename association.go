@@ -6,14 +6,6 @@ import (
 	"reflect"
 )
 
-// Association Mode contains some helper methods to handle relationship things easily.
-type Association struct {
-	Error  error
-	scope  *Scope
-	column string
-	field  *Field
-}
-
 // Find find out all related associations
 func (association *Association) Find(value interface{}) *Association {
 	association.scope.related(value, association.column)

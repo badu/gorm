@@ -1,14 +1,12 @@
-package gorm_test
+package gorm
 
 import (
-	"database/sql/driver"
-	"encoding/json"
-	"errors"
 	"testing"
 )
 
 func TestScannableSlices(t *testing.T) {
-	if err := DB.AutoMigrate(&RecordWithSlice{}).Error; err != nil {
+	t.Log("127) TestScannableSlices")
+	if err := TestDB.AutoMigrate(&RecordWithSlice{}).Error; err != nil {
 		t.Errorf("Should create table with slice values correctly: %s", err)
 	}
 
@@ -20,13 +18,13 @@ func TestScannableSlices(t *testing.T) {
 		},
 	}
 
-	if err := DB.Save(&r1).Error; err != nil {
+	if err := TestDB.Save(&r1).Error; err != nil {
 		t.Errorf("Should save record with slice values")
 	}
 
 	var r2 RecordWithSlice
 
-	if err := DB.Find(&r2).Error; err != nil {
+	if err := TestDB.Find(&r2).Error; err != nil {
 		t.Errorf("Should fetch record with slice values")
 	}
 
@@ -36,50 +34,5 @@ func TestScannableSlices(t *testing.T) {
 
 	if len(r2.Structs) != 2 || r2.Structs[0].Name != "name1" || r2.Structs[0].Value != "value1" || r2.Structs[1].Name != "name2" || r2.Structs[1].Value != "value2" {
 		t.Errorf("Should have serialised and deserialised a struct array")
-	}
-}
-
-type RecordWithSlice struct {
-	ID      uint64
-	Strings ExampleStringSlice `sql:"type:text"`
-	Structs ExampleStructSlice `sql:"type:text"`
-}
-
-type ExampleStringSlice []string
-
-func (l ExampleStringSlice) Value() (driver.Value, error) {
-	return json.Marshal(l)
-}
-
-func (l *ExampleStringSlice) Scan(input interface{}) error {
-	switch value := input.(type) {
-	case string:
-		return json.Unmarshal([]byte(value), l)
-	case []byte:
-		return json.Unmarshal(value, l)
-	default:
-		return errors.New("not supported")
-	}
-}
-
-type ExampleStruct struct {
-	Name  string
-	Value string
-}
-
-type ExampleStructSlice []ExampleStruct
-
-func (l ExampleStructSlice) Value() (driver.Value, error) {
-	return json.Marshal(l)
-}
-
-func (l *ExampleStructSlice) Scan(input interface{}) error {
-	switch value := input.(type) {
-	case string:
-		return json.Unmarshal([]byte(value), l)
-	case []byte:
-		return json.Unmarshal(value, l)
-	default:
-		return errors.New("not supported")
 	}
 }

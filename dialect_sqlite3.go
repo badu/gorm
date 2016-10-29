@@ -7,15 +7,6 @@ import (
 	"time"
 )
 
-type sqlite3 struct {
-	commonDialect
-}
-
-func init() {
-	RegisterDialect("sqlite", &sqlite3{})
-	RegisterDialect("sqlite3", &sqlite3{})
-}
-
 func (sqlite3) GetName() string {
 	return "sqlite3"
 }

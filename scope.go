@@ -10,22 +10,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jinzhu/inflection"
+	"go/ast"
 	"reflect"
 )
-
-// Scope contain current operation's information when you perform any operation on the database
-type Scope struct {
-	Search          *search
-	Value           interface{}
-	SQL             string
-	SQLVars         []interface{}
-	db              *DB
-	instanceID      string
-	primaryKeyField *Field
-	skipLeft        bool
-	fields          *[]*Field
-	selectAttrs     *[]string
-}
 
 // IndirectValue return scope's reflect value's indirect value
 func (scope *Scope) IndirectValue() reflect.Value {
@@ -49,6 +37,7 @@ func (scope *Scope) DB() *DB {
 // NewDB create a new DB without search information
 func (scope *Scope) NewDB() *DB {
 	if scope.db != nil {
+		//TODO : @Badu - so, we clone it then we set stuff to nil ?
 		db := scope.db.clone()
 		db.search = nil
 		db.Value = nil
@@ -290,14 +279,6 @@ func (scope *Scope) OmitAttrs() []string {
 	return scope.Search.omits
 }
 
-type tabler interface {
-	TableName() string
-}
-
-type dbTabler interface {
-	TableName(*DB) string
-}
-
 // TableName return table name
 func (scope *Scope) TableName() string {
 	if scope.Search != nil && len(scope.Search.tableName) > 0 {
@@ -442,8 +423,6 @@ func (scope *Scope) callMethod(methodName string, reflectValue reflect.Value) {
 	}
 }
 
-var columnRegexp = regexp.MustCompile("^[a-zA-Z]+(\\.[a-zA-Z]+)*$") // only match string like `name`, `users.name`
-
 func (scope *Scope) quoteIfPossible(str string) string {
 	if columnRegexp.MatchString(str) {
 		return scope.Quote(str)
@@ -530,7 +509,7 @@ func (scope *Scope) buildWhereCondition(clause map[string]interface{}) (str stri
 		newScope := scope.New(value)
 		for _, field := range newScope.Fields() {
 			if !field.IsIgnored && !field.IsBlank {
-				sqls = append(sqls, fmt.Sprintf("(%v.%v = %v)", scope.QuotedTableName(), scope.Quote(field.DBName), scope.AddToVars(field.Field.Interface())))
+				sqls = append(sqls, fmt.Sprintf("(%v.%v = %v)", newScope.QuotedTableName(), scope.Quote(field.DBName), scope.AddToVars(field.Field.Interface())))
 			}
 		}
 		return strings.Join(sqls, " AND ")
@@ -602,7 +581,7 @@ func (scope *Scope) buildNotCondition(clause map[string]interface{}) (str string
 		var newScope = scope.New(value)
 		for _, field := range newScope.Fields() {
 			if !field.IsBlank {
-				sqls = append(sqls, fmt.Sprintf("(%v.%v <> %v)", scope.QuotedTableName(), scope.Quote(field.DBName), scope.AddToVars(field.Field.Interface())))
+				sqls = append(sqls, fmt.Sprintf("(%v.%v <> %v)", newScope.QuotedTableName(), scope.Quote(field.DBName), scope.AddToVars(field.Field.Interface())))
 			}
 		}
 		return strings.Join(sqls, " AND ")
@@ -816,37 +795,6 @@ func (scope *Scope) callCallbacks(funcs []*func(s *Scope)) *Scope {
 	return scope
 }
 
-func convertInterfaceToMap(values interface{}, withIgnoredField bool) map[string]interface{} {
-	var attrs = map[string]interface{}{}
-
-	switch value := values.(type) {
-	case map[string]interface{}:
-		return value
-	case []interface{}:
-		for _, v := range value {
-			for key, value := range convertInterfaceToMap(v, withIgnoredField) {
-				attrs[key] = value
-			}
-		}
-	case interface{}:
-		reflectValue := reflect.ValueOf(values)
-
-		switch reflectValue.Kind() {
-		case reflect.Map:
-			for _, key := range reflectValue.MapKeys() {
-				attrs[ToDBName(key.Interface().(string))] = reflectValue.MapIndex(key).Interface()
-			}
-		default:
-			for _, field := range (&Scope{Value: values}).Fields() {
-				if !field.IsBlank && (withIgnoredField || !field.IsIgnored) {
-					attrs[field.DBName] = field.Field.Interface()
-				}
-			}
-		}
-	}
-	return attrs
-}
-
 func (scope *Scope) updatedAttrsWithValues(value interface{}) (results map[string]interface{}, hasUpdate bool) {
 	if scope.IndirectValue().Kind() != reflect.Struct {
 		return convertInterfaceToMap(value, false), true
@@ -964,13 +912,8 @@ func (scope *Scope) changeableField(field *Field) bool {
 }
 
 func (scope *Scope) shouldSaveAssociations() bool {
-	if saveAssociations, ok := scope.Get("gorm:save_associations"); ok {
-		if v, ok := saveAssociations.(bool); ok && !v {
-			return false
-		}
-		if v, ok := saveAssociations.(string); ok && (v != "skip") {
-			return false
-		}
+	if saveAssociations, ok := scope.Get("gorm:save_associations"); ok && !saveAssociations.(bool) {
+		return false
 	}
 	return true && !scope.HasError()
 }
@@ -1274,4 +1217,717 @@ func (scope *Scope) getColumnAsScope(column string) *Scope {
 		}
 	}
 	return nil
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// moved here from model_struct.go
+////////////////////////////////////////////////////////////////////////////////
+// GetModelStruct get value's model struct, relationships based on struct and tag definition
+func (scope *Scope) GetModelStruct() *ModelStruct {
+	var modelStruct ModelStruct
+	// Scope value can't be nil
+	if scope.Value == nil {
+		return &modelStruct
+	}
+
+	reflectType := reflect.ValueOf(scope.Value).Type()
+	for reflectType.Kind() == reflect.Slice || reflectType.Kind() == reflect.Ptr {
+		reflectType = reflectType.Elem()
+	}
+
+	// Scope value need to be a struct
+	if reflectType.Kind() != reflect.Struct {
+		return &modelStruct
+	}
+
+	// Get Cached model struct
+	if value := modelStructsMap.Get(reflectType); value != nil {
+		return value
+	}
+
+	modelStruct.ModelType = reflectType
+
+	// Set default table name
+	if tabler, ok := reflect.New(reflectType).Interface().(tabler); ok {
+		modelStruct.defaultTableName = tabler.TableName()
+	} else {
+		tableName := ToDBName(reflectType.Name())
+		if scope.db == nil || !scope.db.parent.singularTable {
+			tableName = inflection.Plural(tableName)
+		}
+		modelStruct.defaultTableName = tableName
+	}
+
+	// Get all fields
+	for i := 0; i < reflectType.NumField(); i++ {
+		if fieldStruct := reflectType.Field(i); ast.IsExported(fieldStruct.Name) {
+			field := &StructField{
+				Struct:      fieldStruct,
+				Name:        fieldStruct.Name,
+				Names:       []string{fieldStruct.Name},
+				Tag:         fieldStruct.Tag,
+				TagSettings: parseTagSetting(fieldStruct.Tag),
+			}
+
+			// is ignored field
+			if _, ok := field.TagSettings["-"]; ok {
+				field.IsIgnored = true
+			} else {
+				if _, ok := field.TagSettings["PRIMARY_KEY"]; ok {
+					field.IsPrimaryKey = true
+					modelStruct.PrimaryFields = append(modelStruct.PrimaryFields, field)
+				}
+
+				if _, ok := field.TagSettings["DEFAULT"]; ok {
+					field.HasDefaultValue = true
+				}
+
+				if _, ok := field.TagSettings["AUTO_INCREMENT"]; ok && !field.IsPrimaryKey {
+					field.HasDefaultValue = true
+				}
+
+				indirectType := fieldStruct.Type
+				for indirectType.Kind() == reflect.Ptr {
+					indirectType = indirectType.Elem()
+				}
+
+				fieldValue := reflect.New(indirectType).Interface()
+				if _, isScanner := fieldValue.(sql.Scanner); isScanner {
+					// is scanner
+					field.IsScanner, field.IsNormal = true, true
+					if indirectType.Kind() == reflect.Struct {
+						for i := 0; i < indirectType.NumField(); i++ {
+							for key, value := range parseTagSetting(indirectType.Field(i).Tag) {
+								field.TagSettings[key] = value
+							}
+						}
+					}
+				} else if _, isTime := fieldValue.(*time.Time); isTime {
+					// is time
+					field.IsNormal = true
+				} else if _, ok := field.TagSettings["EMBEDDED"]; ok || fieldStruct.Anonymous {
+					// is embedded struct
+					for _, subField := range scope.New(fieldValue).GetStructFields() {
+						subField = subField.clone()
+						subField.Names = append([]string{fieldStruct.Name}, subField.Names...)
+						if prefix, ok := field.TagSettings["EMBEDDED_PREFIX"]; ok {
+							subField.DBName = prefix + subField.DBName
+						}
+						if subField.IsPrimaryKey {
+							modelStruct.PrimaryFields = append(modelStruct.PrimaryFields, subField)
+						}
+						modelStruct.StructFields = append(modelStruct.StructFields, subField)
+					}
+					continue
+				} else {
+					// build relationships
+					switch indirectType.Kind() {
+					case reflect.Slice:
+						defer func(field *StructField) {
+							var (
+								relationship           = &Relationship{}
+								toScope                = scope.New(reflect.New(field.Struct.Type).Interface())
+								foreignKeys            []string
+								associationForeignKeys []string
+								elemType               = field.Struct.Type
+							)
+
+							if foreignKey := field.TagSettings["FOREIGNKEY"]; foreignKey != "" {
+								foreignKeys = strings.Split(field.TagSettings["FOREIGNKEY"], ",")
+							}
+
+							if foreignKey := field.TagSettings["ASSOCIATIONFOREIGNKEY"]; foreignKey != "" {
+								associationForeignKeys = strings.Split(field.TagSettings["ASSOCIATIONFOREIGNKEY"], ",")
+							}
+
+							for elemType.Kind() == reflect.Slice || elemType.Kind() == reflect.Ptr {
+								elemType = elemType.Elem()
+							}
+
+							if elemType.Kind() == reflect.Struct {
+								if many2many := field.TagSettings["MANY2MANY"]; many2many != "" {
+									relationship.Kind = "many_to_many"
+
+									// if no foreign keys defined with tag
+									if len(foreignKeys) == 0 {
+										for _, field := range modelStruct.PrimaryFields {
+											foreignKeys = append(foreignKeys, field.DBName)
+										}
+									}
+
+									for _, foreignKey := range foreignKeys {
+										if foreignField := getForeignField(foreignKey, modelStruct.StructFields); foreignField != nil {
+											// source foreign keys (db names)
+											relationship.ForeignFieldNames = append(relationship.ForeignFieldNames, foreignField.DBName)
+											// join table foreign keys for source
+											joinTableDBName := ToDBName(reflectType.Name()) + "_" + foreignField.DBName
+											relationship.ForeignDBNames = append(relationship.ForeignDBNames, joinTableDBName)
+										}
+									}
+
+									// if no association foreign keys defined with tag
+									if len(associationForeignKeys) == 0 {
+										for _, field := range toScope.PrimaryFields() {
+											associationForeignKeys = append(associationForeignKeys, field.DBName)
+										}
+									}
+
+									for _, name := range associationForeignKeys {
+										if field, ok := toScope.FieldByName(name); ok {
+											// association foreign keys (db names)
+											relationship.AssociationForeignFieldNames = append(relationship.AssociationForeignFieldNames, field.DBName)
+											// join table foreign keys for association
+											joinTableDBName := ToDBName(elemType.Name()) + "_" + field.DBName
+											relationship.AssociationForeignDBNames = append(relationship.AssociationForeignDBNames, joinTableDBName)
+										}
+									}
+
+									joinTableHandler := JoinTableHandler{}
+									joinTableHandler.Setup(relationship, many2many, reflectType, elemType)
+									relationship.JoinTableHandler = &joinTableHandler
+									field.Relationship = relationship
+								} else {
+									// User has many comments, associationType is User, comment use UserID as foreign key
+									var associationType = reflectType.Name()
+									var toFields = toScope.GetStructFields()
+									relationship.Kind = "has_many"
+
+									if polymorphic := field.TagSettings["POLYMORPHIC"]; polymorphic != "" {
+										// Dog has many toys, tag polymorphic is Owner, then associationType is Owner
+										// Toy use OwnerID, OwnerType ('dogs') as foreign key
+										if polymorphicType := getForeignField(polymorphic+"Type", toFields); polymorphicType != nil {
+											associationType = polymorphic
+											relationship.PolymorphicType = polymorphicType.Name
+											relationship.PolymorphicDBName = polymorphicType.DBName
+											// if Dog has multiple set of toys set name of the set (instead of default 'dogs')
+											if value, ok := field.TagSettings["POLYMORPHIC_VALUE"]; ok {
+												relationship.PolymorphicValue = value
+											} else {
+												relationship.PolymorphicValue = scope.TableName()
+											}
+											polymorphicType.IsForeignKey = true
+										}
+									}
+
+									// if no foreign keys defined with tag
+									if len(foreignKeys) == 0 {
+										// if no association foreign keys defined with tag
+										if len(associationForeignKeys) == 0 {
+											for _, field := range modelStruct.PrimaryFields {
+												foreignKeys = append(foreignKeys, associationType+field.Name)
+												associationForeignKeys = append(associationForeignKeys, field.Name)
+											}
+										} else {
+											// generate foreign keys from defined association foreign keys
+											for _, scopeFieldName := range associationForeignKeys {
+												if foreignField := getForeignField(scopeFieldName, modelStruct.StructFields); foreignField != nil {
+													foreignKeys = append(foreignKeys, associationType+foreignField.Name)
+													associationForeignKeys = append(associationForeignKeys, foreignField.Name)
+												}
+											}
+										}
+									} else {
+										// generate association foreign keys from foreign keys
+										if len(associationForeignKeys) == 0 {
+											for _, foreignKey := range foreignKeys {
+												if strings.HasPrefix(foreignKey, associationType) {
+													associationForeignKey := strings.TrimPrefix(foreignKey, associationType)
+													if foreignField := getForeignField(associationForeignKey, modelStruct.StructFields); foreignField != nil {
+														associationForeignKeys = append(associationForeignKeys, associationForeignKey)
+													}
+												}
+											}
+											if len(associationForeignKeys) == 0 && len(foreignKeys) == 1 {
+												associationForeignKeys = []string{scope.PrimaryKey()}
+											}
+										} else if len(foreignKeys) != len(associationForeignKeys) {
+											scope.Err(errors.New("invalid foreign keys, should have same length"))
+											return
+										}
+									}
+
+									for idx, foreignKey := range foreignKeys {
+										if foreignField := getForeignField(foreignKey, toFields); foreignField != nil {
+											if associationField := getForeignField(associationForeignKeys[idx], modelStruct.StructFields); associationField != nil {
+												// source foreign keys
+												foreignField.IsForeignKey = true
+												relationship.AssociationForeignFieldNames = append(relationship.AssociationForeignFieldNames, associationField.Name)
+												relationship.AssociationForeignDBNames = append(relationship.AssociationForeignDBNames, associationField.DBName)
+
+												// association foreign keys
+												relationship.ForeignFieldNames = append(relationship.ForeignFieldNames, foreignField.Name)
+												relationship.ForeignDBNames = append(relationship.ForeignDBNames, foreignField.DBName)
+											}
+										}
+									}
+
+									if len(relationship.ForeignFieldNames) != 0 {
+										field.Relationship = relationship
+									}
+								}
+							} else {
+								field.IsNormal = true
+							}
+						}(field)
+					case reflect.Struct:
+						defer func(field *StructField) {
+							var (
+								// user has one profile, associationType is User, profile use UserID as foreign key
+								// user belongs to profile, associationType is Profile, user use ProfileID as foreign key
+								associationType           = reflectType.Name()
+								relationship              = &Relationship{}
+								toScope                   = scope.New(reflect.New(field.Struct.Type).Interface())
+								toFields                  = toScope.GetStructFields()
+								tagForeignKeys            []string
+								tagAssociationForeignKeys []string
+							)
+
+							if foreignKey := field.TagSettings["FOREIGNKEY"]; foreignKey != "" {
+								tagForeignKeys = strings.Split(field.TagSettings["FOREIGNKEY"], ",")
+							}
+
+							if foreignKey := field.TagSettings["ASSOCIATIONFOREIGNKEY"]; foreignKey != "" {
+								tagAssociationForeignKeys = strings.Split(field.TagSettings["ASSOCIATIONFOREIGNKEY"], ",")
+							}
+
+							if polymorphic := field.TagSettings["POLYMORPHIC"]; polymorphic != "" {
+								// Cat has one toy, tag polymorphic is Owner, then associationType is Owner
+								// Toy use OwnerID, OwnerType ('cats') as foreign key
+								if polymorphicType := getForeignField(polymorphic+"Type", toFields); polymorphicType != nil {
+									associationType = polymorphic
+									relationship.PolymorphicType = polymorphicType.Name
+									relationship.PolymorphicDBName = polymorphicType.DBName
+									// if Cat has several different types of toys set name for each (instead of default 'cats')
+									if value, ok := field.TagSettings["POLYMORPHIC_VALUE"]; ok {
+										relationship.PolymorphicValue = value
+									} else {
+										relationship.PolymorphicValue = scope.TableName()
+									}
+									polymorphicType.IsForeignKey = true
+								}
+							}
+
+							// Has One
+							{
+								var foreignKeys = tagForeignKeys
+								var associationForeignKeys = tagAssociationForeignKeys
+								// if no foreign keys defined with tag
+								if len(foreignKeys) == 0 {
+									// if no association foreign keys defined with tag
+									if len(associationForeignKeys) == 0 {
+										for _, primaryField := range modelStruct.PrimaryFields {
+											foreignKeys = append(foreignKeys, associationType+primaryField.Name)
+											associationForeignKeys = append(associationForeignKeys, primaryField.Name)
+										}
+									} else {
+										// generate foreign keys form association foreign keys
+										for _, associationForeignKey := range tagAssociationForeignKeys {
+											if foreignField := getForeignField(associationForeignKey, modelStruct.StructFields); foreignField != nil {
+												foreignKeys = append(foreignKeys, associationType+foreignField.Name)
+												associationForeignKeys = append(associationForeignKeys, foreignField.Name)
+											}
+										}
+									}
+								} else {
+									// generate association foreign keys from foreign keys
+									if len(associationForeignKeys) == 0 {
+										for _, foreignKey := range foreignKeys {
+											if strings.HasPrefix(foreignKey, associationType) {
+												associationForeignKey := strings.TrimPrefix(foreignKey, associationType)
+												if foreignField := getForeignField(associationForeignKey, modelStruct.StructFields); foreignField != nil {
+													associationForeignKeys = append(associationForeignKeys, associationForeignKey)
+												}
+											}
+										}
+										if len(associationForeignKeys) == 0 && len(foreignKeys) == 1 {
+											associationForeignKeys = []string{scope.PrimaryKey()}
+										}
+									} else if len(foreignKeys) != len(associationForeignKeys) {
+										scope.Err(errors.New("invalid foreign keys, should have same length"))
+										return
+									}
+								}
+
+								for idx, foreignKey := range foreignKeys {
+									if foreignField := getForeignField(foreignKey, toFields); foreignField != nil {
+										if scopeField := getForeignField(associationForeignKeys[idx], modelStruct.StructFields); scopeField != nil {
+											foreignField.IsForeignKey = true
+											// source foreign keys
+											relationship.AssociationForeignFieldNames = append(relationship.AssociationForeignFieldNames, scopeField.Name)
+											relationship.AssociationForeignDBNames = append(relationship.AssociationForeignDBNames, scopeField.DBName)
+
+											// association foreign keys
+											relationship.ForeignFieldNames = append(relationship.ForeignFieldNames, foreignField.Name)
+											relationship.ForeignDBNames = append(relationship.ForeignDBNames, foreignField.DBName)
+										}
+									}
+								}
+							}
+
+							if len(relationship.ForeignFieldNames) != 0 {
+								relationship.Kind = "has_one"
+								field.Relationship = relationship
+							} else {
+								var foreignKeys = tagForeignKeys
+								var associationForeignKeys = tagAssociationForeignKeys
+
+								if len(foreignKeys) == 0 {
+									// generate foreign keys & association foreign keys
+									if len(associationForeignKeys) == 0 {
+										for _, primaryField := range toScope.PrimaryFields() {
+											foreignKeys = append(foreignKeys, field.Name+primaryField.Name)
+											associationForeignKeys = append(associationForeignKeys, primaryField.Name)
+										}
+									} else {
+										// generate foreign keys with association foreign keys
+										for _, associationForeignKey := range associationForeignKeys {
+											if foreignField := getForeignField(associationForeignKey, toFields); foreignField != nil {
+												foreignKeys = append(foreignKeys, field.Name+foreignField.Name)
+												associationForeignKeys = append(associationForeignKeys, foreignField.Name)
+											}
+										}
+									}
+								} else {
+									// generate foreign keys & association foreign keys
+									if len(associationForeignKeys) == 0 {
+										for _, foreignKey := range foreignKeys {
+											if strings.HasPrefix(foreignKey, field.Name) {
+												associationForeignKey := strings.TrimPrefix(foreignKey, field.Name)
+												if foreignField := getForeignField(associationForeignKey, toFields); foreignField != nil {
+													associationForeignKeys = append(associationForeignKeys, associationForeignKey)
+												}
+											}
+										}
+										if len(associationForeignKeys) == 0 && len(foreignKeys) == 1 {
+											associationForeignKeys = []string{toScope.PrimaryKey()}
+										}
+									} else if len(foreignKeys) != len(associationForeignKeys) {
+										scope.Err(errors.New("invalid foreign keys, should have same length"))
+										return
+									}
+								}
+
+								for idx, foreignKey := range foreignKeys {
+									if foreignField := getForeignField(foreignKey, modelStruct.StructFields); foreignField != nil {
+										if associationField := getForeignField(associationForeignKeys[idx], toFields); associationField != nil {
+											foreignField.IsForeignKey = true
+
+											// association foreign keys
+											relationship.AssociationForeignFieldNames = append(relationship.AssociationForeignFieldNames, associationField.Name)
+											relationship.AssociationForeignDBNames = append(relationship.AssociationForeignDBNames, associationField.DBName)
+
+											// source foreign keys
+											relationship.ForeignFieldNames = append(relationship.ForeignFieldNames, foreignField.Name)
+											relationship.ForeignDBNames = append(relationship.ForeignDBNames, foreignField.DBName)
+										}
+									}
+								}
+
+								if len(relationship.ForeignFieldNames) != 0 {
+									relationship.Kind = "belongs_to"
+									field.Relationship = relationship
+								}
+							}
+						}(field)
+					default:
+						field.IsNormal = true
+					}
+				}
+			}
+
+			// Even it is ignored, also possible to decode db value into the field
+			if value, ok := field.TagSettings["COLUMN"]; ok {
+				field.DBName = value
+			} else {
+				field.DBName = ToDBName(fieldStruct.Name)
+			}
+
+			modelStruct.StructFields = append(modelStruct.StructFields, field)
+		}
+	}
+
+	if len(modelStruct.PrimaryFields) == 0 {
+		if field := getForeignField("id", modelStruct.StructFields); field != nil {
+			field.IsPrimaryKey = true
+			modelStruct.PrimaryFields = append(modelStruct.PrimaryFields, field)
+		}
+	}
+
+	modelStructsMap.Set(reflectType, &modelStruct)
+
+	return &modelStruct
+}
+
+// GetStructFields get model's field structs
+func (scope *Scope) GetStructFields() (fields []*StructField) {
+	return scope.GetModelStruct().StructFields
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// moved here from callback_query_preload.go
+////////////////////////////////////////////////////////////////////////////////
+func (scope *Scope) generatePreloadDBWithConditions(conditions []interface{}) (*DB, []interface{}) {
+	var (
+		preloadDB         = scope.NewDB()
+		preloadConditions []interface{}
+	)
+
+	for _, condition := range conditions {
+		if scopes, ok := condition.(func(*DB) *DB); ok {
+			preloadDB = scopes(preloadDB)
+		} else {
+			preloadConditions = append(preloadConditions, condition)
+		}
+	}
+
+	return preloadDB, preloadConditions
+}
+
+// handleHasOnePreload used to preload has one associations
+func (scope *Scope) handleHasOnePreload(field *Field, conditions []interface{}) {
+	relation := field.Relationship
+
+	// get relations's primary keys
+	primaryKeys := scope.getColumnAsArray(relation.AssociationForeignFieldNames, scope.Value)
+	if len(primaryKeys) == 0 {
+		return
+	}
+
+	// preload conditions
+	preloadDB, preloadConditions := scope.generatePreloadDBWithConditions(conditions)
+
+	// find relations
+	query := fmt.Sprintf("%v IN (%v)", toQueryCondition(scope, relation.ForeignDBNames), toQueryMarks(primaryKeys))
+	values := toQueryValues(primaryKeys)
+	if relation.PolymorphicType != "" {
+		query += fmt.Sprintf(" AND %v = ?", scope.Quote(relation.PolymorphicDBName))
+		values = append(values, relation.PolymorphicValue)
+	}
+
+	results := makeSlice(field.Struct.Type)
+	scope.Err(preloadDB.Where(query, values...).Find(results, preloadConditions...).Error)
+
+	// assign find results
+	var (
+		resultsValue       = indirect(reflect.ValueOf(results))
+		indirectScopeValue = scope.IndirectValue()
+	)
+
+	if indirectScopeValue.Kind() == reflect.Slice {
+		for j := 0; j < indirectScopeValue.Len(); j++ {
+			for i := 0; i < resultsValue.Len(); i++ {
+				result := resultsValue.Index(i)
+				foreignValues := getValueFromFields(result, relation.ForeignFieldNames)
+				if indirectValue := indirect(indirectScopeValue.Index(j)); equalAsString(getValueFromFields(indirectValue, relation.AssociationForeignFieldNames), foreignValues) {
+					indirectValue.FieldByName(field.Name).Set(result)
+					break
+				}
+			}
+		}
+	} else {
+		for i := 0; i < resultsValue.Len(); i++ {
+			result := resultsValue.Index(i)
+			scope.Err(field.Set(result))
+		}
+	}
+}
+
+// handleHasManyPreload used to preload has many associations
+func (scope *Scope) handleHasManyPreload(field *Field, conditions []interface{}) {
+	relation := field.Relationship
+
+	// get relations's primary keys
+	primaryKeys := scope.getColumnAsArray(relation.AssociationForeignFieldNames, scope.Value)
+	if len(primaryKeys) == 0 {
+		return
+	}
+
+	// preload conditions
+	preloadDB, preloadConditions := scope.generatePreloadDBWithConditions(conditions)
+
+	// find relations
+	query := fmt.Sprintf("%v IN (%v)", toQueryCondition(scope, relation.ForeignDBNames), toQueryMarks(primaryKeys))
+	values := toQueryValues(primaryKeys)
+	if relation.PolymorphicType != "" {
+		query += fmt.Sprintf(" AND %v = ?", scope.Quote(relation.PolymorphicDBName))
+		values = append(values, relation.PolymorphicValue)
+	}
+
+	results := makeSlice(field.Struct.Type)
+	scope.Err(preloadDB.Where(query, values...).Find(results, preloadConditions...).Error)
+
+	// assign find results
+	var (
+		resultsValue       = indirect(reflect.ValueOf(results))
+		indirectScopeValue = scope.IndirectValue()
+	)
+
+	if indirectScopeValue.Kind() == reflect.Slice {
+		preloadMap := make(map[string][]reflect.Value)
+		for i := 0; i < resultsValue.Len(); i++ {
+			result := resultsValue.Index(i)
+			foreignValues := getValueFromFields(result, relation.ForeignFieldNames)
+			preloadMap[toString(foreignValues)] = append(preloadMap[toString(foreignValues)], result)
+		}
+
+		for j := 0; j < indirectScopeValue.Len(); j++ {
+			object := indirect(indirectScopeValue.Index(j))
+			objectRealValue := getValueFromFields(object, relation.AssociationForeignFieldNames)
+			f := object.FieldByName(field.Name)
+			if results, ok := preloadMap[toString(objectRealValue)]; ok {
+				f.Set(reflect.Append(f, results...))
+			} else {
+				f.Set(reflect.MakeSlice(f.Type(), 0, 0))
+			}
+		}
+	} else {
+		scope.Err(field.Set(resultsValue))
+	}
+}
+
+// handleBelongsToPreload used to preload belongs to associations
+func (scope *Scope) handleBelongsToPreload(field *Field, conditions []interface{}) {
+	relation := field.Relationship
+
+	// preload conditions
+	preloadDB, preloadConditions := scope.generatePreloadDBWithConditions(conditions)
+
+	// get relations's primary keys
+	primaryKeys := scope.getColumnAsArray(relation.ForeignFieldNames, scope.Value)
+	if len(primaryKeys) == 0 {
+		return
+	}
+
+	// find relations
+	results := makeSlice(field.Struct.Type)
+	scope.Err(preloadDB.Where(fmt.Sprintf("%v IN (%v)", toQueryCondition(scope, relation.AssociationForeignDBNames), toQueryMarks(primaryKeys)), toQueryValues(primaryKeys)...).Find(results, preloadConditions...).Error)
+
+	// assign find results
+	var (
+		resultsValue       = indirect(reflect.ValueOf(results))
+		indirectScopeValue = scope.IndirectValue()
+	)
+
+	for i := 0; i < resultsValue.Len(); i++ {
+		result := resultsValue.Index(i)
+		if indirectScopeValue.Kind() == reflect.Slice {
+			value := getValueFromFields(result, relation.AssociationForeignFieldNames)
+			for j := 0; j < indirectScopeValue.Len(); j++ {
+				object := indirect(indirectScopeValue.Index(j))
+				if equalAsString(getValueFromFields(object, relation.ForeignFieldNames), value) {
+					object.FieldByName(field.Name).Set(result)
+				}
+			}
+		} else {
+			scope.Err(field.Set(result))
+		}
+	}
+}
+
+// handleManyToManyPreload used to preload many to many associations
+func (scope *Scope) handleManyToManyPreload(field *Field, conditions []interface{}) {
+	var (
+		relation         = field.Relationship
+		joinTableHandler = relation.JoinTableHandler
+		fieldType        = field.Struct.Type.Elem()
+		foreignKeyValue  interface{}
+		foreignKeyType   = reflect.ValueOf(&foreignKeyValue).Type()
+		linkHash         = map[string][]reflect.Value{}
+		isPtr            bool
+	)
+
+	if fieldType.Kind() == reflect.Ptr {
+		isPtr = true
+		fieldType = fieldType.Elem()
+	}
+
+	var sourceKeys = []string{}
+	for _, key := range joinTableHandler.SourceForeignKeys() {
+		sourceKeys = append(sourceKeys, key.DBName)
+	}
+
+	// preload conditions
+	preloadDB, preloadConditions := scope.generatePreloadDBWithConditions(conditions)
+
+	// generate query with join table
+	newScope := scope.New(reflect.New(fieldType).Interface())
+	preloadDB = preloadDB.Table(newScope.TableName()).Model(newScope.Value).Select("*")
+	preloadDB = joinTableHandler.JoinWith(joinTableHandler, preloadDB, scope.Value)
+
+	// preload inline conditions
+	if len(preloadConditions) > 0 {
+		preloadDB = preloadDB.Where(preloadConditions[0], preloadConditions[1:]...)
+	}
+
+	rows, err := preloadDB.Rows()
+
+	if scope.Err(err) != nil {
+		return
+	}
+	defer rows.Close()
+
+	columns, _ := rows.Columns()
+	for rows.Next() {
+		var (
+			elem   = reflect.New(fieldType).Elem()
+			fields = scope.New(elem.Addr().Interface()).Fields()
+		)
+
+		// register foreign keys in join tables
+		var joinTableFields []*Field
+		for _, sourceKey := range sourceKeys {
+			joinTableFields = append(joinTableFields, &Field{StructField: &StructField{DBName: sourceKey, IsNormal: true}, Field: reflect.New(foreignKeyType).Elem()})
+		}
+
+		scope.scan(rows, columns, append(fields, joinTableFields...))
+
+		var foreignKeys = make([]interface{}, len(sourceKeys))
+		// generate hashed forkey keys in join table
+		for idx, joinTableField := range joinTableFields {
+			if !joinTableField.Field.IsNil() {
+				foreignKeys[idx] = joinTableField.Field.Elem().Interface()
+			}
+		}
+		hashedSourceKeys := toString(foreignKeys)
+
+		if isPtr {
+			linkHash[hashedSourceKeys] = append(linkHash[hashedSourceKeys], elem.Addr())
+		} else {
+			linkHash[hashedSourceKeys] = append(linkHash[hashedSourceKeys], elem)
+		}
+	}
+
+	// assign find results
+	var (
+		indirectScopeValue = scope.IndirectValue()
+		fieldsSourceMap    = map[string][]reflect.Value{}
+		foreignFieldNames  = []string{}
+	)
+
+	for _, dbName := range relation.ForeignFieldNames {
+		if field, ok := scope.FieldByName(dbName); ok {
+			foreignFieldNames = append(foreignFieldNames, field.Name)
+		}
+	}
+
+	if indirectScopeValue.Kind() == reflect.Slice {
+		for j := 0; j < indirectScopeValue.Len(); j++ {
+			object := indirect(indirectScopeValue.Index(j))
+			key := toString(getValueFromFields(object, foreignFieldNames))
+			fieldsSourceMap[key] = append(fieldsSourceMap[key], object.FieldByName(field.Name))
+		}
+	} else if indirectScopeValue.IsValid() {
+		key := toString(getValueFromFields(indirectScopeValue, foreignFieldNames))
+		fieldsSourceMap[key] = append(fieldsSourceMap[key], indirectScopeValue.FieldByName(field.Name))
+	}
+	for source, link := range linkHash {
+		for i, field := range fieldsSourceMap[source] {
+			//If not 0 this means Value is a pointer and we already added preloaded models to it
+			if fieldsSourceMap[source][i].Len() != 0 {
+				continue
+			}
+			field.Set(reflect.Append(fieldsSourceMap[source][i], link...))
+		}
+
+	}
 }
