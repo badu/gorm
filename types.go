@@ -113,8 +113,8 @@ type (
 
 	// ModelStruct model definition
 	ModelStruct struct {
-		PrimaryFields    []*StructField
-		StructFields     []*StructField
+		PrimaryFields    StructFields
+		StructFields     StructFields
 		ModelType        reflect.Type
 		defaultTableName string
 	}
@@ -175,7 +175,7 @@ type (
 		instanceID string
 
 		primaryKeyField *StructField
-		fields          *[]*StructField
+		fields          *StructFields
 
 		skipLeft bool
 	}

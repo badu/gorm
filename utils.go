@@ -925,7 +925,7 @@ func newModelStructsMap() *safeModelStructsMap {
 	return &safeModelStructsMap{l: new(sync.RWMutex), m: make(map[reflect.Type]*ModelStruct)}
 }
 
-func getForeignField(column string, fields []*StructField) *StructField {
+func getForeignField(column string, fields StructFields) *StructField {
 	for _, field := range fields {
 		if field.GetName() == column || field.DBName == column || field.DBName == ToDBName(column) {
 			return field

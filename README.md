@@ -3,6 +3,7 @@
 - [ ] Concurent slice and map where needed
 - [ ] Documentation for tests and build examples
 - [ ] Stringer implementation on all structs for debugging
+- [ ] Reorganize local vars from various places
 - [ ] Fix test named TestNot
 ```
 func TestNot(t *testing.T) {
@@ -17,13 +18,14 @@ func TestNot(t *testing.T) {
 
 ## 30.10.2016 (Operation Field -> StructField)
 - [ ] Stringer implementation StructField
-- [ ] replace everywhere []*StructField with type StructFields
+- [x] replace everywhere []*StructField with type StructFields
 - [x] create StructFields type []*StructField for code readability
 - [x] NewStructField method to create StructField from reflect.StructField
 - [x] Field struct, "Field" property renamed to "Value", since it is a reflect.Value
 - [x] StructField should swallow Field model field definition
 - [x] created cloneWithValue(value reflect.Value) on StructField -> calls setIsBlank()
 - [x] moved isBlank(fieldValue) from utils to StructField named setIsBlank()
+- [x] remove getForeignField from utils.go -> ModelStruct has a method called getForeignField(fieldName string)
 
 ## 29.10.2016
 

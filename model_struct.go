@@ -4,3 +4,12 @@ package gorm
 func (s *ModelStruct) TableName(db *DB) string {
 	return DefaultTableNameHandler(db, s.defaultTableName)
 }
+
+func (s *ModelStruct) getForeignField(column string) *StructField {
+	for _, field := range s.StructFields {
+		if field.GetName() == column || field.DBName == column || field.DBName == ToDBName(column) {
+			return field
+		}
+	}
+	return nil
+}
