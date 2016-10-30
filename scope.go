@@ -30,12 +30,12 @@ func (scope *Scope) New(value interface{}) *Scope {
 ////////////////////////////////////////////////////////////////////////////////
 
 // DB return scope's DB connection
-func (scope *Scope) DB() *DB {
+func (scope *Scope) DB() *DBCon {
 	return scope.db
 }
 
 // NewDB create a new DB without search information
-func (scope *Scope) NewDB() *DB {
+func (scope *Scope) NewDB() *DBCon {
 	if scope.db != nil {
 		//TODO : @Badu - so, we clone it then we set stuff to nil ?
 		db := scope.db.clone()
@@ -152,8 +152,10 @@ func (scope *Scope) PrimaryFields() (fields StructFields) {
 
 // PrimaryField return scope's main primary field, if defined more that one primary fields, will return the one having column name `id` or the first one
 func (scope *Scope) PrimaryField() *StructField {
-	if primaryFields := scope.GetModelStruct().PrimaryFields; len(primaryFields) > 0 {
-		if len(primaryFields) > 1 {
+	primaryFieldsNo := scope.GetModelStruct().PrimaryFields.len()
+	if primaryFieldsNo > 0 {
+		if primaryFieldsNo > 1 {
+			//TODO : @Badu - a boiler plate string. Get rid of it!
 			if field, ok := scope.FieldByName("id"); ok {
 				return field
 			}
@@ -409,7 +411,7 @@ func (scope *Scope) callMethod(methodName string, reflectValue reflect.Value) {
 			method()
 		case func(*Scope):
 			method(scope)
-		case func(*DB):
+		case func(*DBCon):
 			newDB := scope.NewDB()
 			method(newDB)
 			scope.Err(newDB.Error)
@@ -417,7 +419,7 @@ func (scope *Scope) callMethod(methodName string, reflectValue reflect.Value) {
 			scope.Err(method())
 		case func(*Scope) error:
 			scope.Err(method(scope))
-		case func(*DB) error:
+		case func(*DBCon) error:
 			newDB := scope.NewDB()
 			scope.Err(method(newDB))
 			scope.Err(newDB.Error)
@@ -791,7 +793,9 @@ func (scope *Scope) inlineCondition(values ...interface{}) *Scope {
 
 func (scope *Scope) callCallbacks(funcs []*func(s *Scope)) *Scope {
 	for _, f := range funcs {
-		(*f)(scope)
+		//TODO : @Badu - if I broke something it was (*f)(scope) - but IDE went balistic
+		rf := *f
+		rf(scope)
 		if scope.skipLeft {
 			break
 		}
@@ -992,9 +996,9 @@ func (scope *Scope) createJoinTable(field *StructField) {
 				if field, ok := scope.FieldByName(fieldName); ok {
 					foreignKeyStruct := field.clone()
 					foreignKeyStruct.IsPrimaryKey = false
-					foreignKeyStruct.TagSettings[IS_JOINTABLE_FOREIGNKEY] = "true"
-					//TODO : @Badu - test if delete works correctly
-					delete(foreignKeyStruct.TagSettings, AUTO_INCREMENT)
+					//TODO : @Badu - document that you cannot use IS_JOINTABLE_FOREIGNKEY in conjunction with AUTO_INCREMENT
+					foreignKeyStruct.SetSetting(IS_JOINTABLE_FOREIGNKEY, "true")
+					foreignKeyStruct.UnsetSetting(AUTO_INCREMENT)
 					sqlTypes = append(sqlTypes, scope.Quote(relationship.ForeignDBNames[idx])+" "+scope.Dialect().DataTypeOf(foreignKeyStruct))
 					primaryKeys = append(primaryKeys, scope.Quote(relationship.ForeignDBNames[idx]))
 				}
@@ -1004,9 +1008,9 @@ func (scope *Scope) createJoinTable(field *StructField) {
 				if field, ok := toScope.FieldByName(fieldName); ok {
 					foreignKeyStruct := field.clone()
 					foreignKeyStruct.IsPrimaryKey = false
-					foreignKeyStruct.TagSettings[IS_JOINTABLE_FOREIGNKEY] = "true"
-					//TODO : @Badu - test if delete works correctly
-					delete(foreignKeyStruct.TagSettings, AUTO_INCREMENT)
+					//TODO : @Badu - document that you cannot use IS_JOINTABLE_FOREIGNKEY in conjunction with AUTO_INCREMENT
+					foreignKeyStruct.SetSetting(IS_JOINTABLE_FOREIGNKEY, "true")
+					foreignKeyStruct.UnsetSetting(AUTO_INCREMENT)
 					sqlTypes = append(sqlTypes, scope.Quote(relationship.AssociationForeignDBNames[idx])+" "+scope.Dialect().DataTypeOf(foreignKeyStruct))
 					primaryKeys = append(primaryKeys, scope.Quote(relationship.AssociationForeignDBNames[idx]))
 				}
@@ -1124,7 +1128,7 @@ func (scope *Scope) autoIndex() *Scope {
 	var uniqueIndexes = map[string][]string{}
 
 	for _, field := range scope.GetStructFields() {
-		if name, ok := field.TagSettings[INDEX]; ok {
+		if name := field.GetSetting(INDEX); name != "" {
 			names := strings.Split(name, ",")
 
 			for _, name := range names {
@@ -1135,7 +1139,7 @@ func (scope *Scope) autoIndex() *Scope {
 			}
 		}
 
-		if name, ok := field.TagSettings[UNIQUE_INDEX]; ok {
+		if name := field.GetSetting(UNIQUE_INDEX); name != "" {
 			names := strings.Split(name, ",")
 
 			for _, name := range names {
@@ -1273,19 +1277,20 @@ func (scope *Scope) GetModelStruct() *ModelStruct {
 				//TODO : @Badu - catch this error - we might fail processing tags
 			}
 			// is ignored field
-			if _, ok := field.TagSettings[IGNORED]; ok {
+			if field.HasSetting(IGNORED) {
 				field.IsIgnored = true
 			} else {
-				if _, ok := field.TagSettings[PRIMARY_KEY]; ok {
+				//TODO : @Badu - maybe we should move this analysis into StructField
+				if field.HasSetting(PRIMARY_KEY) {
 					field.IsPrimaryKey = true
-					modelStruct.PrimaryFields = append(modelStruct.PrimaryFields, field)
+					modelStruct.PrimaryFields.add(field)
 				}
 
-				if _, ok := field.TagSettings[DEFAULT]; ok {
+				if field.HasSetting(DEFAULT) {
 					field.HasDefaultValue = true
 				}
 
-				if _, ok := field.TagSettings[AUTO_INCREMENT]; ok && !field.IsPrimaryKey {
+				if field.HasSetting(AUTO_INCREMENT) && !field.IsPrimaryKey {
 					field.HasDefaultValue = true
 				}
 
@@ -1304,33 +1309,32 @@ func (scope *Scope) GetModelStruct() *ModelStruct {
 					if indirectType.Kind() == reflect.Struct {
 						for i := 0; i < indirectType.NumField(); i++ {
 							for key, value := range parseTagSetting(indirectType.Field(i).Tag) {
-								field.TagSettings[key] = value
+								field.SetSetting(key, value)
 							}
 						}
 					}
 				} else if _, isTime := fieldValue.(*time.Time); isTime {
 					// is time
 					field.IsNormal = true
-					//TODO: @Badu - maybe field should have HasTagSetting(EMBEDDED) bool
-					//instead of doing this _, ok := every single time in many places
-				} else if _, ok := field.TagSettings[EMBEDDED]; ok || fieldStruct.Anonymous {
+				} else if field.HasSetting(EMBEDDED) || fieldStruct.Anonymous {
 					// is embedded struct
 					for _, subField := range scope.New(fieldValue).GetStructFields() {
 						subField = subField.clone()
 						subField.Names = append([]string{fieldStruct.Name}, subField.Names...)
-						if prefix, ok := field.TagSettings[EMBEDDED_PREFIX]; ok {
+						if prefix := field.GetSetting(EMBEDDED_PREFIX); prefix != "" {
 							subField.DBName = prefix + subField.DBName
 						}
 						if subField.IsPrimaryKey {
-							modelStruct.PrimaryFields = append(modelStruct.PrimaryFields, subField)
+							modelStruct.PrimaryFields.add(subField)
 						}
-						modelStruct.StructFields = append(modelStruct.StructFields, subField)
+						modelStruct.StructFields.add(subField)
 					}
 					continue
 				} else {
 					// build relationships
 					switch indirectType.Kind() {
 					case reflect.Slice:
+						//TODO : @Badu - Possible resource leak - defer called in a for loop
 						defer func(field *StructField) {
 							var (
 								relationship           = &Relationship{}
@@ -1340,12 +1344,12 @@ func (scope *Scope) GetModelStruct() *ModelStruct {
 								elemType               = field.Struct.Type
 							)
 
-							if foreignKey := field.TagSettings[FOREIGNKEY]; foreignKey != "" {
-								foreignKeys = strings.Split(field.TagSettings[FOREIGNKEY], ",")
+							if foreignKey := field.GetSetting(FOREIGNKEY); foreignKey != "" {
+								foreignKeys = strings.Split(foreignKey, ",")
 							}
 
-							if foreignKey := field.TagSettings[ASSOCIATIONFOREIGNKEY]; foreignKey != "" {
-								associationForeignKeys = strings.Split(field.TagSettings[ASSOCIATIONFOREIGNKEY], ",")
+							if foreignKey := field.GetSetting(ASSOCIATIONFOREIGNKEY); foreignKey != "" {
+								associationForeignKeys = strings.Split(foreignKey, ",")
 							}
 
 							for elemType.Kind() == reflect.Slice || elemType.Kind() == reflect.Ptr {
@@ -1353,7 +1357,7 @@ func (scope *Scope) GetModelStruct() *ModelStruct {
 							}
 
 							if elemType.Kind() == reflect.Struct {
-								if many2many := field.TagSettings[MANY2MANY]; many2many != "" {
+								if many2many := field.GetSetting(MANY2MANY); many2many != "" {
 									relationship.Kind = MANY_TO_MANY
 
 									// if no foreign keys defined with tag
@@ -1400,15 +1404,15 @@ func (scope *Scope) GetModelStruct() *ModelStruct {
 									var toFields = toScope.GetModelStruct()
 									relationship.Kind = HAS_MANY
 
-									if polymorphic := field.TagSettings[POLYMORPHIC]; polymorphic != "" {
+									if polymorphic := field.GetSetting(POLYMORPHIC); polymorphic != "" {
 										// Dog has many toys, tag polymorphic is Owner, then associationType is Owner
 										// Toy use OwnerID, OwnerType ('dogs') as foreign key
-										if polymorphicType := toFields.getForeignField(polymorphic+"Type"); polymorphicType != nil {
+										if polymorphicType := toFields.getForeignField(polymorphic + "Type"); polymorphicType != nil {
 											associationType = polymorphic
 											relationship.PolymorphicType = polymorphicType.GetName()
 											relationship.PolymorphicDBName = polymorphicType.DBName
 											// if Dog has multiple set of toys set name of the set (instead of default 'dogs')
-											if value, ok := field.TagSettings[POLYMORPHIC_VALUE]; ok {
+											if value := field.GetSetting(POLYMORPHIC_VALUE); value != "" {
 												relationship.PolymorphicValue = value
 											} else {
 												relationship.PolymorphicValue = scope.TableName()
@@ -1478,6 +1482,7 @@ func (scope *Scope) GetModelStruct() *ModelStruct {
 							}
 						}(field)
 					case reflect.Struct:
+						//TODO : @Badu - Possible resource leak - defer called in a for loop
 						defer func(field *StructField) {
 							var (
 								// user has one profile, associationType is User, profile use UserID as foreign key
@@ -1490,23 +1495,23 @@ func (scope *Scope) GetModelStruct() *ModelStruct {
 								tagAssociationForeignKeys []string
 							)
 
-							if foreignKey := field.TagSettings[FOREIGNKEY]; foreignKey != "" {
-								tagForeignKeys = strings.Split(field.TagSettings[FOREIGNKEY], ",")
+							if foreignKey := field.GetSetting(FOREIGNKEY); foreignKey != "" {
+								tagForeignKeys = strings.Split(foreignKey, ",")
 							}
 
-							if foreignKey := field.TagSettings[ASSOCIATIONFOREIGNKEY]; foreignKey != "" {
-								tagAssociationForeignKeys = strings.Split(field.TagSettings[ASSOCIATIONFOREIGNKEY], ",")
+							if foreignKey := field.GetSetting(ASSOCIATIONFOREIGNKEY); foreignKey != "" {
+								tagAssociationForeignKeys = strings.Split(foreignKey, ",")
 							}
 
-							if polymorphic := field.TagSettings[POLYMORPHIC]; polymorphic != "" {
+							if polymorphic := field.GetSetting(POLYMORPHIC); polymorphic != "" {
 								// Cat has one toy, tag polymorphic is Owner, then associationType is Owner
 								// Toy use OwnerID, OwnerType ('cats') as foreign key
-								if polymorphicType := toFields.getForeignField(polymorphic+"Type"); polymorphicType != nil {
+								if polymorphicType := toFields.getForeignField(polymorphic + "Type"); polymorphicType != nil {
 									associationType = polymorphic
 									relationship.PolymorphicType = polymorphicType.GetName()
 									relationship.PolymorphicDBName = polymorphicType.DBName
 									// if Cat has several different types of toys set name for each (instead of default 'cats')
-									if value, ok := field.TagSettings[POLYMORPHIC_VALUE]; ok {
+									if value := field.GetSetting(POLYMORPHIC_VALUE); value != "" {
 										relationship.PolymorphicValue = value
 									} else {
 										relationship.PolymorphicValue = scope.TableName()
@@ -1644,21 +1649,21 @@ func (scope *Scope) GetModelStruct() *ModelStruct {
 			}
 
 			// Even it is ignored, also possible to decode db value into the field
-			if value, ok := field.TagSettings[COLUMN]; ok {
+			if value := field.GetSetting(COLUMN); value != "" {
 				field.DBName = value
 			} else {
 				field.DBName = ToDBName(fieldStruct.Name)
 			}
 
-			modelStruct.StructFields = append(modelStruct.StructFields, field)
+			modelStruct.StructFields.add(field)
 		}
 	}
 
-	if len(modelStruct.PrimaryFields) == 0 {
-		//TODO : @Badu - goooooood , a boiler plate string. Get rid of it!
+	if modelStruct.PrimaryFields.len() == 0 {
+		//TODO : @Badu - a boiler plate string. Get rid of it!
 		if field := modelStruct.getForeignField("id"); field != nil {
 			field.IsPrimaryKey = true
-			modelStruct.PrimaryFields = append(modelStruct.PrimaryFields, field)
+			modelStruct.PrimaryFields.add(field)
 		}
 	}
 
@@ -1675,14 +1680,14 @@ func (scope *Scope) GetStructFields() (fields StructFields) {
 ////////////////////////////////////////////////////////////////////////////////
 // moved here from callback_query_preload.go
 ////////////////////////////////////////////////////////////////////////////////
-func (scope *Scope) generatePreloadDBWithConditions(conditions []interface{}) (*DB, []interface{}) {
+func (scope *Scope) generatePreloadDBWithConditions(conditions []interface{}) (*DBCon, []interface{}) {
 	var (
 		preloadDB         = scope.NewDB()
 		preloadConditions []interface{}
 	)
 
 	for _, condition := range conditions {
-		if scopes, ok := condition.(func(*DB) *DB); ok {
+		if scopes, ok := condition.(func(*DBCon) *DBCon); ok {
 			preloadDB = scopes(preloadDB)
 		} else {
 			preloadConditions = append(preloadConditions, condition)

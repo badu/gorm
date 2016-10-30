@@ -1,0 +1,156 @@
+package gorm
+
+import (
+	"errors"
+	"fmt"
+	"strings"
+)
+
+const (
+	//StructField TagSettings constants
+	MANY2MANY               uint8 = 1
+	AUTO_INCREMENT          uint8 = 2
+	INDEX                   uint8 = 3
+	NOT_NULL                uint8 = 4
+	SIZE                    uint8 = 5
+	UNIQUE_INDEX            uint8 = 6
+	IS_JOINTABLE_FOREIGNKEY uint8 = 7
+	PRIMARY_KEY             uint8 = 8
+	DEFAULT                 uint8 = 9
+	IGNORED                 uint8 = 10
+	EMBEDDED                uint8 = 11
+	EMBEDDED_PREFIX         uint8 = 12
+	FOREIGNKEY              uint8 = 13
+	ASSOCIATIONFOREIGNKEY   uint8 = 14
+	POLYMORPHIC             uint8 = 15
+	POLYMORPHIC_VALUE       uint8 = 16
+	COLUMN                  uint8 = 17
+	TYPE                    uint8 = 18
+	UNIQUE                  uint8 = 19
+)
+
+var (
+	//TODO : @Badu - make this concurrent map
+	//this is a map for transforming strings into uint8 when reading tags of structs
+	//@See : &StructField{}.ParseTagSettings()
+	tagSettingMap = map[string]uint8{
+		"MANY2MANY":               MANY2MANY,
+		"AUTO_INCREMENT":          AUTO_INCREMENT,
+		"INDEX":                   INDEX,
+		"NOT NULL":                NOT_NULL,
+		"SIZE":                    SIZE,
+		"UNIQUE_INDEX":            UNIQUE_INDEX,
+		"IS_JOINTABLE_FOREIGNKEY": IS_JOINTABLE_FOREIGNKEY,
+		"PRIMARY_KEY":             PRIMARY_KEY,
+		"DEFAULT":                 DEFAULT,
+		"-":                       IGNORED,
+		"EMBEDDED":                EMBEDDED,
+		"EMBEDDED_PREFIX":         EMBEDDED_PREFIX,
+		"FOREIGNKEY":              FOREIGNKEY,
+		"ASSOCIATIONFOREIGNKEY":   ASSOCIATIONFOREIGNKEY,
+		"POLYMORPHIC":             POLYMORPHIC,
+		"POLYMORPHIC_VALUE":       POLYMORPHIC_VALUE,
+		"COLUMN":                  COLUMN,
+		"TYPE":                    TYPE,
+		"UNIQUE":                  UNIQUE,
+	}
+	cachedReverseTagSettingsMap map[uint8]string
+)
+
+//for printing strings instead of uints
+func reverseTagSettingsMap() map[uint8]string {
+	if cachedReverseTagSettingsMap == nil {
+		cachedReverseTagSettingsMap = make(map[uint8]string)
+		for k, v := range tagSettingMap {
+			cachedReverseTagSettingsMap[v] = k
+		}
+	}
+	return cachedReverseTagSettingsMap
+}
+
+func newTagSettings() TagSettings {
+	return TagSettings{Uint8Map: make(map[uint8]string)}
+}
+
+func (ts *TagSettings) loadFromTags(str string) error {
+	tags := strings.Split(str, ";")
+	for _, value := range tags {
+		v := strings.Split(value, ":")
+		k := strings.TrimSpace(strings.ToUpper(v[0]))
+		//avoid empty keys : for original gorm didn't mind
+		if k != "" {
+			uint8Key, ok := tagSettingMap[k]
+			if ok {
+				//fmt.Print("Ok, key found\n")
+				if len(v) >= 2 {
+					ts.set(uint8Key, strings.Join(v[1:], ":"))
+				} else {
+					ts.set(uint8Key, k)
+				}
+			} else {
+				return errors.New(fmt.Sprintf("COULDN'T FIND KEY FOR %q ON %q", k, str))
+			}
+		}
+
+	}
+	return nil
+}
+
+//returns a clone of tag settings (used in cloning StructField)
+func (t *TagSettings) clone() TagSettings {
+	clone := newTagSettings()
+	for key, value := range t.Uint8Map {
+		clone.Uint8Map[key] = value
+	}
+	return clone
+}
+
+//deletes a key from the settings map
+func (t *TagSettings) unset(named uint8) {
+	delete(t.Uint8Map, named)
+	//fmt.Printf("<--UNSET %s (new len = %d)\n", reverseTagSettingsMap()[named], len(t.Uint8Map))
+}
+
+//adds a key to the settings map
+func (t *TagSettings) set(named uint8, value string) {
+	t.Uint8Map[named] = value
+	//fmt.Printf("-->SET %s : %s (new len = %d)\n", reverseTagSettingsMap()[named], value, len(t.Uint8Map))
+}
+
+//checks if has such a key (for code readability)
+func (t *TagSettings) has(named uint8) bool {
+	_, ok := t.Uint8Map[named]
+	/**
+	if len(t.Uint8Map) == 0 {
+		fmt.Printf("HAS NOT %q\n", reverseTagSettingsMap()[named])
+	}
+	fmt.Printf("HAS %q ? => %t\n", reverseTagSettingsMap()[named], ok)
+	**/
+	return ok
+}
+
+//gets the string value of a certain key
+func (t *TagSettings) get(named uint8) string {
+	value, ok := t.Uint8Map[named]
+	if !ok {
+		return ""
+	}
+	return value
+}
+
+func (t *TagSettings) len() int {
+	return len(t.Uint8Map)
+}
+
+//Stringer implementation
+func (t TagSettings) String() string {
+	result := ""
+	for key, value := range t.Uint8Map {
+		if value == "" {
+			result += fmt.Sprintf("%q ; ", reverseTagSettingsMap()[key])
+		} else {
+			result += fmt.Sprintf("%q = %q ; ", reverseTagSettingsMap()[key], value)
+		}
+	}
+	return result
+}

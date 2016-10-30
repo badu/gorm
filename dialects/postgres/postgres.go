@@ -39,10 +39,11 @@ func (h *Hstore) Scan(value interface{}) error {
 	if len(hstore.Map) == 0 {
 		return nil
 	}
-
+	//TODO : @Badu - assignment to method receiver propagates only to callees but not to callers
 	*h = Hstore{}
 	for k := range hstore.Map {
-		if hstore.Map[k].Valid {
+		elem := hstore.Map[k]
+		if elem.Valid {
 			s := hstore.Map[k].String
 			(*h)[k] = &s
 		} else {

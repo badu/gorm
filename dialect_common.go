@@ -33,13 +33,13 @@ func (commonDialect) DataTypeOf(field *StructField) string {
 		case reflect.Bool:
 			sqlType = "BOOLEAN"
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uintptr:
-			if _, ok := field.TagSettings[AUTO_INCREMENT]; ok {
+			if field.HasSetting(AUTO_INCREMENT) {
 				sqlType = "INTEGER AUTO_INCREMENT"
 			} else {
 				sqlType = "INTEGER"
 			}
 		case reflect.Int64, reflect.Uint64:
-			if _, ok := field.TagSettings[AUTO_INCREMENT]; ok {
+			if field.HasSetting(AUTO_INCREMENT){
 				sqlType = "BIGINT AUTO_INCREMENT"
 			} else {
 				sqlType = "BIGINT"

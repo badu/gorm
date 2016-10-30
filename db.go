@@ -10,22 +10,22 @@ import (
 )
 
 // Close close current db connection
-func (orm *DB) Close() error {
+func (orm *DBCon) Close() error {
 	return orm.parent.db.(*sql.DB).Close()
 }
 
 // DB get `*sql.DB` from current connection
-func (orm *DB) DB() *sql.DB {
+func (orm *DBCon) DB() *sql.DB {
 	return orm.db.(*sql.DB)
 }
 
 // Dialect get dialect
-func (orm *DB) Dialect() Dialect {
+func (orm *DBCon) Dialect() Dialect {
 	return orm.parent.dialect
 }
 
 // New clone a new db connection without search conditions
-func (orm *DB) New() *DB {
+func (orm *DBCon) New() *DBCon {
 	clone := orm.clone()
 	clone.search = nil
 	clone.Value = nil
@@ -33,32 +33,32 @@ func (orm *DB) New() *DB {
 }
 
 // NewScope create a scope for current operation
-func (orm *DB) NewScope(value interface{}) *Scope {
+func (orm *DBCon) NewScope(value interface{}) *Scope {
 	dbClone := orm.clone()
 	dbClone.Value = value
 	return &Scope{db: dbClone, Search: dbClone.search.clone(), Value: value}
 }
 
 // CommonDB return the underlying `*sql.DB` or `*sql.Tx` instance, mainly intended to allow coexistence with legacy non-GORM code.
-func (orm *DB) CommonDB() sqlCommon {
+func (orm *DBCon) CommonDB() sqlCommon {
 	return orm.db
 }
 
 // Callback return `Callbacks` container, you could add/change/delete callbacks with it
 //     db.Callback().Create().Register("update_created_at", updateCreated)
 // Refer https://jinzhu.github.io/gorm/development.html#callbacks
-func (orm *DB) Callback() *Callback {
+func (orm *DBCon) Callback() *Callback {
 	orm.parent.callbacks = orm.parent.callbacks.clone()
 	return orm.parent.callbacks
 }
 
 // SetLogger replace default logger
-func (orm *DB) SetLogger(log logger) {
+func (orm *DBCon) SetLogger(log logger) {
 	orm.logger = log
 }
 
 // LogMode set log mode, `true` for detailed logs, `false` for no log, default, will only print error logs
-func (orm *DB) LogMode(enable bool) *DB {
+func (orm *DBCon) LogMode(enable bool) *DBCon {
 	if enable {
 		orm.logMode = 2
 	} else {
@@ -68,33 +68,33 @@ func (orm *DB) LogMode(enable bool) *DB {
 }
 
 // SingularTable use singular table by default
-func (orm *DB) SingularTable(enable bool) {
+func (orm *DBCon) SingularTable(enable bool) {
 	modelStructsMap = newModelStructsMap()
 	orm.parent.singularTable = enable
 }
 
 // Where return a new relation, filter records with given conditions, accepts `map`, `struct` or `string` as conditions, refer http://jinzhu.github.io/gorm/curd.html#query
-func (orm *DB) Where(query interface{}, args ...interface{}) *DB {
+func (orm *DBCon) Where(query interface{}, args ...interface{}) *DBCon {
 	return orm.clone().search.Where(query, args...).db
 }
 
 // Or filter records that match before conditions or this one, similar to `Where`
-func (orm *DB) Or(query interface{}, args ...interface{}) *DB {
+func (orm *DBCon) Or(query interface{}, args ...interface{}) *DBCon {
 	return orm.clone().search.Or(query, args...).db
 }
 
 // Not filter records that don't match current conditions, similar to `Where`
-func (orm *DB) Not(query interface{}, args ...interface{}) *DB {
+func (orm *DBCon) Not(query interface{}, args ...interface{}) *DBCon {
 	return orm.clone().search.Not(query, args...).db
 }
 
 // Limit specify the number of records to be retrieved
-func (orm *DB) Limit(limit interface{}) *DB {
+func (orm *DBCon) Limit(limit interface{}) *DBCon {
 	return orm.clone().search.Limit(limit).db
 }
 
 // Offset specify the number of records to skip before starting to return the records
-func (orm *DB) Offset(offset interface{}) *DB {
+func (orm *DBCon) Offset(offset interface{}) *DBCon {
 	return orm.clone().search.Offset(offset).db
 }
 
@@ -102,38 +102,38 @@ func (orm *DB) Offset(offset interface{}) *DB {
 //     db.Order("name DESC")
 //     db.Order("name DESC", true) // reorder
 //     db.Order(gorm.Expr("name = ? DESC", "first")) // sql expression
-func (orm *DB) Order(value interface{}, reorder ...bool) *DB {
+func (orm *DBCon) Order(value interface{}, reorder ...bool) *DBCon {
 	return orm.clone().search.Order(value, reorder...).db
 }
 
 // Select specify fields that you want to retrieve from database when querying, by default, will select all fields;
 // When creating/updating, specify fields that you want to save to database
-func (orm *DB) Select(query interface{}, args ...interface{}) *DB {
+func (orm *DBCon) Select(query interface{}, args ...interface{}) *DBCon {
 	return orm.clone().search.Select(query, args...).db
 }
 
 // Omit specify fields that you want to ignore when saving to database for creating, updating
-func (orm *DB) Omit(columns ...string) *DB {
+func (orm *DBCon) Omit(columns ...string) *DBCon {
 	return orm.clone().search.Omit(columns...).db
 }
 
 // Group specify the group method on the find
-func (orm *DB) Group(query string) *DB {
+func (orm *DBCon) Group(query string) *DBCon {
 	return orm.clone().search.Group(query).db
 }
 
 // Having specify HAVING conditions for GROUP BY
-func (orm *DB) Having(query string, values ...interface{}) *DB {
+func (orm *DBCon) Having(query string, values ...interface{}) *DBCon {
 	return orm.clone().search.Having(query, values...).db
 }
 
 // Joins specify Joins conditions
 //     db.Joins("JOIN emails ON emails.user_id = users.id AND emails.email = ?", "jinzhu@example.org").Find(&user)
-func (orm *DB) Joins(query string, args ...interface{}) *DB {
+func (orm *DBCon) Joins(query string, args ...interface{}) *DBCon {
 	return orm.clone().search.Joins(query, args...).db
 }
 
-// Scopes pass current database connection to arguments `func(*DB) *DB`, which could be used to add conditions dynamically
+// Scopes pass current database connection to arguments `func(*DBCon) *DBCon`, which could be used to add conditions dynamically
 //     func AmountGreaterThan1000(db *gorm.DB) *gorm.DB {
 //         return db.Where("amount > ?", 1000)
 //     }
@@ -146,30 +146,31 @@ func (orm *DB) Joins(query string, args ...interface{}) *DB {
 //
 //     db.Scopes(AmountGreaterThan1000, OrderStatus([]string{"paid", "shipped"})).Find(&orders)
 // Refer https://jinzhu.github.io/gorm/curd.html#scopes
-func (orm *DB) Scopes(funcs ...func(*DB) *DB) *DB {
+func (orm *DBCon) Scopes(funcs ...func(*DBCon) *DBCon) *DBCon {
 	for _, f := range funcs {
+		//TODO : @Badu - assignment to method receiver propagates only to callees but not to callers
 		orm = f(orm)
 	}
 	return orm
 }
 
 // Unscoped return all record including deleted record, refer Soft Delete https://jinzhu.github.io/gorm/curd.html#soft-delete
-func (orm *DB) Unscoped() *DB {
+func (orm *DBCon) Unscoped() *DBCon {
 	return orm.clone().search.unscoped().db
 }
 
 // Attrs initialize struct with argument if record not found with `FirstOrInit` https://jinzhu.github.io/gorm/curd.html#firstorinit or `FirstOrCreate` https://jinzhu.github.io/gorm/curd.html#firstorcreate
-func (orm *DB) Attrs(attrs ...interface{}) *DB {
+func (orm *DBCon) Attrs(attrs ...interface{}) *DBCon {
 	return orm.clone().search.Attrs(attrs...).db
 }
 
 // Assign assign result with argument regardless it is found or not with `FirstOrInit` https://jinzhu.github.io/gorm/curd.html#firstorinit or `FirstOrCreate` https://jinzhu.github.io/gorm/curd.html#firstorcreate
-func (orm *DB) Assign(attrs ...interface{}) *DB {
+func (orm *DBCon) Assign(attrs ...interface{}) *DBCon {
 	return orm.clone().search.Assign(attrs...).db
 }
 
 // First find first record that match given conditions, order by primary key
-func (orm *DB) First(out interface{}, where ...interface{}) *DB {
+func (orm *DBCon) First(out interface{}, where ...interface{}) *DBCon {
 	newScope := orm.clone().NewScope(out)
 	newScope.Search.Limit(1)
 	return newScope.Set("gorm:order_by_primary_key", "ASC").
@@ -177,7 +178,7 @@ func (orm *DB) First(out interface{}, where ...interface{}) *DB {
 }
 
 // Last find last record that match given conditions, order by primary key
-func (orm *DB) Last(out interface{}, where ...interface{}) *DB {
+func (orm *DBCon) Last(out interface{}, where ...interface{}) *DBCon {
 	newScope := orm.clone().NewScope(out)
 	newScope.Search.Limit(1)
 	return newScope.Set("gorm:order_by_primary_key", "DESC").
@@ -185,27 +186,27 @@ func (orm *DB) Last(out interface{}, where ...interface{}) *DB {
 }
 
 // Find find records that match given conditions
-func (orm *DB) Find(out interface{}, where ...interface{}) *DB {
+func (orm *DBCon) Find(out interface{}, where ...interface{}) *DBCon {
 	return orm.clone().NewScope(out).inlineCondition(where...).callCallbacks(orm.parent.callbacks.queries).db
 }
 
 // Scan scan value to a struct
-func (orm *DB) Scan(dest interface{}) *DB {
+func (orm *DBCon) Scan(dest interface{}) *DBCon {
 	return orm.clone().NewScope(orm.Value).Set("gorm:query_destination", dest).callCallbacks(orm.parent.callbacks.queries).db
 }
 
 // Row return `*sql.Row` with given conditions
-func (orm *DB) Row() *sql.Row {
+func (orm *DBCon) Row() *sql.Row {
 	return orm.NewScope(orm.Value).row()
 }
 
 // Rows return `*sql.Rows` with given conditions
-func (orm *DB) Rows() (*sql.Rows, error) {
+func (orm *DBCon) Rows() (*sql.Rows, error) {
 	return orm.NewScope(orm.Value).rows()
 }
 
 // ScanRows scan `*sql.Rows` to give struct
-func (orm *DB) ScanRows(rows *sql.Rows, result interface{}) error {
+func (orm *DBCon) ScanRows(rows *sql.Rows, result interface{}) error {
 	var (
 		clone        = orm.clone()
 		scope        = clone.NewScope(result)
@@ -222,23 +223,23 @@ func (orm *DB) ScanRows(rows *sql.Rows, result interface{}) error {
 // Pluck used to query single column from a model as a map
 //     var ages []int64
 //     db.Find(&users).Pluck("age", &ages)
-func (orm *DB) Pluck(column string, value interface{}) *DB {
+func (orm *DBCon) Pluck(column string, value interface{}) *DBCon {
 	return orm.NewScope(orm.Value).pluck(column, value).db
 }
 
 // Count get how many records for a model
-func (orm *DB) Count(value interface{}) *DB {
+func (orm *DBCon) Count(value interface{}) *DBCon {
 	return orm.NewScope(orm.Value).count(value).db
 }
 
 // Related get related associations
-func (orm *DB) Related(value interface{}, foreignKeys ...string) *DB {
+func (orm *DBCon) Related(value interface{}, foreignKeys ...string) *DBCon {
 	return orm.clone().NewScope(orm.Value).related(value, foreignKeys...).db
 }
 
 // FirstOrInit find first matched record or initialize a new one with given conditions (only works with struct, map conditions)
 // https://jinzhu.github.io/gorm/curd.html#firstorinit
-func (orm *DB) FirstOrInit(out interface{}, where ...interface{}) *DB {
+func (orm *DBCon) FirstOrInit(out interface{}, where ...interface{}) *DBCon {
 	c := orm.clone()
 	if result := c.First(out, where...); result.Error != nil {
 		if !result.RecordNotFound() {
@@ -253,7 +254,7 @@ func (orm *DB) FirstOrInit(out interface{}, where ...interface{}) *DB {
 
 // FirstOrCreate find first matched record or create a new one with given conditions (only works with struct, map conditions)
 // https://jinzhu.github.io/gorm/curd.html#firstorcreate
-func (orm *DB) FirstOrCreate(out interface{}, where ...interface{}) *DB {
+func (orm *DBCon) FirstOrCreate(out interface{}, where ...interface{}) *DBCon {
 	c := orm.clone()
 	if result := orm.First(out, where...); result.Error != nil {
 		if !result.RecordNotFound() {
@@ -267,12 +268,12 @@ func (orm *DB) FirstOrCreate(out interface{}, where ...interface{}) *DB {
 }
 
 // Update update attributes with callbacks, refer: https://jinzhu.github.io/gorm/curd.html#update
-func (orm *DB) Update(attrs ...interface{}) *DB {
+func (orm *DBCon) Update(attrs ...interface{}) *DBCon {
 	return orm.Updates(toSearchableMap(attrs...), true)
 }
 
 // Updates update attributes with callbacks, refer: https://jinzhu.github.io/gorm/curd.html#update
-func (orm *DB) Updates(values interface{}, ignoreProtectedAttrs ...bool) *DB {
+func (orm *DBCon) Updates(values interface{}, ignoreProtectedAttrs ...bool) *DBCon {
 	return orm.clone().NewScope(orm.Value).
 		Set("gorm:ignore_protected_attrs", len(ignoreProtectedAttrs) > 0).
 		InstanceSet("gorm:update_interface", values).
@@ -280,12 +281,12 @@ func (orm *DB) Updates(values interface{}, ignoreProtectedAttrs ...bool) *DB {
 }
 
 // UpdateColumn update attributes without callbacks, refer: https://jinzhu.github.io/gorm/curd.html#update
-func (orm *DB) UpdateColumn(attrs ...interface{}) *DB {
+func (orm *DBCon) UpdateColumn(attrs ...interface{}) *DBCon {
 	return orm.UpdateColumns(toSearchableMap(attrs...))
 }
 
 // UpdateColumns update attributes without callbacks, refer: https://jinzhu.github.io/gorm/curd.html#update
-func (orm *DB) UpdateColumns(values interface{}) *DB {
+func (orm *DBCon) UpdateColumns(values interface{}) *DBCon {
 	return orm.clone().NewScope(orm.Value).
 		Set("gorm:update_column", true).
 		Set("gorm:save_associations", false).
@@ -294,7 +295,7 @@ func (orm *DB) UpdateColumns(values interface{}) *DB {
 }
 
 // Save update value in database, if the value doesn't have primary key, will insert it
-func (orm *DB) Save(value interface{}) *DB {
+func (orm *DBCon) Save(value interface{}) *DBCon {
 	scope := orm.clone().NewScope(value)
 	if !scope.PrimaryKeyZero() {
 		newDB := scope.callCallbacks(orm.parent.callbacks.updates).db
@@ -307,24 +308,24 @@ func (orm *DB) Save(value interface{}) *DB {
 }
 
 // Create insert the value into database
-func (orm *DB) Create(value interface{}) *DB {
+func (orm *DBCon) Create(value interface{}) *DBCon {
 	scope := orm.clone().NewScope(value)
 	return scope.callCallbacks(orm.parent.callbacks.creates).db
 }
 
 // Delete delete value match given conditions, if the value has primary key, then will including the primary key as condition
-func (orm *DB) Delete(value interface{}, where ...interface{}) *DB {
+func (orm *DBCon) Delete(value interface{}, where ...interface{}) *DBCon {
 	return orm.clone().NewScope(value).inlineCondition(where...).callCallbacks(orm.parent.callbacks.deletes).db
 }
 
 // Raw use raw sql as conditions, won't run it unless invoked by other methods
 //    db.Raw("SELECT name, age FROM users WHERE name = ?", 3).Scan(&result)
-func (orm *DB) Raw(sql string, values ...interface{}) *DB {
+func (orm *DBCon) Raw(sql string, values ...interface{}) *DBCon {
 	return orm.clone().search.Raw(true).Where(sql, values...).db
 }
 
 // Exec execute raw sql
-func (orm *DB) Exec(sql string, values ...interface{}) *DB {
+func (orm *DBCon) Exec(sql string, values ...interface{}) *DBCon {
 	scope := orm.clone().NewScope(nil)
 	generatedSQL := scope.buildWhereCondition(map[string]interface{}{"query": sql, "args": values})
 	generatedSQL = strings.TrimSuffix(strings.TrimPrefix(generatedSQL, "("), ")")
@@ -337,14 +338,14 @@ func (orm *DB) Exec(sql string, values ...interface{}) *DB {
 //    db.Model(&User{}).Update("name", "hello")
 //    // if user's primary key is non-blank, will use it as condition, then will only update the user's name to `hello`
 //    db.Model(&user).Update("name", "hello")
-func (orm *DB) Model(value interface{}) *DB {
+func (orm *DBCon) Model(value interface{}) *DBCon {
 	c := orm.clone()
 	c.Value = value
 	return c
 }
 
 // Table specify the table you would like to run db operations
-func (orm *DB) Table(name string) *DB {
+func (orm *DBCon) Table(name string) *DBCon {
 	clone := orm.clone()
 	clone.search.Table(name)
 	clone.Value = nil
@@ -352,12 +353,12 @@ func (orm *DB) Table(name string) *DB {
 }
 
 // Debug start debug mode
-func (orm *DB) Debug() *DB {
+func (orm *DBCon) Debug() *DBCon {
 	return orm.clone().LogMode(true)
 }
 
 // Begin begin a transaction
-func (orm *DB) Begin() *DB {
+func (orm *DBCon) Begin() *DBCon {
 	c := orm.clone()
 	if db, ok := c.db.(sqlDb); ok {
 		tx, err := db.Begin()
@@ -370,7 +371,7 @@ func (orm *DB) Begin() *DB {
 }
 
 // Commit commit a transaction
-func (orm *DB) Commit() *DB {
+func (orm *DBCon) Commit() *DBCon {
 	if db, ok := orm.db.(sqlTx); ok {
 		orm.AddError(db.Commit())
 	} else {
@@ -380,7 +381,7 @@ func (orm *DB) Commit() *DB {
 }
 
 // Rollback rollback a transaction
-func (orm *DB) Rollback() *DB {
+func (orm *DBCon) Rollback() *DBCon {
 	if db, ok := orm.db.(sqlTx); ok {
 		orm.AddError(db.Rollback())
 	} else {
@@ -390,12 +391,12 @@ func (orm *DB) Rollback() *DB {
 }
 
 // NewRecord check if value's primary key is blank
-func (orm *DB) NewRecord(value interface{}) bool {
+func (orm *DBCon) NewRecord(value interface{}) bool {
 	return orm.clone().NewScope(value).PrimaryKeyZero()
 }
 
 // RecordNotFound check if returning ErrRecordNotFound error
-func (orm *DB) RecordNotFound() bool {
+func (orm *DBCon) RecordNotFound() bool {
 	for _, err := range orm.GetErrors() {
 		if err == ErrRecordNotFound {
 			return true
@@ -405,7 +406,7 @@ func (orm *DB) RecordNotFound() bool {
 }
 
 // CreateTable create table for models
-func (orm *DB) CreateTable(models ...interface{}) *DB {
+func (orm *DBCon) CreateTable(models ...interface{}) *DBCon {
 	db := orm.Unscoped()
 	for _, model := range models {
 		db = db.NewScope(model).createTable().db
@@ -414,7 +415,7 @@ func (orm *DB) CreateTable(models ...interface{}) *DB {
 }
 
 // DropTable drop table for models
-func (orm *DB) DropTable(values ...interface{}) *DB {
+func (orm *DBCon) DropTable(values ...interface{}) *DBCon {
 	db := orm.clone()
 	for _, value := range values {
 		if tableName, ok := value.(string); ok {
@@ -427,7 +428,7 @@ func (orm *DB) DropTable(values ...interface{}) *DB {
 }
 
 // DropTableIfExists drop table if it is exist
-func (orm *DB) DropTableIfExists(values ...interface{}) *DB {
+func (orm *DBCon) DropTableIfExists(values ...interface{}) *DBCon {
 	db := orm.clone()
 	for _, value := range values {
 		if orm.HasTable(value) {
@@ -438,7 +439,7 @@ func (orm *DB) DropTableIfExists(values ...interface{}) *DB {
 }
 
 // HasTable check has table or not
-func (orm *DB) HasTable(value interface{}) bool {
+func (orm *DBCon) HasTable(value interface{}) bool {
 	var (
 		scope     = orm.clone().NewScope(value)
 		tableName string
@@ -456,7 +457,7 @@ func (orm *DB) HasTable(value interface{}) bool {
 }
 
 // AutoMigrate run auto migration for given models, will only add missing fields, won't delete/change current data
-func (orm *DB) AutoMigrate(values ...interface{}) *DB {
+func (orm *DBCon) AutoMigrate(values ...interface{}) *DBCon {
 	db := orm.Unscoped()
 	for _, value := range values {
 		db = db.NewScope(value).autoMigrate().db
@@ -465,35 +466,35 @@ func (orm *DB) AutoMigrate(values ...interface{}) *DB {
 }
 
 // ModifyColumn modify column to type
-func (orm *DB) ModifyColumn(column string, typ string) *DB {
+func (orm *DBCon) ModifyColumn(column string, typ string) *DBCon {
 	scope := orm.clone().NewScope(orm.Value)
 	scope.modifyColumn(column, typ)
 	return scope.db
 }
 
 // DropColumn drop a column
-func (orm *DB) DropColumn(column string) *DB {
+func (orm *DBCon) DropColumn(column string) *DBCon {
 	scope := orm.clone().NewScope(orm.Value)
 	scope.dropColumn(column)
 	return scope.db
 }
 
 // AddIndex add index for columns with given name
-func (orm *DB) AddIndex(indexName string, columns ...string) *DB {
+func (orm *DBCon) AddIndex(indexName string, columns ...string) *DBCon {
 	scope := orm.Unscoped().NewScope(orm.Value)
 	scope.addIndex(false, indexName, columns...)
 	return scope.db
 }
 
 // AddUniqueIndex add unique index for columns with given name
-func (orm *DB) AddUniqueIndex(indexName string, columns ...string) *DB {
+func (orm *DBCon) AddUniqueIndex(indexName string, columns ...string) *DBCon {
 	scope := orm.Unscoped().NewScope(orm.Value)
 	scope.addIndex(true, indexName, columns...)
 	return scope.db
 }
 
 // RemoveIndex remove index with name
-func (orm *DB) RemoveIndex(indexName string) *DB {
+func (orm *DBCon) RemoveIndex(indexName string) *DBCon {
 	scope := orm.clone().NewScope(orm.Value)
 	scope.removeIndex(indexName)
 	return scope.db
@@ -501,14 +502,14 @@ func (orm *DB) RemoveIndex(indexName string) *DB {
 
 // AddForeignKey Add foreign key to the given scope, e.g:
 //     db.Model(&User{}).AddForeignKey("city_id", "cities(id)", "RESTRICT", "RESTRICT")
-func (orm *DB) AddForeignKey(field string, dest string, onDelete string, onUpdate string) *DB {
+func (orm *DBCon) AddForeignKey(field string, dest string, onDelete string, onUpdate string) *DBCon {
 	scope := orm.clone().NewScope(orm.Value)
 	scope.addForeignKey(field, dest, onDelete, onUpdate)
 	return scope.db
 }
 
 // Association start `Association Mode` to handler relations things easir in that mode, refer: https://jinzhu.github.io/gorm/associations.html#association-mode
-func (orm *DB) Association(column string) *Association {
+func (orm *DBCon) Association(column string) *Association {
 	var err error
 	scope := orm.clone().NewScope(orm.Value)
 
@@ -531,33 +532,33 @@ func (orm *DB) Association(column string) *Association {
 
 // Preload preload associations with given conditions
 //    db.Preload("Orders", "state NOT IN (?)", "cancelled").Find(&users)
-func (orm *DB) Preload(column string, conditions ...interface{}) *DB {
+func (orm *DBCon) Preload(column string, conditions ...interface{}) *DBCon {
 	return orm.clone().search.Preload(column, conditions...).db
 }
 
 // Set set setting by name, which could be used in callbacks, will clone a new db, and update its setting
-func (orm *DB) Set(name string, value interface{}) *DB {
+func (orm *DBCon) Set(name string, value interface{}) *DBCon {
 	return orm.clone().InstantSet(name, value)
 }
 
 // InstantSet instant set setting, will affect current db
-func (orm *DB) InstantSet(name string, value interface{}) *DB {
+func (orm *DBCon) InstantSet(name string, value interface{}) *DBCon {
 	orm.values[name] = value
 	return orm
 }
 
 // Get get setting by name
-func (orm *DB) Get(name string) (value interface{}, ok bool) {
+func (orm *DBCon) Get(name string) (value interface{}, ok bool) {
 	value, ok = orm.values[name]
 	return
 }
 
 // SetJoinTableHandler set a model's join table handler for a relation
-func (orm *DB) SetJoinTableHandler(source interface{}, column string, handler JoinTableHandlerInterface) {
+func (orm *DBCon) SetJoinTableHandler(source interface{}, column string, handler JoinTableHandlerInterface) {
 	scope := orm.NewScope(source)
 	for _, field := range scope.GetModelStruct().StructFields {
 		if field.GetName() == column || field.DBName == column {
-			if many2many := field.TagSettings[MANY2MANY]; many2many != "" {
+			if many2many := field.GetSetting(MANY2MANY); many2many != "" {
 				source := (&Scope{Value: source}).GetModelStruct().ModelType
 				destination := (&Scope{Value: reflect.New(field.Struct.Type).Interface()}).GetModelStruct().ModelType
 				handler.Setup(field.Relationship, many2many, source, destination)
@@ -571,7 +572,7 @@ func (orm *DB) SetJoinTableHandler(source interface{}, column string, handler Jo
 }
 
 // AddError add error to the db
-func (orm *DB) AddError(err error) error {
+func (orm *DBCon) AddError(err error) error {
 	if err != nil {
 		if err != ErrRecordNotFound {
 			if orm.logMode == 0 {
@@ -593,7 +594,7 @@ func (orm *DB) AddError(err error) error {
 }
 
 // GetErrors get happened errors from the db
-func (orm *DB) GetErrors() (errors []error) {
+func (orm *DBCon) GetErrors() (errors []error) {
 	if errs, ok := orm.Error.(errorsInterface); ok {
 		return errs.GetErrors()
 	} else if orm.Error != nil {
@@ -607,8 +608,8 @@ func (orm *DB) GetErrors() (errors []error) {
 ////////////////////////////////////////////////////////////////////////////////
 //TODO : @Badu - since some calls want this without values and search (like scope.NewDB)
 //maybe it's a good idea to have a parameter to instruct search and value transfers
-func (orm *DB) clone() *DB {
-	db := DB{db: orm.db, parent: orm.parent, logger: orm.logger, logMode: orm.logMode, values: map[string]interface{}{}, Value: orm.Value, Error: orm.Error}
+func (orm *DBCon) clone() *DBCon {
+	db := DBCon{db: orm.db, parent: orm.parent, logger: orm.logger, logMode: orm.logMode, values: map[string]interface{}{}, Value: orm.Value, Error: orm.Error}
 
 	for key, value := range orm.values {
 		db.values[key] = value
@@ -624,17 +625,17 @@ func (orm *DB) clone() *DB {
 	return &db
 }
 
-func (orm *DB) print(v ...interface{}) {
+func (orm *DBCon) print(v ...interface{}) {
 	orm.logger.(logger).Print(v...)
 }
 
-func (orm *DB) log(v ...interface{}) {
+func (orm *DBCon) log(v ...interface{}) {
 	if orm != nil && orm.logMode == 2 {
 		orm.print(append([]interface{}{"log", fileWithLineNum()}, v...)...)
 	}
 }
 
-func (orm *DB) slog(sql string, t time.Time, vars ...interface{}) {
+func (orm *DBCon) slog(sql string, t time.Time, vars ...interface{}) {
 	if orm.logMode == 2 {
 		orm.print("sql", fileWithLineNum(), NowFunc().Sub(t), sql, vars)
 	}

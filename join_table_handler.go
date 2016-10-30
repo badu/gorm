@@ -39,11 +39,11 @@ func (s *JoinTableHandler) Setup(relationship *Relationship, tableName string, s
 }
 
 // Table return join table's table name
-func (s JoinTableHandler) Table(db *DB) string {
+func (s JoinTableHandler) Table(db *DBCon) string {
 	return s.TableName
 }
 
-func (s JoinTableHandler) getSearchMap(db *DB, sources ...interface{}) map[string]interface{} {
+func (s JoinTableHandler) getSearchMap(db *DBCon, sources ...interface{}) map[string]interface{} {
 	values := map[string]interface{}{}
 
 	for _, source := range sources {
@@ -68,7 +68,7 @@ func (s JoinTableHandler) getSearchMap(db *DB, sources ...interface{}) map[strin
 }
 
 // Add create relationship in join table for source and destination
-func (s JoinTableHandler) Add(handler JoinTableHandlerInterface, db *DB, source interface{}, destination interface{}) error {
+func (s JoinTableHandler) Add(handler JoinTableHandlerInterface, db *DBCon, source interface{}, destination interface{}) error {
 	scope := db.NewScope("")
 	searchMap := s.getSearchMap(db, source, destination)
 
@@ -100,7 +100,7 @@ func (s JoinTableHandler) Add(handler JoinTableHandlerInterface, db *DB, source 
 }
 
 // Delete delete relationship in join table for sources
-func (s JoinTableHandler) Delete(handler JoinTableHandlerInterface, db *DB, sources ...interface{}) error {
+func (s JoinTableHandler) Delete(handler JoinTableHandlerInterface, db *DBCon, sources ...interface{}) error {
 	var (
 		scope      = db.NewScope(nil)
 		conditions []string
@@ -116,7 +116,7 @@ func (s JoinTableHandler) Delete(handler JoinTableHandlerInterface, db *DB, sour
 }
 
 // JoinWith query with `Join` conditions
-func (s JoinTableHandler) JoinWith(handler JoinTableHandlerInterface, db *DB, source interface{}) *DB {
+func (s JoinTableHandler) JoinWith(handler JoinTableHandlerInterface, db *DBCon, source interface{}) *DBCon {
 	var (
 		scope           = db.NewScope(source)
 		tableName       = handler.Table(db)

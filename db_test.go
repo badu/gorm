@@ -27,7 +27,7 @@ import (
 )
 
 var (
-	TestDB             *DB
+	TestDB             *DBCon
 	t1, t2, t3, t4, t5 time.Time
 	compareToys        = func(toys []Toy, contents []string) bool {
 		var toyContents []string
@@ -593,16 +593,16 @@ func equalFuncs(funcs []*func(s *Scope), fnames []string) bool {
 	return reflect.DeepEqual(names, fnames)
 }
 
-func NameIn1And2(d *DB) *DB {
+func NameIn1And2(d *DBCon) *DBCon {
 	return d.Where("name in (?)", []string{"ScopeUser1", "ScopeUser2"})
 }
 
-func NameIn2And3(d *DB) *DB {
+func NameIn2And3(d *DBCon) *DBCon {
 	return d.Where("name in (?)", []string{"ScopeUser2", "ScopeUser3"})
 }
 
-func NameIn(names []string) func(d *DB) *DB {
-	return func(d *DB) *DB {
+func NameIn(names []string) func(d *DBCon) *DBCon{
+	return func(d *DBCon) *DBCon {
 		return d.Where("name in (?)", names)
 	}
 }
@@ -646,7 +646,7 @@ func (s *Product) AfterFind() {
 	s.AfterFindCallTimes = s.AfterFindCallTimes + 1
 }
 
-func (s *Product) AfterCreate(tx *DB) {
+func (s *Product) AfterCreate(tx *DBCon) {
 	tx.Model(s).UpdateColumn(Product{AfterCreateCallTimes: s.AfterCreateCallTimes + 1})
 }
 
@@ -730,7 +730,7 @@ func (p Person) String() string {
 	return fmt.Sprint(optionals)
 }
 
-func (*PersonAddress) Add(handler JoinTableHandlerInterface, db *DB, foreignValue interface{}, associationValue interface{}) error {
+func (*PersonAddress) Add(handler JoinTableHandlerInterface, db *DBCon, foreignValue interface{}, associationValue interface{}) error {
 	return db.Where(map[string]interface{}{
 		"person_id":  db.NewScope(foreignValue).PrimaryKeyValue(),
 		"address_id": db.NewScope(associationValue).PrimaryKeyValue(),
@@ -741,11 +741,11 @@ func (*PersonAddress) Add(handler JoinTableHandlerInterface, db *DB, foreignValu
 	}).FirstOrCreate(&PersonAddress{}).Error
 }
 
-func (*PersonAddress) Delete(handler JoinTableHandlerInterface, db *DB, sources ...interface{}) error {
+func (*PersonAddress) Delete(handler JoinTableHandlerInterface, db *DBCon, sources ...interface{}) error {
 	return db.Delete(&PersonAddress{}).Error
 }
 
-func (pa *PersonAddress) JoinWith(handler JoinTableHandlerInterface, db *DB, source interface{}) *DB {
+func (pa *PersonAddress) JoinWith(handler JoinTableHandlerInterface, db *DBCon, source interface{}) *DBCon {
 	table := pa.Table(db)
 	return db.Joins("INNER JOIN person_addresses ON person_addresses.address_id = addresses.id").Where(fmt.Sprintf("%v.deleted_at IS NULL OR %v.deleted_at <= '0001-01-02'", table, table))
 }
@@ -771,6 +771,7 @@ func (i *Num) Scan(src interface{}) error {
 	switch s := src.(type) {
 	case []byte:
 	case int64:
+		//TODO : @Badu - assignment to method receiver propagates only to callees but not to callers
 		*i = Num(s)
 	default:
 		return errors.New("Cannot scan NamedInt from " + reflect.ValueOf(src).String())
@@ -822,7 +823,7 @@ func DialectHasTzSupport() bool {
 	return true
 }
 
-func OpenTestConnection() (db *DB, err error) {
+func OpenTestConnection() (db *DBCon, err error) {
 	switch os.Getenv("GORM_DIALECT") {
 	case "mysql":
 		// CREATE USER 'gorm'@'localhost' IDENTIFIED BY 'gorm';

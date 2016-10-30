@@ -656,19 +656,20 @@ func ParseFieldStructForDialect(field *StructField) (fieldValue reflect.Value, s
 	getScannerValue(fieldValue)
 
 	// Default Size
-	if num, ok := field.TagSettings[SIZE]; ok {
+	if num := field.GetSetting(SIZE); num != "" {
 		size, _ = strconv.Atoi(num)
 	} else {
 		size = 255
 	}
 
+	//TODO : @Badu - what if the settings below are empty?
 	// Default type from tag setting
-	additionalType = field.TagSettings[NOT_NULL] + " " + field.TagSettings[UNIQUE]
-	if value, ok := field.TagSettings[DEFAULT]; ok {
+	additionalType = field.GetSetting(NOT_NULL) + " " + field.GetSetting(UNIQUE)
+	if value := field.GetSetting(DEFAULT); value != "" {
 		additionalType = additionalType + " DEFAULT " + value
 	}
 
-	return fieldValue, field.TagSettings[TYPE], size, strings.TrimSpace(additionalType)
+	return fieldValue, field.GetSetting(TYPE), size, strings.TrimSpace(additionalType)
 }
 
 func isByteArrayOrSlice(value reflect.Value) bool {
@@ -886,15 +887,6 @@ func makeSlice(elemType reflect.Type) interface{} {
 	return slice.Interface()
 }
 
-func strInSlice(a string, list []string) bool {
-	for _, b := range list {
-		if b == a {
-			return true
-		}
-	}
-	return false
-}
-
 // getValueFromFields return given fields's value
 func getValueFromFields(value reflect.Value, fieldNames []string) (results []interface{}) {
 	// If value is a nil pointer, Indirect returns a zero Value!
@@ -925,14 +917,6 @@ func newModelStructsMap() *safeModelStructsMap {
 	return &safeModelStructsMap{l: new(sync.RWMutex), m: make(map[reflect.Type]*ModelStruct)}
 }
 
-func getForeignField(column string, fields StructFields) *StructField {
-	for _, field := range fields {
-		if field.GetName() == column || field.DBName == column || field.DBName == ToDBName(column) {
-			return field
-		}
-	}
-	return nil
-}
 //TODO : @Badu - remove this function from here
 func parseTagSetting(tags reflect.StructTag) map[uint8]string {
 	setting := map[uint8]string{}
@@ -967,8 +951,8 @@ func parseTagSetting(tags reflect.StructTag) map[uint8]string {
 //    // import _ "github.com/badu/gorm/dialects/postgres"
 //    // import _ "github.com/badu/gorm/dialects/sqlite"
 //    // import _ "github.com/badu/gorm/dialects/mssql"
-func Open(dialect string, args ...interface{}) (*DB, error) {
-	var db DB
+func Open(dialect string, args ...interface{}) (*DBCon, error) {
+	var db DBCon
 	var err error
 
 	if len(args) == 0 {
@@ -993,7 +977,7 @@ func Open(dialect string, args ...interface{}) (*DB, error) {
 		dbSQL = value
 	}
 
-	db = DB{
+	db = DBCon{
 		dialect:   newDialect(dialect, dbSQL.(*sql.DB)),
 		logger:    defaultLogger,
 		callbacks: DefaultCallback,

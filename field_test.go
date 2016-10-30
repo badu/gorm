@@ -1,6 +1,7 @@
 package gorm
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -16,9 +17,9 @@ func TestCalculateField(t *testing.T) {
 		t.Errorf("Should calculate fields correctly for the first time")
 	}
 
-	if field, ok := scope.FieldByName("embedded_name"); !ok {
+	if field, ok := scope.FieldByName("EmbeddedName"); !ok {
 		t.Errorf("should find embedded field")
-	} else if _, ok := field.TagSettings[NOT_NULL]; !ok {
-		t.Errorf("should find embedded field's tag settings")
+	} else if !field.HasSetting(NOT_NULL) {
+		t.Errorf(fmt.Sprintf("Should find embedded field's tag settings\n%s", field))
 	}
 }

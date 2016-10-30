@@ -23,15 +23,15 @@ func (postgres) DataTypeOf(field *StructField) string {
 		case reflect.Bool:
 			sqlType = "boolean"
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uintptr:
-			if _, ok := field.TagSettings[AUTO_INCREMENT]; ok || field.IsPrimaryKey {
-				field.TagSettings[AUTO_INCREMENT] = "AUTO_INCREMENT"
+			if field.HasSetting(AUTO_INCREMENT) || field.IsPrimaryKey {
+				field.SetSetting(AUTO_INCREMENT, "AUTO_INCREMENT")
 				sqlType = "serial"
 			} else {
 				sqlType = "integer"
 			}
 		case reflect.Int64, reflect.Uint64:
-			if _, ok := field.TagSettings[AUTO_INCREMENT]; ok || field.IsPrimaryKey {
-				field.TagSettings[AUTO_INCREMENT] = "AUTO_INCREMENT"
+			if field.HasSetting(AUTO_INCREMENT) || field.IsPrimaryKey {
+				field.SetSetting(AUTO_INCREMENT, "AUTO_INCREMENT")
 				sqlType = "bigserial"
 			} else {
 				sqlType = "bigint"
@@ -39,8 +39,9 @@ func (postgres) DataTypeOf(field *StructField) string {
 		case reflect.Float32, reflect.Float64:
 			sqlType = "numeric"
 		case reflect.String:
-			if _, ok := field.TagSettings[SIZE]; !ok {
-				size = 0 // if SIZE haven't been set, use `text` as the default type, as there are no performance different
+			if !field.HasSetting(SIZE) {
+				// if SIZE haven't been set, use `text` as the default type, as there are no performance different
+				size = 0
 			}
 
 			if size > 0 && size < 65532 {

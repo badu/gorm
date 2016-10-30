@@ -52,13 +52,13 @@ func (mssql) DataTypeOf(field *gorm.StructField) string {
 		case reflect.Bool:
 			sqlType = "bit"
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uintptr:
-			if _, ok := field.TagSettings[gorm.AUTO_INCREMENT]; ok || field.IsPrimaryKey {
+			if field.HasSetting(gorm.AUTO_INCREMENT) || field.IsPrimaryKey {
 				sqlType = "int IDENTITY(1,1)"
 			} else {
 				sqlType = "int"
 			}
 		case reflect.Int64, reflect.Uint64:
-			if _, ok := field.TagSettings[gorm.AUTO_INCREMENT]; ok || field.IsPrimaryKey {
+			if field.HasSetting(gorm.AUTO_INCREMENT) || field.IsPrimaryKey {
 				sqlType = "bigint IDENTITY(1,1)"
 			} else {
 				sqlType = "bigint"

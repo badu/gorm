@@ -24,10 +24,10 @@ func (mysql) DataTypeOf(field *StructField) string {
 
 	// MySQL allows only one auto increment column per table, and it must
 	// be a KEY column.
-	if _, ok := field.TagSettings[AUTO_INCREMENT]; ok {
-		if _, ok = field.TagSettings[INDEX]; !ok && !field.IsPrimaryKey {
-			//TODO : @Badu - test if delete works correctly
-			delete(field.TagSettings, AUTO_INCREMENT)
+	//TODO : @Badu : document that if it has auto_increment but it's not an index, we ignore auto_increment
+	if field.HasSetting(AUTO_INCREMENT) {
+		if !field.HasSetting(INDEX) && !field.IsPrimaryKey {
+			field.UnsetSetting(AUTO_INCREMENT)
 		}
 	}
 
@@ -36,29 +36,29 @@ func (mysql) DataTypeOf(field *StructField) string {
 		case reflect.Bool:
 			sqlType = "boolean"
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32:
-			if _, ok := field.TagSettings[AUTO_INCREMENT]; ok || field.IsPrimaryKey {
-				field.TagSettings[AUTO_INCREMENT] = "AUTO_INCREMENT"
+			if field.HasSetting(AUTO_INCREMENT) || field.IsPrimaryKey {
+				field.SetSetting(AUTO_INCREMENT, "AUTO_INCREMENT")
 				sqlType = "int AUTO_INCREMENT"
 			} else {
 				sqlType = "int"
 			}
 		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uintptr:
-			if _, ok := field.TagSettings[AUTO_INCREMENT]; ok || field.IsPrimaryKey {
-				field.TagSettings[AUTO_INCREMENT] = "AUTO_INCREMENT"
+			if field.HasSetting(AUTO_INCREMENT) || field.IsPrimaryKey {
+				field.SetSetting(AUTO_INCREMENT, "AUTO_INCREMENT")
 				sqlType = "int unsigned AUTO_INCREMENT"
 			} else {
 				sqlType = "int unsigned"
 			}
 		case reflect.Int64:
-			if _, ok := field.TagSettings[AUTO_INCREMENT]; ok || field.IsPrimaryKey {
-				field.TagSettings[AUTO_INCREMENT] = "AUTO_INCREMENT"
+			if field.HasSetting(AUTO_INCREMENT) || field.IsPrimaryKey {
+				field.SetSetting(AUTO_INCREMENT, "AUTO_INCREMENT")
 				sqlType = "bigint AUTO_INCREMENT"
 			} else {
 				sqlType = "bigint"
 			}
 		case reflect.Uint64:
-			if _, ok := field.TagSettings[AUTO_INCREMENT]; ok || field.IsPrimaryKey {
-				field.TagSettings[AUTO_INCREMENT] = "AUTO_INCREMENT"
+			if field.HasSetting(AUTO_INCREMENT) || field.IsPrimaryKey {
+				field.SetSetting(AUTO_INCREMENT, "AUTO_INCREMENT")
 				sqlType = "bigint unsigned AUTO_INCREMENT"
 			} else {
 				sqlType = "bigint unsigned"
@@ -73,7 +73,7 @@ func (mysql) DataTypeOf(field *StructField) string {
 			}
 		case reflect.Struct:
 			if _, ok := dataValue.Interface().(time.Time); ok {
-				if _, ok := field.TagSettings[NOT_NULL]; ok {
+				if field.HasSetting(NOT_NULL) {
 					sqlType = "timestamp"
 				} else {
 					sqlType = "timestamp NULL"

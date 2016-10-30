@@ -20,45 +20,14 @@ const (
 	HAS_MANY     uint8 = 2
 	HAS_ONE      uint8 = 3
 	BELONGS_TO   uint8 = 4
-	//StructField TagSettings constants
-	MANY2MANY               uint8 = 1
-	AUTO_INCREMENT          uint8 = 2
-	INDEX                   uint8 = 3
-	NOT_NULL                uint8 = 4
-	SIZE                    uint8 = 5
-	UNIQUE_INDEX            uint8 = 6
-	IS_JOINTABLE_FOREIGNKEY uint8 = 7
-	PRIMARY_KEY             uint8 = 8
-	DEFAULT                 uint8 = 9
-	IGNORED                 uint8 = 10
-	EMBEDDED                uint8 = 11
-	EMBEDDED_PREFIX         uint8 = 12
-	FOREIGNKEY              uint8 = 13
-	ASSOCIATIONFOREIGNKEY   uint8 = 14
-	POLYMORPHIC             uint8 = 15
-	POLYMORPHIC_VALUE       uint8 = 16
-	COLUMN                  uint8 = 17
-	TYPE                    uint8 = 18
-	UNIQUE                  uint8 = 19
 )
 
 type (
-	/**
-	reflect.StructField{
-		// Name is the field name.
-		Name string
-		// PkgPath is the package path that qualifies a lower case (unexported)
-		// field name. It is empty for upper case (exported) field names.
-		// See https://golang.org/ref/spec#Uniqueness_of_identifiers
-		PkgPath string
-
-		Type      Type      // field type
-		Tag       StructTag // field tag string
-		Offset    uintptr   // offset within struct, in bytes
-		Index     []int     // index sequence for Type.FieldByIndex
-		Anonymous bool      // is an embedded field
+	Uint8Map map[uint8]string
+	//since there is no other way of embedding a map
+	TagSettings    struct {
+		Uint8Map
 	}
-	*/
 	// StructField model field's struct definition
 	//TODO : @Badu - instead of having this bunch of flags - a bitflag seems better
 	//TODO : @Badu - a StructField should support multiple relationships
@@ -78,7 +47,7 @@ type (
 		DBName string
 		Names  []string
 
-		TagSettings map[uint8]string
+		tagSettings TagSettings
 
 		Struct reflect.StructField
 		Value  reflect.Value
@@ -86,7 +55,6 @@ type (
 		Relationship *Relationship
 	}
 
-	//For code readability
 	StructFields []*StructField
 
 	// Relationship described the relationship between models
@@ -137,8 +105,8 @@ type (
 
 	// DB contains information for current db connection
 	//TODO : @Badu - if it holds current db connection why not name it accordingly???
-	DB struct {
-		parent  *DB
+	DBCon struct {
+		parent  *DBCon
 		dialect Dialect
 		Value   interface{}
 		values  map[string]interface{}
@@ -162,7 +130,7 @@ type (
 
 	// Scope contain current operation's information when you perform any operation on the database
 	Scope struct {
-		db *DB
+		db *DBCon
 
 		Search *search
 		Value  interface{}
@@ -180,8 +148,10 @@ type (
 		skipLeft bool
 	}
 
+	//TODO : @Badu - find out why both Scope and search structs hold pointer to DBCon,
+	//since they are related (Scope has a search inside)
 	search struct {
-		db               *DB
+		db               *DBCon
 		whereConditions  []map[string]interface{}
 		orConditions     []map[string]interface{}
 		notConditions    []map[string]interface{}
@@ -210,7 +180,7 @@ type (
 		TableName() string
 	}
 	dbTabler interface {
-		TableName(*DB) string
+		TableName(*DBCon) string
 	}
 
 	// Model base model definition, including fields `ID`, `CreatedAt`, `UpdatedAt`, `DeletedAt`, which could be embedded in your models
@@ -344,13 +314,13 @@ type (
 		// initialize join table handler
 		Setup(relationship *Relationship, tableName string, source reflect.Type, destination reflect.Type)
 		// Table return join table's table name
-		Table(db *DB) string
+		Table(db *DBCon) string
 		// Add create relationship in join table for source and destination
-		Add(handler JoinTableHandlerInterface, db *DB, source interface{}, destination interface{}) error
+		Add(handler JoinTableHandlerInterface, db *DBCon, source interface{}, destination interface{}) error
 		// Delete delete relationship in join table for sources
-		Delete(handler JoinTableHandlerInterface, db *DB, sources ...interface{}) error
+		Delete(handler JoinTableHandlerInterface, db *DBCon, sources ...interface{}) error
 		// JoinWith query with `Join` conditions
-		JoinWith(handler JoinTableHandlerInterface, db *DB, source interface{}) *DB
+		JoinWith(handler JoinTableHandlerInterface, db *DBCon, source interface{}) *DBCon
 		// SourceForeignKeys return source foreign keys
 		SourceForeignKeys() []JoinTableForeignKey
 		// DestinationForeignKeys return destination foreign keys
@@ -375,30 +345,6 @@ type (
 )
 
 var (
-	//this is a map for transforming strings into uint8 when reading tags of structs
-	//@See : &StructField{}.ParseTagSettings()
-	tagSettingMap = map[string]uint8{
-		"MANY2MANY":               MANY2MANY,
-		"AUTO_INCREMENT":          AUTO_INCREMENT,
-		"INDEX":                   INDEX,
-		"NOT NULL":                NOT_NULL,
-		"SIZE":                    SIZE,
-		"UNIQUE_INDEX":            UNIQUE_INDEX,
-		"IS_JOINTABLE_FOREIGNKEY": IS_JOINTABLE_FOREIGNKEY,
-		"PRIMARY_KEY":             PRIMARY_KEY,
-		"DEFAULT":                 DEFAULT,
-		"-":                       IGNORED,
-		"EMBEDDED":                EMBEDDED,
-		"EMBEDDED_PREFIX":         EMBEDDED_PREFIX,
-		"FOREIGNKEY":              FOREIGNKEY,
-		"ASSOCIATIONFOREIGNKEY":   ASSOCIATIONFOREIGNKEY,
-		"POLYMORPHIC":             POLYMORPHIC,
-		"POLYMORPHIC_VALUE":       POLYMORPHIC_VALUE,
-		"COLUMN":                  COLUMN,
-		"TYPE":                    TYPE,
-		"UNIQUE":                  UNIQUE,
-	}
-
 	dialectsMap = map[string]Dialect{}
 
 	// DefaultCallback default callbacks defined by gorm
@@ -406,7 +352,7 @@ var (
 
 	smap = newSafeMap()
 	// DefaultTableNameHandler default table name handler
-	DefaultTableNameHandler = func(db *DB, defaultTableName string) string {
+	DefaultTableNameHandler = func(db *DBCon, defaultTableName string) string {
 		return defaultTableName
 	}
 	modelStructsMap = newModelStructsMap()

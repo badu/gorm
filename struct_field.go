@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"strings"
 )
 
 func NewStructField(fieldStruct reflect.StructField) (*StructField, error) {
@@ -29,13 +28,9 @@ func (structField *StructField) clone() *StructField {
 
 		DBName:       structField.DBName,
 		Names:        structField.Names,
-		TagSettings:  map[uint8]string{},
+		tagSettings:  structField.tagSettings.clone(),
 		Struct:       structField.Struct,
 		Relationship: structField.Relationship,
-	}
-
-	for key, value := range structField.TagSettings {
-		clone.TagSettings[key] = value
 	}
 
 	return clone
@@ -52,13 +47,11 @@ func (structField *StructField) cloneWithValue(value reflect.Value) *StructField
 
 		DBName:       structField.DBName,
 		Names:        structField.Names,
-		TagSettings:  map[uint8]string{},
+		tagSettings:  structField.tagSettings.clone(),
 		Struct:       structField.Struct,
 		Relationship: structField.Relationship,
 	}
-	for key, value := range structField.TagSettings {
-		clone.TagSettings[key] = value
-	}
+
 	clone.Value = value
 	//check if the value is blank
 	clone.setIsBlank()
@@ -68,51 +61,44 @@ func (structField *StructField) cloneWithValue(value reflect.Value) *StructField
 //Function collects information from tags named `sql:""` and `gorm:""`
 //TODO : @Badu - seems expensive to be called everytime
 func (structField *StructField) parseTagSettings() error {
-	structField.TagSettings = make(map[uint8]string)
+	structField.tagSettings = newTagSettings()
 	for _, str := range []string{structField.Struct.Tag.Get("sql"), structField.Struct.Tag.Get("gorm")} {
-		tags := strings.Split(str, ";")
-		for _, value := range tags {
-			v := strings.Split(value, ":")
-			k := strings.TrimSpace(strings.ToUpper(v[0]))
-			uint8Key, ok := tagSettingMap[k]
-			if ok {
-				if len(v) >= 2 {
-					structField.TagSettings[uint8Key] = strings.Join(v[1:], ":")
-				} else {
-					structField.TagSettings[uint8Key] = k
-				}
-			} else {
-				fmt.Errorf("ERROR : COULDN'T FIND KEY FOR %q", k)
-			}
+		err := structField.tagSettings.loadFromTags(str)
+		if err != nil {
+			return err
 		}
 	}
+	//fmt.Printf("After StructField parseTagSettings\n%s\n\n", structField)
 	return nil
 }
 
 // Set set a value to the field
 func (field *StructField) Set(value interface{}) (err error) {
 	if !field.Value.IsValid() {
+		//TODO : @Badu - make errors more explicit : which field...
 		return errors.New("field value not valid")
 	}
 
 	if !field.Value.CanAddr() {
 		return ErrUnaddressable
 	}
-
+	//type cast to value
 	reflectValue, ok := value.(reflect.Value)
 	if !ok {
+		//couldn't cast - reflecting it
 		reflectValue = reflect.ValueOf(value)
 	}
 
 	fieldValue := field.Value
 	if reflectValue.IsValid() {
 		if reflectValue.Type().ConvertibleTo(fieldValue.Type()) {
+			//we set it
 			fieldValue.Set(reflectValue.Convert(fieldValue.Type()))
 		} else {
-			//it's a pointer
 			if fieldValue.Kind() == reflect.Ptr {
-				//and it's NIL : we have to build it
+				//it's a pointer
 				if fieldValue.IsNil() {
+					//and it's NIL : we have to build it
 					fieldValue.Set(reflect.New(field.Struct.Type.Elem()))
 				}
 				//we dereference it
@@ -122,19 +108,26 @@ func (field *StructField) Set(value interface{}) (err error) {
 			if reflectValue.Type().ConvertibleTo(fieldValue.Type()) {
 				fieldValue.Set(reflectValue.Convert(fieldValue.Type()))
 			} else if scanner, ok := fieldValue.Addr().Interface().(sql.Scanner); ok {
+				//implements Scanner - we pass it over
 				err = scanner.Scan(reflectValue.Interface())
 			} else {
+				//Oops
+				//TODO : @Badu - make errors more explicit
 				err = fmt.Errorf("could not convert argument of field %s from %s to %s", field.GetName(), reflectValue.Type(), fieldValue.Type())
 			}
 		}
 	} else {
+		//it's not valid
 		field.Value.Set(reflect.Zero(field.Value.Type()))
 	}
 	//check if the value is blank
 	field.setIsBlank()
 	return err
 }
-//TODO : @Badu - seems expensive to be called everytime
+
+//TODO : @Badu - seems expensive to be called everytime. Maybe a good solution would be to
+//change isBlank = true by default and modify the code to change it to false only when we have a value
+//to make this less expensive
 func (structField *StructField) setIsBlank() {
 	structField.IsBlank = reflect.DeepEqual(structField.Value.Interface(), reflect.Zero(structField.Value.Type()).Interface())
 }
@@ -142,6 +135,7 @@ func (structField *StructField) setIsBlank() {
 func (structField *StructField) GetName() string {
 	return structField.Struct.Name
 }
+
 //TODO : implement it
 func (structField *StructField) GetNames() []string {
 	return nil
@@ -153,9 +147,52 @@ func (structField *StructField) GetTag() reflect.StructTag {
 	return structField.Struct.Tag
 }
 
+//checks if has such a key (for code readability)
+func (structField *StructField) HasSetting(named uint8) bool {
+	return structField.tagSettings.has(named)
+}
+
+//gets a key (for code readability)
+func (structField *StructField) GetSetting(named uint8) string {
+	return structField.tagSettings.get(named)
+}
+
+//sets a key (for code readability)
+func (structField *StructField) SetSetting(named uint8, value string) {
+	structField.tagSettings.set(named, value)
+}
+
+//deletes a key (for code readability)
+func (structField *StructField) UnsetSetting(named uint8) {
+	structField.tagSettings.unset(named)
+}
+
+/**
+reflect.StructField{
+	// Name is the field name.
+	Name string
+	// PkgPath is the package path that qualifies a lower case (unexported)
+	// field name. It is empty for upper case (exported) field names.
+	// See https://golang.org/ref/spec#Uniqueness_of_identifiers
+	PkgPath string
+
+	Type      Type      // field type
+	Tag       StructTag // field tag string
+	Offset    uintptr   // offset within struct, in bytes
+	Index     []int     // index sequence for Type.FieldByIndex
+	Anonymous bool      // is an embedded field
+}
+*/
+
 //implementation of Stringer
 //TODO : implement it
 func (structField StructField) String() string {
-	result := ""
+	result := fmt.Sprintf("%q:%q", "FieldName", structField.Struct.Name)
+	if structField.Struct.PkgPath != "" {
+		result += fmt.Sprintf(",%q:%q", "PkgPath", structField.Struct.PkgPath)
+	}
+	if structField.tagSettings.len() > 0 {
+		result += fmt.Sprintf(",%q:%s", "Tags", structField.tagSettings)
+	}
 	return fmt.Sprint(result)
 }

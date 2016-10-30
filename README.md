@@ -1,23 +1,26 @@
 # Todo
-- [ ] Create method named ComponentScan which is called either in Automigrate and stores the reflected entities in a cache
 - [ ] Concurent slice and map where needed
 - [ ] Documentation for tests and build examples
 - [ ] Stringer implementation on all structs for debugging
 - [ ] Reorganize local vars from various places
-- [ ] Fix test named TestNot
+- [ ] Reorganize deferred functions from various places
+- [ ] Fix test named TestNot :
 ```
 func TestNot(t *testing.T) {
 
 }
 ```
-# Decisions
-
-- [ ] Instead of cloning Scope, maybe it's a better idea to have a scope pool to reuse objects
 
 # Changes log
 
+## 30.10.2016 (Others)
+- [x] DB struct - renamed to DBCon, since that is what it represents
+
 ## 30.10.2016 (Operation Field -> StructField)
-- [ ] Stringer implementation StructField
+
+- [x] StructFields has it's own file to get rid of append() everywhere in the code
+- [x] TagSettings map[uint8]string in StructField will become a struct by itself, to support has(), get(), set(), clone(), loadFromTags()
+- [x] TagSettings should be private in StructField
 - [x] replace everywhere []*StructField with type StructFields
 - [x] create StructFields type []*StructField for code readability
 - [x] NewStructField method to create StructField from reflect.StructField
