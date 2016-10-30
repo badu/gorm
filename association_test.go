@@ -425,7 +425,8 @@ func TestHasMany(t *testing.T) {
 	}
 
 	if err := TestDB.Save(&post).Error; err != nil {
-		t.Error("Got errors when save post", err)
+		t.Error("Got errors when save post")
+		t.Errorf("ERROR : %v", err)
 	}
 
 	for _, comment := range post.Comments {
@@ -743,6 +744,7 @@ func TestRelated(t *testing.T) {
 
 	if err := TestDB.Save(&user).Error; err != nil {
 		t.Errorf("No error should happen when saving user")
+		t.Errorf("ERROR : %v", err)
 	}
 
 	if user.CreditCard.ID == 0 {

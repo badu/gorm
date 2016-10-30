@@ -33,12 +33,12 @@ func (association *Association) Replace(values ...interface{}) *Association {
 	var (
 		relationship = association.field.Relationship
 		scope        = association.scope
-		field        = association.field.Field
+		field        = association.field.Value
 		newDB        = scope.NewDB()
 	)
 
 	// Append new values
-	association.field.Set(reflect.Zero(association.field.Field.Type()))
+	association.field.Set(reflect.Zero(association.field.Value.Type()))
 	association.saveAssociations(values...)
 
 	// Belongs To
@@ -107,11 +107,11 @@ func (association *Association) Replace(values ...interface{}) *Association {
 			for idx, foreignKey := range relationship.ForeignDBNames {
 				foreignKeyMap[foreignKey] = nil
 				if field, ok := scope.FieldByName(relationship.AssociationForeignFieldNames[idx]); ok {
-					newDB = newDB.Where(fmt.Sprintf("%v = ?", scope.Quote(foreignKey)), field.Field.Interface())
+					newDB = newDB.Where(fmt.Sprintf("%v = ?", scope.Quote(foreignKey)), field.Value.Interface())
 				}
 			}
 
-			fieldValue := reflect.New(association.field.Field.Type()).Interface()
+			fieldValue := reflect.New(association.field.Value.Type()).Interface()
 			association.setErr(newDB.Model(fieldValue).UpdateColumn(foreignKeyMap).Error)
 		}
 	}
@@ -127,7 +127,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 	var (
 		relationship = association.field.Relationship
 		scope        = association.scope
-		field        = association.field.Field
+		field        = association.field.Value
 		newDB        = scope.NewDB()
 	)
 
@@ -147,7 +147,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 		// source value's foreign keys
 		for idx, foreignKey := range relationship.ForeignDBNames {
 			if field, ok := scope.FieldByName(relationship.ForeignFieldNames[idx]); ok {
-				newDB = newDB.Where(fmt.Sprintf("%v = ?", scope.Quote(foreignKey)), field.Field.Interface())
+				newDB = newDB.Where(fmt.Sprintf("%v = ?", scope.Quote(foreignKey)), field.Value.Interface())
 			}
 		}
 
@@ -204,7 +204,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 			)
 
 			// set matched relation's foreign key to be null
-			fieldValue := reflect.New(association.field.Field.Type()).Interface()
+			fieldValue := reflect.New(association.field.Value.Type()).Interface()
 			association.setErr(newDB.Model(fieldValue).UpdateColumn(foreignKeyMap).Error)
 		}
 	}
@@ -255,7 +255,7 @@ func (association *Association) Count() int {
 		count        = 0
 		relationship = association.field.Relationship
 		scope        = association.scope
-		fieldValue   = association.field.Field.Interface()
+		fieldValue   = association.field.Value.Interface()
 		query        = scope.DB()
 	)
 
@@ -310,7 +310,7 @@ func (association *Association) saveAssociations(values ...interface{}) *Associa
 		}
 
 		// Assign Fields
-		var fieldType = field.Field.Type()
+		var fieldType = field.Value.Type()
 		var setFieldBackToValue, setSliceFieldBackToValue bool
 		if reflectValue.Type().AssignableTo(fieldType) {
 			field.Set(reflectValue)
@@ -320,11 +320,11 @@ func (association *Association) saveAssociations(values ...interface{}) *Associa
 			field.Set(reflectValue.Elem())
 		} else if fieldType.Kind() == reflect.Slice {
 			if reflectValue.Type().AssignableTo(fieldType.Elem()) {
-				field.Set(reflect.Append(field.Field, reflectValue))
+				field.Set(reflect.Append(field.Value, reflectValue))
 			} else if reflectValue.Type().Elem().AssignableTo(fieldType.Elem()) {
 				// if field's type is slice of struct, then need to set value back to argument after save
 				setSliceFieldBackToValue = true
-				field.Set(reflect.Append(field.Field, reflectValue.Elem()))
+				field.Set(reflect.Append(field.Value, reflectValue.Elem()))
 			}
 		}
 
@@ -334,9 +334,9 @@ func (association *Association) saveAssociations(values ...interface{}) *Associa
 			association.setErr(scope.NewDB().Select(field.GetName()).Save(scope.Value).Error)
 
 			if setFieldBackToValue {
-				reflectValue.Elem().Set(field.Field)
+				reflectValue.Elem().Set(field.Value)
 			} else if setSliceFieldBackToValue {
-				reflectValue.Elem().Set(field.Field.Index(field.Field.Len() - 1))
+				reflectValue.Elem().Set(field.Value.Index(field.Value.Len() - 1))
 			}
 		}
 	}

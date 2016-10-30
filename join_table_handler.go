@@ -53,13 +53,13 @@ func (s JoinTableHandler) getSearchMap(db *DB, sources ...interface{}) map[strin
 		if s.Source.ModelType == modelType {
 			for _, foreignKey := range s.Source.ForeignKeys {
 				if field, ok := scope.FieldByName(foreignKey.AssociationDBName); ok {
-					values[foreignKey.DBName] = field.Field.Interface()
+					values[foreignKey.DBName] = field.Value.Interface()
 				}
 			}
 		} else if s.Destination.ModelType == modelType {
 			for _, foreignKey := range s.Destination.ForeignKeys {
 				if field, ok := scope.FieldByName(foreignKey.AssociationDBName); ok {
-					values[foreignKey.DBName] = field.Field.Interface()
+					values[foreignKey.DBName] = field.Value.Interface()
 				}
 			}
 		}

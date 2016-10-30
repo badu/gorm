@@ -134,13 +134,13 @@ func createCallback(scope *Scope) {
 						scope.InstanceSet("gorm:blank_columns_with_default_value", blankColumnsWithDefaultValue)
 					} else if !field.IsPrimaryKey || !field.IsBlank {
 						columns = append(columns, scope.Quote(field.DBName))
-						placeholders = append(placeholders, scope.AddToVars(field.Field.Interface()))
+						placeholders = append(placeholders, scope.AddToVars(field.Value.Interface()))
 					}
 				} else if field.Relationship != nil && field.Relationship.Kind == BELONGS_TO {
 					for _, foreignKey := range field.Relationship.ForeignDBNames {
 						if foreignField, ok := scope.FieldByName(foreignKey); ok && !scope.changeableField(foreignField) {
 							columns = append(columns, scope.Quote(foreignField.DBName))
-							placeholders = append(placeholders, scope.AddToVars(foreignField.Field.Interface()))
+							placeholders = append(placeholders, scope.AddToVars(foreignField.Value.Interface()))
 						}
 					}
 				}
@@ -196,7 +196,7 @@ func createCallback(scope *Scope) {
 				}
 			}
 		} else {
-			if err := scope.SQLDB().QueryRow(scope.SQL, scope.SQLVars...).Scan(primaryField.Field.Addr().Interface()); scope.Err(err) == nil {
+			if err := scope.SQLDB().QueryRow(scope.SQL, scope.SQLVars...).Scan(primaryField.Value.Addr().Interface()); scope.Err(err) == nil {
 				primaryField.IsBlank = false
 				scope.db.RowsAffected = 1
 			}
@@ -210,7 +210,7 @@ func forceReloadAfterCreateCallback(scope *Scope) {
 		db := scope.DB().New().Table(scope.TableName()).Select(blankColumnsWithDefaultValue.([]string))
 		for _, field := range scope.Fields() {
 			if field.IsPrimaryKey && !field.IsBlank {
-				db = db.Where(fmt.Sprintf("%v = ?", field.DBName), field.Field.Interface())
+				db = db.Where(fmt.Sprintf("%v = ?", field.DBName), field.Value.Interface())
 			}
 		}
 		db.Scan(scope.Value)
@@ -246,14 +246,14 @@ func saveBeforeAssociationsCallback(scope *Scope) {
 	for _, field := range scope.Fields() {
 		if scope.changeableField(field) && !field.IsBlank && !field.IsIgnored {
 			if relationship := field.Relationship; relationship != nil && relationship.Kind == BELONGS_TO {
-				fieldValue := field.Field.Addr().Interface()
+				fieldValue := field.Value.Addr().Interface()
 				scope.Err(scope.NewDB().Save(fieldValue).Error)
 				if len(relationship.ForeignFieldNames) != 0 {
 					// set value's foreign key
 					for idx, fieldName := range relationship.ForeignFieldNames {
 						associationForeignName := relationship.AssociationForeignDBNames[idx]
 						if foreignField, ok := scope.New(fieldValue).FieldByName(associationForeignName); ok {
-							scope.Err(scope.SetColumn(fieldName, foreignField.Field.Interface()))
+							scope.Err(scope.SetColumn(fieldName, foreignField.Value.Interface()))
 						}
 					}
 				}
@@ -269,7 +269,7 @@ func saveAfterAssociationsCallback(scope *Scope) {
 	for _, field := range scope.Fields() {
 		if scope.changeableField(field) && !field.IsBlank && !field.IsIgnored {
 			if relationship := field.Relationship; relationship != nil && relationship.Kind <= HAS_ONE {
-				value := field.Field
+				value := field.Value
 
 				switch value.Kind() {
 				case reflect.Slice:
@@ -282,7 +282,7 @@ func saveAfterAssociationsCallback(scope *Scope) {
 							for idx, fieldName := range relationship.ForeignFieldNames {
 								associationForeignName := relationship.AssociationForeignDBNames[idx]
 								if f, ok := scope.FieldByName(associationForeignName); ok {
-									scope.Err(newScope.SetColumn(fieldName, f.Field.Interface()))
+									scope.Err(newScope.SetColumn(fieldName, f.Value.Interface()))
 								}
 							}
 						}
@@ -304,7 +304,7 @@ func saveAfterAssociationsCallback(scope *Scope) {
 						for idx, fieldName := range relationship.ForeignFieldNames {
 							associationForeignName := relationship.AssociationForeignDBNames[idx]
 							if f, ok := scope.FieldByName(associationForeignName); ok {
-								scope.Err(newScope.SetColumn(fieldName, f.Field.Interface()))
+								scope.Err(newScope.SetColumn(fieldName, f.Value.Interface()))
 							}
 						}
 					}
@@ -366,12 +366,12 @@ func updateCallback(scope *Scope) {
 			for _, field := range scope.Fields() {
 				if scope.changeableField(field) {
 					if !field.IsPrimaryKey && field.IsNormal {
-						sqls = append(sqls, fmt.Sprintf("%v = %v", scope.Quote(field.DBName), scope.AddToVars(field.Field.Interface())))
+						sqls = append(sqls, fmt.Sprintf("%v = %v", scope.Quote(field.DBName), scope.AddToVars(field.Value.Interface())))
 					} else if relationship := field.Relationship; relationship != nil && relationship.Kind == BELONGS_TO {
 						for _, foreignKey := range relationship.ForeignDBNames {
 							if foreignField, ok := scope.FieldByName(foreignKey); ok && !scope.changeableField(foreignField) {
 								sqls = append(sqls,
-									fmt.Sprintf("%v = %v", scope.Quote(foreignField.DBName), scope.AddToVars(foreignField.Field.Interface())))
+									fmt.Sprintf("%v = %v", scope.Quote(foreignField.DBName), scope.AddToVars(foreignField.Value.Interface())))
 							}
 						}
 					}
@@ -724,7 +724,7 @@ func convertInterfaceToMap(values interface{}, withIgnoredField bool) map[string
 		default:
 			for _, field := range (&Scope{Value: values}).Fields() {
 				if !field.IsBlank && (withIgnoredField || !field.IsIgnored) {
-					attrs[field.DBName] = field.Field.Interface()
+					attrs[field.DBName] = field.Value.Interface()
 				}
 			}
 		}
@@ -838,10 +838,6 @@ func fileWithLineNum() string {
 		}
 	}
 	return ""
-}
-
-func isBlank(value reflect.Value) bool {
-	return reflect.DeepEqual(value.Interface(), reflect.Zero(value.Type()).Interface())
 }
 
 func toSearchableMap(attrs ...interface{}) (result interface{}) {

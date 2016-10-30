@@ -605,6 +605,8 @@ func (orm *DB) GetErrors() (errors []error) {
 ////////////////////////////////////////////////////////////////////////////////
 // Private Methods For *gorm.DB
 ////////////////////////////////////////////////////////////////////////////////
+//TODO : @Badu - since some calls want this without values and search (like scope.NewDB)
+//maybe it's a good idea to have a parameter to instruct search and value transfers
 func (orm *DB) clone() *DB {
 	db := DB{db: orm.db, parent: orm.parent, logger: orm.logger, logMode: orm.logMode, values: map[string]interface{}{}, Value: orm.Value, Error: orm.Error}
 

@@ -62,6 +62,10 @@ type (
 	// StructField model field's struct definition
 	//TODO : @Badu - instead of having this bunch of flags - a bitflag seems better
 	//TODO : @Badu - a StructField should support multiple relationships
+	//TODO : @Badu - do NOT attempt to make pointer for Struct property
+	//TODO : @Badu - maybe TagSettings property should be private and have access with a method
+	//since clone strategy is based exactly on that (that you get a copy of
+	//Struct property instead of the pointer to the same value)
 	StructField struct {
 		IsPrimaryKey    bool
 		IsNormal        bool
@@ -69,13 +73,21 @@ type (
 		IsScanner       bool
 		HasDefaultValue bool
 		IsForeignKey    bool
+		IsBlank         bool
 
-		DBName       string
-		Names        []string
-		TagSettings  map[uint8]string
-		Struct       reflect.StructField
+		DBName string
+		Names  []string
+
+		TagSettings map[uint8]string
+
+		Struct reflect.StructField
+		Value  reflect.Value
+
 		Relationship *Relationship
 	}
+
+	//For code readability
+	StructFields []*StructField
 
 	// Relationship described the relationship between models
 	Relationship struct {
@@ -96,10 +108,8 @@ type (
 		Error  error
 		scope  *Scope
 		column string
-		field  *Field
+		field  *StructField
 	}
-
-
 
 	// ModelStruct model definition
 	ModelStruct struct {
@@ -125,45 +135,49 @@ type (
 		args []interface{}
 	}
 
-	//TODO : @Badu - should be swallowed by StructField, because
-	// adds just another flag and the reflected value
-	// Field model field definition
-	Field struct {
-		*StructField
-		IsBlank bool
-		Field   reflect.Value
-	}
-
 	// DB contains information for current db connection
+	//TODO : @Badu - if it holds current db connection why not name it accordingly???
 	DB struct {
-		Value             interface{}
-		Error             error
-		RowsAffected      int64
-		callbacks         *Callback
-		db                sqlCommon
-		parent            *DB
-		search            *search
-		logMode           int
-		logger            logger
-		dialect           Dialect
-		singularTable     bool
-		source            string
-		values            map[string]interface{}
+		parent  *DB
+		dialect Dialect
+		Value   interface{}
+		values  map[string]interface{}
+
+		Error error
+
+		callbacks *Callback
+		db        sqlCommon
+
+		search       *search
+		RowsAffected int64
+
+		logMode int
+		logger  logger
+
+		singularTable bool
+		source        string
+
 		joinTableHandlers map[string]JoinTableHandler
 	}
 
 	// Scope contain current operation's information when you perform any operation on the database
 	Scope struct {
-		Search          *search
-		Value           interface{}
-		SQL             string
-		SQLVars         []interface{}
-		db              *DB
-		instanceID      string
-		primaryKeyField *Field
-		skipLeft        bool
-		fields          *[]*Field
-		selectAttrs     *[]string
+		db *DB
+
+		Search *search
+		Value  interface{}
+
+		selectAttrs *[]string
+
+		SQL     string
+		SQLVars []interface{}
+
+		instanceID string
+
+		primaryKeyField *StructField
+		fields          *[]*StructField
+
+		skipLeft bool
 	}
 
 	search struct {
@@ -173,11 +187,11 @@ type (
 		notConditions    []map[string]interface{}
 		havingConditions []map[string]interface{}
 		joinConditions   []map[string]interface{}
+		selects          map[string]interface{}
 		initAttrs        []interface{}
 		assignAttrs      []interface{}
-		selects          map[string]interface{}
-		omits            []string
 		orders           []interface{}
+		omits            []string
 		preload          []searchPreload
 		offset           interface{}
 		limit            interface{}
@@ -187,7 +201,6 @@ type (
 		Unscoped         bool
 		countingQuery    bool
 	}
-
 	searchPreload struct {
 		schema     string
 		conditions []interface{}
@@ -196,7 +209,6 @@ type (
 	tabler interface {
 		TableName() string
 	}
-
 	dbTabler interface {
 		TableName(*DB) string
 	}
@@ -305,18 +317,15 @@ type (
 	sqlite3 struct {
 		commonDialect
 	}
-
 	sqlCommon interface {
 		Exec(query string, args ...interface{}) (sql.Result, error)
 		Prepare(query string) (*sql.Stmt, error)
 		Query(query string, args ...interface{}) (*sql.Rows, error)
 		QueryRow(query string, args ...interface{}) *sql.Row
 	}
-
 	sqlDb interface {
 		Begin() (*sql.Tx, error)
 	}
-
 	sqlTx interface {
 		Commit() error
 		Rollback() error
@@ -325,7 +334,6 @@ type (
 	errorsInterface interface {
 		GetErrors() []error
 	}
-
 	// Errors contains all happened errors
 	Errors struct {
 		errors []error
@@ -348,19 +356,16 @@ type (
 		// DestinationForeignKeys return destination foreign keys
 		DestinationForeignKeys() []JoinTableForeignKey
 	}
-
 	// JoinTableForeignKey join table foreign key struct
 	JoinTableForeignKey struct {
 		DBName            string
 		AssociationDBName string
 	}
-
 	// JoinTableSource is a struct that contains model type and foreign keys
 	JoinTableSource struct {
 		ModelType   reflect.Type
 		ForeignKeys []JoinTableForeignKey
 	}
-
 	// JoinTableHandler default join table handler
 	JoinTableHandler struct {
 		TableName   string          `sql:"-"`
@@ -423,16 +428,21 @@ var (
 	columnRegexp = regexp.MustCompile("^[a-zA-Z]+(\\.[a-zA-Z]+)*$") // only match string like `name`, `users.name`
 
 	defaultLogger = Logger{log.New(os.Stdout, "\r\n", 0)}
-	sqlRegexp     = regexp.MustCompile(`(\$\d+)|\?`)
+
+	sqlRegexp = regexp.MustCompile(`(\$\d+)|\?`)
 
 	// ErrRecordNotFound record not found error, happens when haven't find any matched data when looking up with a struct
 	ErrRecordNotFound = errors.New("record not found")
+
 	// ErrInvalidSQL invalid SQL error, happens when you passed invalid SQL
 	ErrInvalidSQL = errors.New("invalid SQL")
+
 	// ErrInvalidTransaction invalid transaction when you are trying to `Commit` or `Rollback`
 	ErrInvalidTransaction = errors.New("no valid transaction")
+
 	// ErrCantStartTransaction can't start transaction when you are trying to start one with `Begin`
 	ErrCantStartTransaction = errors.New("can't start transaction")
+
 	// ErrUnaddressable unaddressable value
 	ErrUnaddressable = errors.New("using unaddressable value")
 )

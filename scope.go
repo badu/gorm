@@ -93,10 +93,10 @@ func (scope *Scope) SkipLeft() {
 }
 
 // Fields get value's fields
-func (scope *Scope) Fields() []*Field {
+func (scope *Scope) Fields() []*StructField {
 	if scope.fields == nil {
 		var (
-			fields             []*Field
+			fields             []*StructField
 			indirectScopeValue = scope.IndirectValue()
 			isStruct           = indirectScopeValue.Kind() == reflect.Struct
 		)
@@ -107,22 +107,26 @@ func (scope *Scope) Fields() []*Field {
 				for _, name := range structField.Names {
 					fieldValue = reflect.Indirect(fieldValue).FieldByName(name)
 				}
-				fields = append(fields, &Field{StructField: structField, Field: fieldValue, IsBlank: isBlank(fieldValue)})
+				clonedField := structField.cloneWithValue(fieldValue)
+				fields = append(fields, clonedField)
 			} else {
-				fields = append(fields, &Field{StructField: structField, IsBlank: true})
+				clonedField := structField.clone()
+				clonedField.IsBlank = true
+				fields = append(fields, clonedField)
 			}
 		}
+		//TODO : @Badu - really ???
 		scope.fields = &fields
 	}
-
+	//TODO : @Badu - really , really ???
 	return *scope.fields
 }
 
 // FieldByName find `gorm.Field` with field name or db name
-func (scope *Scope) FieldByName(name string) (field *Field, ok bool) {
+func (scope *Scope) FieldByName(name string) (field *StructField, ok bool) {
 	var (
 		dbName           = ToDBName(name)
-		mostMatchedField *Field
+		mostMatchedField *StructField
 	)
 
 	for _, field := range scope.Fields() {
@@ -137,7 +141,7 @@ func (scope *Scope) FieldByName(name string) (field *Field, ok bool) {
 }
 
 // PrimaryFields return scope's primary fields
-func (scope *Scope) PrimaryFields() (fields []*Field) {
+func (scope *Scope) PrimaryFields() (fields []*StructField) {
 	for _, field := range scope.Fields() {
 		if field.IsPrimaryKey {
 			fields = append(fields, field)
@@ -147,7 +151,7 @@ func (scope *Scope) PrimaryFields() (fields []*Field) {
 }
 
 // PrimaryField return scope's main primary field, if defined more that one primary fields, will return the one having column name `id` or the first one
-func (scope *Scope) PrimaryField() *Field {
+func (scope *Scope) PrimaryField() *StructField {
 	if primaryFields := scope.GetModelStruct().PrimaryFields; len(primaryFields) > 0 {
 		if len(primaryFields) > 1 {
 			if field, ok := scope.FieldByName("id"); ok {
@@ -175,8 +179,8 @@ func (scope *Scope) PrimaryKeyZero() bool {
 
 // PrimaryKeyValue get the primary key's value
 func (scope *Scope) PrimaryKeyValue() interface{} {
-	if field := scope.PrimaryField(); field != nil && field.Field.IsValid() {
-		return field.Field.Interface()
+	if field := scope.PrimaryField(); field != nil && field.Value.IsValid() {
+		return field.Value.Interface()
 	}
 	return 0
 }
@@ -199,13 +203,13 @@ func (scope *Scope) SetColumn(column interface{}, value interface{}) error {
 		defer scope.InstanceSet("gorm:update_attrs", updateAttrs)
 	}
 
-	if field, ok := column.(*Field); ok {
+	if field, ok := column.(*StructField); ok {
 		updateAttrs[field.DBName] = value
 		return field.Set(value)
 	} else if name, ok := column.(string); ok {
 		var (
 			dbName           = ToDBName(name)
-			mostMatchedField *Field
+			mostMatchedField *StructField
 		)
 		for _, field := range scope.Fields() {
 			if field.DBName == value {
@@ -430,13 +434,13 @@ func (scope *Scope) quoteIfPossible(str string) string {
 	return str
 }
 
-func (scope *Scope) scan(rows *sql.Rows, columns []string, fields []*Field) {
+func (scope *Scope) scan(rows *sql.Rows, columns []string, fields []*StructField) {
 	var (
 		ignored            interface{}
 		values             = make([]interface{}, len(columns))
-		selectFields       []*Field
+		selectFields       []*StructField
 		selectedColumnsMap = map[string]int{}
-		resetFields        = map[int]*Field{}
+		resetFields        = map[int]*StructField{}
 	)
 
 	for index, column := range columns {
@@ -449,11 +453,11 @@ func (scope *Scope) scan(rows *sql.Rows, columns []string, fields []*Field) {
 
 		for fieldIndex, field := range selectFields {
 			if field.DBName == column {
-				if field.Field.Kind() == reflect.Ptr {
-					values[index] = field.Field.Addr().Interface()
+				if field.Value.Kind() == reflect.Ptr {
+					values[index] = field.Value.Addr().Interface()
 				} else {
 					reflectValue := reflect.New(reflect.PtrTo(field.Struct.Type))
-					reflectValue.Elem().Set(field.Field.Addr())
+					reflectValue.Elem().Set(field.Value.Addr())
 					values[index] = reflectValue.Interface()
 					resetFields[index] = field
 				}
@@ -471,7 +475,7 @@ func (scope *Scope) scan(rows *sql.Rows, columns []string, fields []*Field) {
 
 	for index, field := range resetFields {
 		if v := reflect.ValueOf(values[index]).Elem().Elem(); v.IsValid() {
-			field.Field.Set(v)
+			field.Value.Set(v)
 		}
 	}
 }
@@ -509,7 +513,7 @@ func (scope *Scope) buildWhereCondition(clause map[string]interface{}) (str stri
 		newScope := scope.New(value)
 		for _, field := range newScope.Fields() {
 			if !field.IsIgnored && !field.IsBlank {
-				sqls = append(sqls, fmt.Sprintf("(%v.%v = %v)", newScope.QuotedTableName(), scope.Quote(field.DBName), scope.AddToVars(field.Field.Interface())))
+				sqls = append(sqls, fmt.Sprintf("(%v.%v = %v)", newScope.QuotedTableName(), scope.Quote(field.DBName), scope.AddToVars(field.Value.Interface())))
 			}
 		}
 		return strings.Join(sqls, " AND ")
@@ -581,7 +585,7 @@ func (scope *Scope) buildNotCondition(clause map[string]interface{}) (str string
 		var newScope = scope.New(value)
 		for _, field := range newScope.Fields() {
 			if !field.IsBlank {
-				sqls = append(sqls, fmt.Sprintf("(%v.%v <> %v)", newScope.QuotedTableName(), scope.Quote(field.DBName), scope.AddToVars(field.Field.Interface())))
+				sqls = append(sqls, fmt.Sprintf("(%v.%v <> %v)", newScope.QuotedTableName(), scope.Quote(field.DBName), scope.AddToVars(field.Value.Interface())))
 			}
 		}
 		return strings.Join(sqls, " AND ")
@@ -653,7 +657,7 @@ func (scope *Scope) whereSQL() (sql string) {
 
 	if !scope.PrimaryKeyZero() {
 		for _, field := range scope.PrimaryFields() {
-			sql := fmt.Sprintf("%v.%v = %v", quotedTableName, scope.Quote(field.DBName), scope.AddToVars(field.Field.Interface()))
+			sql := fmt.Sprintf("%v.%v = %v", quotedTableName, scope.Quote(field.DBName), scope.AddToVars(field.Value.Interface()))
 			primaryConditions = append(primaryConditions, sql)
 		}
 	}
@@ -814,7 +818,7 @@ func (scope *Scope) updatedAttrsWithValues(value interface{}) (results map[strin
 					if err == ErrUnaddressable {
 						results[field.DBName] = value
 					} else {
-						results[field.DBName] = field.Field.Interface()
+						results[field.DBName] = field.Value.Interface()
 					}
 				}
 			}
@@ -892,7 +896,7 @@ func (scope *Scope) trace(t time.Time) {
 	}
 }
 
-func (scope *Scope) changeableField(field *Field) bool {
+func (scope *Scope) changeableField(field *StructField) bool {
 	if selectAttrs := scope.SelectAttrs(); len(selectAttrs) > 0 {
 		for _, attr := range selectAttrs {
 			if field.GetName() == attr || field.DBName == attr {
@@ -934,7 +938,7 @@ func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
 					query := toScope.db
 					for idx, foreignKey := range relationship.ForeignDBNames {
 						if field, ok := scope.FieldByName(foreignKey); ok {
-							query = query.Where(fmt.Sprintf("%v = ?", scope.Quote(relationship.AssociationForeignDBNames[idx])), field.Field.Interface())
+							query = query.Where(fmt.Sprintf("%v = ?", scope.Quote(relationship.AssociationForeignDBNames[idx])), field.Value.Interface())
 						}
 					}
 					scope.Err(query.Find(value).Error)
@@ -942,7 +946,7 @@ func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
 					query := toScope.db
 					for idx, foreignKey := range relationship.ForeignDBNames {
 						if field, ok := scope.FieldByName(relationship.AssociationForeignDBNames[idx]); ok {
-							query = query.Where(fmt.Sprintf("%v = ?", scope.Quote(foreignKey)), field.Field.Interface())
+							query = query.Where(fmt.Sprintf("%v = ?", scope.Quote(foreignKey)), field.Value.Interface())
 						}
 					}
 
@@ -953,7 +957,7 @@ func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
 				}
 			} else {
 				sql := fmt.Sprintf("%v = ?", scope.Quote(toScope.PrimaryKey()))
-				scope.Err(toScope.db.Where(sql, fromField.Field.Interface()).Find(value).Error)
+				scope.Err(toScope.db.Where(sql, fromField.Value.Interface()).Find(value).Error)
 			}
 			return scope
 		} else if toField != nil {
@@ -1263,13 +1267,11 @@ func (scope *Scope) GetModelStruct() *ModelStruct {
 	// Get all fields
 	for i := 0; i < reflectType.NumField(); i++ {
 		if fieldStruct := reflectType.Field(i); ast.IsExported(fieldStruct.Name) {
-			field := &StructField{
-				Struct:      fieldStruct,
-				Names:       []string{fieldStruct.Name},
+			field, err := NewStructField(fieldStruct)
+			if err != nil {
+				fmt.Printf("ERROR processing tags : %v\n", err)
+				//TODO : @Badu - catch this error - we might fail processing tags
 			}
-			//Added by Badu - field should process itself the tag settings
-			field.ParseTagSettings()
-
 			// is ignored field
 			if _, ok := field.TagSettings[IGNORED]; ok {
 				field.IsIgnored = true
@@ -1289,6 +1291,7 @@ func (scope *Scope) GetModelStruct() *ModelStruct {
 
 				indirectType := fieldStruct.Type
 				for indirectType.Kind() == reflect.Ptr {
+					//dereference it, it's a pointer
 					indirectType = indirectType.Elem()
 				}
 
@@ -1308,6 +1311,8 @@ func (scope *Scope) GetModelStruct() *ModelStruct {
 				} else if _, isTime := fieldValue.(*time.Time); isTime {
 					// is time
 					field.IsNormal = true
+					//TODO: @Badu - maybe field should have HasTagSetting(EMBEDDED) bool
+					//instead of doing this _, ok := every single time in many places
 				} else if _, ok := field.TagSettings[EMBEDDED]; ok || fieldStruct.Anonymous {
 					// is embedded struct
 					for _, subField := range scope.New(fieldValue).GetStructFields() {
@@ -1687,7 +1692,7 @@ func (scope *Scope) generatePreloadDBWithConditions(conditions []interface{}) (*
 }
 
 // handleHasOnePreload used to preload has one associations
-func (scope *Scope) handleHasOnePreload(field *Field, conditions []interface{}) {
+func (scope *Scope) handleHasOnePreload(field *StructField, conditions []interface{}) {
 	relation := field.Relationship
 
 	// get relations's primary keys
@@ -1736,7 +1741,7 @@ func (scope *Scope) handleHasOnePreload(field *Field, conditions []interface{}) 
 }
 
 // handleHasManyPreload used to preload has many associations
-func (scope *Scope) handleHasManyPreload(field *Field, conditions []interface{}) {
+func (scope *Scope) handleHasManyPreload(field *StructField, conditions []interface{}) {
 	relation := field.Relationship
 
 	// get relations's primary keys
@@ -1789,7 +1794,7 @@ func (scope *Scope) handleHasManyPreload(field *Field, conditions []interface{})
 }
 
 // handleBelongsToPreload used to preload belongs to associations
-func (scope *Scope) handleBelongsToPreload(field *Field, conditions []interface{}) {
+func (scope *Scope) handleBelongsToPreload(field *StructField, conditions []interface{}) {
 	relation := field.Relationship
 
 	// preload conditions
@@ -1828,7 +1833,7 @@ func (scope *Scope) handleBelongsToPreload(field *Field, conditions []interface{
 }
 
 // handleManyToManyPreload used to preload many to many associations
-func (scope *Scope) handleManyToManyPreload(field *Field, conditions []interface{}) {
+func (scope *Scope) handleManyToManyPreload(field *StructField, conditions []interface{}) {
 	var (
 		relation         = field.Relationship
 		joinTableHandler = relation.JoinTableHandler
@@ -1877,9 +1882,9 @@ func (scope *Scope) handleManyToManyPreload(field *Field, conditions []interface
 		)
 
 		// register foreign keys in join tables
-		var joinTableFields []*Field
+		var joinTableFields []*StructField
 		for _, sourceKey := range sourceKeys {
-			joinTableFields = append(joinTableFields, &Field{StructField: &StructField{DBName: sourceKey, IsNormal: true}, Field: reflect.New(foreignKeyType).Elem()})
+			joinTableFields = append(joinTableFields, &StructField{DBName: sourceKey, IsNormal: true, Value: reflect.New(foreignKeyType).Elem()})
 		}
 
 		scope.scan(rows, columns, append(fields, joinTableFields...))
@@ -1887,8 +1892,8 @@ func (scope *Scope) handleManyToManyPreload(field *Field, conditions []interface
 		var foreignKeys = make([]interface{}, len(sourceKeys))
 		// generate hashed forkey keys in join table
 		for idx, joinTableField := range joinTableFields {
-			if !joinTableField.Field.IsNil() {
-				foreignKeys[idx] = joinTableField.Field.Elem().Interface()
+			if !joinTableField.Value.IsNil() {
+				foreignKeys[idx] = joinTableField.Value.Elem().Interface()
 			}
 		}
 		hashedSourceKeys := toString(foreignKeys)
