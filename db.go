@@ -146,6 +146,7 @@ func (orm *DBCon) Joins(query string, args ...interface{}) *DBCon {
 //
 //     db.Scopes(AmountGreaterThan1000, OrderStatus([]string{"paid", "shipped"})).Find(&orders)
 // Refer https://jinzhu.github.io/gorm/curd.html#scopes
+//TODO : Badu - replace this - it's soooo ugly
 func (orm *DBCon) Scopes(funcs ...func(*DBCon) *DBCon) *DBCon {
 	for _, f := range funcs {
 		//TODO : @Badu - assignment to method receiver propagates only to callees but not to callers
@@ -559,9 +560,9 @@ func (orm *DBCon) SetJoinTableHandler(source interface{}, column string, handler
 	for _, field := range scope.GetModelStruct().StructFields {
 		if field.GetName() == column || field.DBName == column {
 			if many2many := field.GetSetting(MANY2MANY); many2many != "" {
-				source := (&Scope{Value: source}).GetModelStruct().ModelType
+				src := (&Scope{Value: source}).GetModelStruct().ModelType
 				destination := (&Scope{Value: reflect.New(field.Struct.Type).Interface()}).GetModelStruct().ModelType
-				handler.Setup(field.Relationship, many2many, source, destination)
+				handler.Setup(field.Relationship, many2many, src, destination)
 				field.Relationship.JoinTableHandler = handler
 				if table := handler.Table(orm); scope.Dialect().HasTable(table) {
 					orm.Table(table).AutoMigrate(handler)
@@ -576,15 +577,14 @@ func (orm *DBCon) AddError(err error) error {
 	if err != nil {
 		if err != ErrRecordNotFound {
 			if orm.logMode == 0 {
-				go orm.print(fileWithLineNum(), err)
+				go orm.toLog(fileWithLineNum(), err)
 			} else {
 				orm.log(err)
 			}
-			//TODO : @Badu - rename this - collides with imported package name
-			errors := Errors{errors: orm.GetErrors()}
-			errors.Add(err)
-			if len(errors.GetErrors()) > 1 {
-				err = errors
+			gormErrors := GormErrors{errors: orm.GetErrors()}
+			gormErrors.Add(err)
+			if len(gormErrors.GetErrors()) > 1 {
+				err = gormErrors
 			}
 		}
 
@@ -594,13 +594,13 @@ func (orm *DBCon) AddError(err error) error {
 }
 
 // GetErrors get happened errors from the db
-func (orm *DBCon) GetErrors() (errors []error) {
+func (orm *DBCon) GetErrors() []error {
 	if errs, ok := orm.Error.(errorsInterface); ok {
 		return errs.GetErrors()
 	} else if orm.Error != nil {
 		return []error{orm.Error}
 	}
-	return
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -633,19 +633,18 @@ func (orm *DBCon) clone() *DBCon {
 	return &db
 }
 
-//TODO : @Badu - rename this - collides with builtin function
-func (orm *DBCon) print(v ...interface{}) {
+func (orm *DBCon) toLog(v ...interface{}) {
 	orm.logger.(logger).Print(v...)
 }
 
 func (orm *DBCon) log(v ...interface{}) {
 	if orm != nil && orm.logMode == 2 {
-		orm.print(append([]interface{}{"log", fileWithLineNum()}, v...)...)
+		orm.toLog(append([]interface{}{"log", fileWithLineNum()}, v...)...)
 	}
 }
 
 func (orm *DBCon) slog(sql string, t time.Time, vars ...interface{}) {
 	if orm.logMode == 2 {
-		orm.print("sql", fileWithLineNum(), NowFunc().Sub(t), sql, vars)
+		orm.toLog("sql", fileWithLineNum(), NowFunc().Sub(t), sql, vars)
 	}
 }

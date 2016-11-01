@@ -1,4 +1,4 @@
-package gorm
+package tests
 
 import (
 	"testing"
@@ -17,7 +17,7 @@ func TestJoinTable(t *testing.T) {
 	TestDB.Save(person)
 	person2 := &Person{}
 	TestDB.Model(person).Where(Person{Id: person.Id}).Related(&person2.Addresses, "Addresses").Find(&person2)
-	//TODO : @Badu - seems to me it fails retrieving with relations
+	//TODO : @Badu - seems to me it fails retrieving with relations as I expect it
 	TestDB.Model(person).Association("Addresses").Delete(address1)
 
 	if TestDB.Find(&[]PersonAddress{}, "person_id = ?", person.Id).RowsAffected != 1 {

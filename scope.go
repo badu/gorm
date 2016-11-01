@@ -123,7 +123,7 @@ func (scope *Scope) Fields() StructFields {
 }
 
 // FieldByName find `gorm.Field` with field name or db name
-func (scope *Scope) FieldByName(name string) (field *StructField, ok bool) {
+func (scope *Scope) FieldByName(name string) (*StructField, bool) {
 	var (
 		dbName           = ToDBName(name)
 		mostMatchedField *StructField
@@ -139,12 +139,14 @@ func (scope *Scope) FieldByName(name string) (field *StructField, ok bool) {
 	}
 	return mostMatchedField, mostMatchedField != nil
 }
+
 // TODO : @Badu - should be StructFields responsability to know it's primary keys once they were added to the slice
 // PrimaryFields return scope's primary fields
-func (scope *Scope) PrimaryFields() (fields StructFields) {
+func (scope *Scope) PrimaryFields() StructFields {
+	var fields StructFields
 	for _, field := range scope.Fields() {
 		if field.IsPrimaryKey {
-			fields = append(fields, field)
+			fields.add(field)
 		}
 	}
 	return fields
@@ -304,7 +306,7 @@ func (scope *Scope) TableName() string {
 }
 
 // QuotedTableName return quoted table name
-func (scope *Scope) QuotedTableName() (name string) {
+func (scope *Scope) QuotedTableName() string {
 	if scope.Search != nil && len(scope.Search.tableName) > 0 {
 		if strings.Index(scope.Search.tableName, " ") != -1 {
 			return scope.Search.tableName
@@ -317,8 +319,12 @@ func (scope *Scope) QuotedTableName() (name string) {
 
 // CombinedConditionSql return combined condition sql
 func (scope *Scope) CombinedConditionSql() string {
-	return scope.joinsSQL() + scope.whereSQL() + scope.groupSQL() +
-		scope.havingSQL() + scope.orderSQL() + scope.limitAndOffsetSQL()
+	return scope.joinsSQL() +
+		scope.whereSQL() +
+		scope.groupSQL() +
+		scope.havingSQL() +
+		scope.orderSQL() +
+		scope.limitAndOffsetSQL()
 }
 
 // Raw set raw sql
@@ -360,7 +366,9 @@ func (scope *Scope) InstanceID() string {
 	return scope.instanceID
 }
 
-// InstanceSet set instance setting for current operation, but not for operations in callbacks, like saving associations callback
+// InstanceSet set instance setting for current operation,
+// but not for operations in callbacks,
+// like saving associations callback
 func (scope *Scope) InstanceSet(name string, value interface{}) *Scope {
 	return scope.Set(name+scope.InstanceID(), value)
 }
@@ -487,7 +495,8 @@ func (scope *Scope) primaryCondition(value interface{}) string {
 	return fmt.Sprintf("(%v.%v = %v)", scope.QuotedTableName(), scope.Quote(scope.PrimaryKey()), value)
 }
 
-func (scope *Scope) buildWhereCondition(clause map[string]interface{}) (str string) {
+func (scope *Scope) buildWhereCondition(clause map[string]interface{}) string {
+	var str string
 	switch value := clause["query"].(type) {
 	case string:
 		// if string is number
@@ -545,10 +554,11 @@ func (scope *Scope) buildWhereCondition(clause map[string]interface{}) (str stri
 			str = strings.Replace(str, "?", scope.AddToVars(arg), 1)
 		}
 	}
-	return
+	return str
 }
 
-func (scope *Scope) buildNotCondition(clause map[string]interface{}) (str string) {
+func (scope *Scope) buildNotCondition(clause map[string]interface{}) string {
+	var str string
 	var notEqualSQL string
 	var primaryKey = scope.PrimaryKey()
 
@@ -616,10 +626,11 @@ func (scope *Scope) buildNotCondition(clause map[string]interface{}) (str string
 			str = strings.Replace(notEqualSQL, "?", scope.AddToVars(arg), 1)
 		}
 	}
-	return
+	return str
 }
 
-func (scope *Scope) buildSelectQuery(clause map[string]interface{}) (str string) {
+func (scope *Scope) buildSelectQuery(clause map[string]interface{}) string {
+	var str string
 	switch value := clause["query"].(type) {
 	case string:
 		str = value
@@ -644,47 +655,43 @@ func (scope *Scope) buildSelectQuery(clause map[string]interface{}) (str string)
 			str = strings.Replace(str, "?", scope.AddToVars(arg), 1)
 		}
 	}
-	return
+	return str
 }
 
-func (scope *Scope) whereSQL() (sql string) {
+func (scope *Scope) whereSQL() string {
 	var (
+		str                                            string
 		quotedTableName                                = scope.QuotedTableName()
 		primaryConditions, andConditions, orConditions []string
 	)
 
 	if !scope.Search.Unscoped && scope.HasColumn("deleted_at") {
-		//TODO : @Badu - rename this - collides with imported package name
-		sql := fmt.Sprintf("%v.deleted_at IS NULL", quotedTableName)
-		primaryConditions = append(primaryConditions, sql)
+		aStr := fmt.Sprintf("%v.deleted_at IS NULL", quotedTableName)
+		primaryConditions = append(primaryConditions, aStr)
 	}
 
 	if !scope.PrimaryKeyZero() {
 		for _, field := range scope.PrimaryFields() {
-			//TODO : @Badu - rename this - collides with imported package name
-			sql := fmt.Sprintf("%v.%v = %v", quotedTableName, scope.Quote(field.DBName), scope.AddToVars(field.Value.Interface()))
-			primaryConditions = append(primaryConditions, sql)
+			aStr := fmt.Sprintf("%v.%v = %v", quotedTableName, scope.Quote(field.DBName), scope.AddToVars(field.Value.Interface()))
+			primaryConditions = append(primaryConditions, aStr)
 		}
 	}
 
 	for _, clause := range scope.Search.whereConditions {
-		//TODO : @Badu - rename this - collides with imported package name
-		if sql := scope.buildWhereCondition(clause); sql != "" {
-			andConditions = append(andConditions, sql)
+		if aStr := scope.buildWhereCondition(clause); aStr != "" {
+			andConditions = append(andConditions, aStr)
 		}
 	}
 
 	for _, clause := range scope.Search.orConditions {
-		//TODO : @Badu - rename this - collides with imported package name
-		if sql := scope.buildWhereCondition(clause); sql != "" {
-			orConditions = append(orConditions, sql)
+		if aStr := scope.buildWhereCondition(clause); aStr != "" {
+			orConditions = append(orConditions, aStr)
 		}
 	}
 
 	for _, clause := range scope.Search.notConditions {
-		//TODO : @Badu - rename this - collides with imported package name
-		if sql := scope.buildNotCondition(clause); sql != "" {
-			andConditions = append(andConditions, sql)
+		if aStr := scope.buildNotCondition(clause); aStr != "" {
+			andConditions = append(andConditions, aStr)
 		}
 	}
 
@@ -699,14 +706,14 @@ func (scope *Scope) whereSQL() (sql string) {
 	}
 
 	if len(primaryConditions) > 0 {
-		sql = "WHERE " + strings.Join(primaryConditions, " AND ")
+		str = "WHERE " + strings.Join(primaryConditions, " AND ")
 		if len(combinedSQL) > 0 {
-			sql = sql + " AND (" + combinedSQL + ")"
+			str = str + " AND (" + combinedSQL + ")"
 		}
 	} else if len(combinedSQL) > 0 {
-		sql = "WHERE " + combinedSQL
+		str = "WHERE " + combinedSQL
 	}
-	return
+	return str
 }
 
 func (scope *Scope) selectSQL() string {
@@ -757,9 +764,8 @@ func (scope *Scope) havingSQL() string {
 
 	var andConditions []string
 	for _, clause := range scope.Search.havingConditions {
-		//TODO : @Badu - rename this - collides with imported package name
-		if sql := scope.buildWhereCondition(clause); sql != "" {
-			andConditions = append(andConditions, sql)
+		if aStr := scope.buildWhereCondition(clause); aStr != "" {
+			andConditions = append(andConditions, aStr)
 		}
 	}
 
@@ -774,9 +780,8 @@ func (scope *Scope) havingSQL() string {
 func (scope *Scope) joinsSQL() string {
 	var joinConditions []string
 	for _, clause := range scope.Search.joinConditions {
-		//TODO : @Badu - rename this - collides with imported package name
-		if sql := scope.buildWhereCondition(clause); sql != "" {
-			joinConditions = append(joinConditions, strings.TrimSuffix(strings.TrimPrefix(sql, "("), ")"))
+		if aStr := scope.buildWhereCondition(clause); aStr != "" {
+			joinConditions = append(joinConditions, strings.TrimSuffix(strings.TrimPrefix(aStr, "("), ")"))
 		}
 	}
 
@@ -799,9 +804,10 @@ func (scope *Scope) inlineCondition(values ...interface{}) *Scope {
 	return scope
 }
 
+//TODO : @Badu - that's ugly - simplify
 func (scope *Scope) callCallbacks(funcs []*func(s *Scope)) *Scope {
 	for _, f := range funcs {
-		//TODO : @Badu - if I broke something it was (*f)(scope) - but IDE went balistic
+		//was (*f)(scope) - but IDE went balistic
 		rf := *f
 		rf(scope)
 		if scope.skipLeft {
@@ -937,7 +943,7 @@ func (scope *Scope) shouldSaveAssociations() bool {
 
 func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
 	toScope := scope.db.NewScope(value)
-
+	//TODO : @Badu - boilerplate string
 	for _, foreignKey := range append(foreignKeys, toScope.typeName()+"Id", scope.typeName()+"Id") {
 		fromField, _ := scope.FieldByName(foreignKey)
 		toField, _ := toScope.FieldByName(foreignKey)
@@ -969,15 +975,13 @@ func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
 					scope.Err(query.Find(value).Error)
 				}
 			} else {
-				//TODO : @Badu - rename this - collides with imported package name
-				sql := fmt.Sprintf("%v = ?", scope.Quote(toScope.PrimaryKey()))
-				scope.Err(toScope.db.Where(sql, fromField.Value.Interface()).Find(value).Error)
+				aStr := fmt.Sprintf("%v = ?", scope.Quote(toScope.PrimaryKey()))
+				scope.Err(toScope.db.Where(aStr, fromField.Value.Interface()).Find(value).Error)
 			}
 			return scope
 		} else if toField != nil {
-			//TODO : @Badu - rename this - collides with imported package name
-			sql := fmt.Sprintf("%v = ?", scope.Quote(toField.DBName))
-			scope.Err(toScope.db.Where(sql, scope.PrimaryKeyValue()).Find(value).Error)
+			aStr := fmt.Sprintf("%v = ?", scope.Quote(toField.DBName))
+			scope.Err(toScope.db.Where(aStr, scope.PrimaryKeyValue()).Find(value).Error)
 			return scope
 		}
 	}
@@ -1685,7 +1689,7 @@ func (scope *Scope) GetModelStruct() *ModelStruct {
 }
 
 // GetStructFields get model's field structs
-func (scope *Scope) GetStructFields() (fields StructFields) {
+func (scope *Scope) GetStructFields() StructFields {
 	return scope.GetModelStruct().StructFields
 }
 
@@ -1902,7 +1906,12 @@ func (scope *Scope) handleManyToManyPreload(field *StructField, conditions []int
 		// register foreign keys in join tables
 		var joinTableFields StructFields
 		for _, sourceKey := range sourceKeys {
-			joinTableFields = append(joinTableFields, &StructField{DBName: sourceKey, IsNormal: true, Value: reflect.New(foreignKeyType).Elem()})
+			joinTableFields.add(
+				&StructField{
+					DBName:   sourceKey,
+					IsNormal: true,
+					Value:    reflect.New(foreignKeyType).Elem(),
+				})
 		}
 
 		scope.scan(rows, columns, append(fields, joinTableFields...))

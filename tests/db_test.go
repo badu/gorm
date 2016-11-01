@@ -1,4 +1,4 @@
-package gorm
+package tests
 
 import (
 	"database/sql"
@@ -21,10 +21,11 @@ import (
 	_ "gorm/dialects/sqlite"
 	"sort"
 	"strings"
+	"gorm"
 )
 
 var (
-	TestDB *DBCon
+	TestDB *gorm.DBCon
 
 	compareToys = func(toys []Toy, contents []string) bool {
 		var toyContents []string
@@ -273,7 +274,7 @@ type (
 	}
 
 	Language struct {
-		Model
+		gorm.Model
 		Name  string
 		Users []User `gorm:"many2many:user_languages;"`
 	}
@@ -333,7 +334,7 @@ type (
 	}
 
 	Category struct {
-		Model
+		gorm.Model
 		Name string
 
 		Categories []Category
@@ -341,7 +342,7 @@ type (
 	}
 
 	Comment struct {
-		Model
+		gorm.Model
 		PostId  int64
 		Content string
 		Post    Post
@@ -388,7 +389,7 @@ type (
 	}
 
 	PersonAddress struct {
-		JoinTableHandler
+		gorm.JoinTableHandler
 		PersonID  int
 		AddressID int
 		DeletedAt *time.Time
@@ -396,7 +397,7 @@ type (
 	}
 
 	CalculateField struct {
-		Model
+		gorm.Model
 		Name     string
 		Children []CalculateFieldChild
 		Category CalculateFieldCategory
@@ -408,13 +409,13 @@ type (
 	}
 
 	CalculateFieldChild struct {
-		Model
+		gorm.Model
 		CalculateFieldID uint
 		Name             string
 	}
 
 	CalculateFieldCategory struct {
-		Model
+		gorm.Model
 		CalculateFieldID uint
 		Name             string
 	}
@@ -443,18 +444,18 @@ type (
 	}
 
 	CustomizeUser struct {
-		Model
+		gorm.Model
 		Email string `sql:"column:email_address"`
 	}
 
 	CustomizeInvitation struct {
-		Model
+		gorm.Model
 		Address string         `sql:"column:invitation"`
 		Person  *CustomizeUser `gorm:"foreignkey:Email;associationforeignkey:invitation"`
 	}
 
 	PromotionDiscount struct {
-		Model
+		gorm.Model
 		Name     string
 		Coupons  []*PromotionCoupon `gorm:"ForeignKey:discount_id"`
 		Rule     *PromotionRule     `gorm:"ForeignKey:discount_id"`
@@ -462,21 +463,21 @@ type (
 	}
 
 	PromotionBenefit struct {
-		Model
+		gorm.Model
 		Name        string
 		PromotionID uint
 		Discount    PromotionDiscount `gorm:"ForeignKey:promotion_id"`
 	}
 
 	PromotionCoupon struct {
-		Model
+		gorm.Model
 		Code       string
 		DiscountID uint
 		Discount   PromotionDiscount
 	}
 
 	PromotionRule struct {
-		Model
+		gorm.Model
 		Name       string
 		Begin      *time.Time
 		End        *time.Time
@@ -581,7 +582,7 @@ func runMigration() {
 	}
 }
 
-func equalFuncs(funcs []*func(s *Scope), fnames []string) bool {
+func equalFuncs(funcs []*func(s *gorm.Scope), fnames []string) bool {
 	var names []string
 	for _, f := range funcs {
 		fnames := strings.Split(runtime.FuncForPC(reflect.ValueOf(*f).Pointer()).Name(), ".")
@@ -590,26 +591,26 @@ func equalFuncs(funcs []*func(s *Scope), fnames []string) bool {
 	return reflect.DeepEqual(names, fnames)
 }
 
-func NameIn1And2(d *DBCon) *DBCon {
+func NameIn1And2(d *gorm.DBCon) *gorm.DBCon {
 	return d.Where("name in (?)", []string{"ScopeUser1", "ScopeUser2"})
 }
 
-func NameIn2And3(d *DBCon) *DBCon {
+func NameIn2And3(d *gorm.DBCon) *gorm.DBCon {
 	return d.Where("name in (?)", []string{"ScopeUser2", "ScopeUser3"})
 }
 
-func NameIn(names []string) func(d *DBCon) *DBCon {
-	return func(d *DBCon) *DBCon {
+func NameIn(names []string) func(d *gorm.DBCon) *gorm.DBCon {
+	return func(d *gorm.DBCon) *gorm.DBCon {
 		return d.Where("name in (?)", names)
 	}
 }
 
-func create(s *Scope)        {}
-func beforeCreate1(s *Scope) {}
-func beforeCreate2(s *Scope) {}
-func afterCreate1(s *Scope)  {}
-func afterCreate2(s *Scope)  {}
-func replaceCreate(s *Scope) {}
+func create(s *gorm.Scope)        {}
+func beforeCreate1(s *gorm.Scope) {}
+func beforeCreate2(s *gorm.Scope) {}
+func afterCreate1(s *gorm.Scope)  {}
+func afterCreate2(s *gorm.Scope)  {}
+func replaceCreate(s *gorm.Scope) {}
 
 func (e ElementWithIgnoredField) TableName() string {
 	return "element_with_ignored_field"
@@ -643,7 +644,7 @@ func (s *Product) AfterFind() {
 	s.AfterFindCallTimes = s.AfterFindCallTimes + 1
 }
 
-func (s *Product) AfterCreate(tx *DBCon) {
+func (s *Product) AfterCreate(tx *gorm.DBCon) {
 	tx.Model(s).UpdateColumn(Product{AfterCreateCallTimes: s.AfterCreateCallTimes + 1})
 }
 
@@ -727,22 +728,22 @@ func (p Person) String() string {
 	return fmt.Sprint(optionals)
 }
 
-func (*PersonAddress) Add(handler JoinTableHandlerInterface, db *DBCon, foreignValue interface{}, associationValue interface{}) error {
+func (*PersonAddress) Add(handler gorm.JoinTableHandlerInterface, db *gorm.DBCon, foreignValue interface{}, associationValue interface{}) error {
 	return db.Where(map[string]interface{}{
 		"person_id":  db.NewScope(foreignValue).PrimaryKeyValue(),
 		"address_id": db.NewScope(associationValue).PrimaryKeyValue(),
 	}).Assign(map[string]interface{}{
 		"person_id":  foreignValue,
 		"address_id": associationValue,
-		"deleted_at": Expr("NULL"),
+		"deleted_at": gorm.Expr("NULL"),
 	}).FirstOrCreate(&PersonAddress{}).Error
 }
 
-func (*PersonAddress) Delete(handler JoinTableHandlerInterface, db *DBCon, sources ...interface{}) error {
+func (*PersonAddress) Delete(handler gorm.JoinTableHandlerInterface, db *gorm.DBCon, sources ...interface{}) error {
 	return db.Delete(&PersonAddress{}).Error
 }
 
-func (pa *PersonAddress) JoinWith(handler JoinTableHandlerInterface, db *DBCon, source interface{}) *DBCon {
+func (pa *PersonAddress) JoinWith(handler gorm.JoinTableHandlerInterface, db *gorm.DBCon, source interface{}) *gorm.DBCon {
 	table := pa.Table(db)
 	return db.Joins("INNER JOIN person_addresses ON person_addresses.address_id = addresses.id").Where(fmt.Sprintf("%v.deleted_at IS NULL OR %v.deleted_at <= '0001-01-02'", table, table))
 }
@@ -820,7 +821,7 @@ func DialectHasTzSupport() bool {
 	return true
 }
 
-func OpenTestConnection() (db *DBCon, err error) {
+func OpenTestConnection() (db *gorm.DBCon, err error) {
 	switch os.Getenv("GORM_DIALECT") {
 	case "mysql":
 		// CREATE USER 'gorm'@'localhost' IDENTIFIED BY 'gorm';
@@ -831,23 +832,23 @@ func OpenTestConnection() (db *DBCon, err error) {
 		if dbhost != "" {
 			dbhost = fmt.Sprintf("tcp(%v)", dbhost)
 		}
-		db, err = Open("mysql", fmt.Sprintf("gorm:gorm@%v/gorm?charset=utf8&parseTime=True", dbhost))
+		db, err = gorm.Open("mysql", fmt.Sprintf("gorm:gorm@%v/gorm?charset=utf8&parseTime=True", dbhost))
 	case "postgres":
 		fmt.Println("testing postgres...")
 		dbhost := os.Getenv("GORM_DBHOST")
 		if dbhost != "" {
 			dbhost = fmt.Sprintf("host=%v ", dbhost)
 		}
-		db, err = Open("postgres", fmt.Sprintf("%vuser=gorm password=gorm DB.name=gorm sslmode=disable", dbhost))
+		db, err = gorm.Open("postgres", fmt.Sprintf("%vuser=gorm password=gorm DB.name=gorm sslmode=disable", dbhost))
 	case "foundation":
 		fmt.Println("testing foundation...")
-		db, err = Open("foundation", "dbname=gorm port=15432 sslmode=disable")
+		db, err = gorm.Open("foundation", "dbname=gorm port=15432 sslmode=disable")
 	case "mssql":
 		fmt.Println("testing mssql...")
-		db, err = Open("mssql", "server=SERVER_HERE;database=rogue;user id=USER_HERE;password=PW_HERE;port=1433")
+		db, err = gorm.Open("mssql", "server=SERVER_HERE;database=rogue;user id=USER_HERE;password=PW_HERE;port=1433")
 	default:
 		fmt.Println("testing sqlite3...")
-		db, err = Open("sqlite3", "test.db?cache=shared&mode=memory")
+		db, err = gorm.Open("sqlite3", "test.db?cache=shared&mode=memory")
 	}
 
 	// db.SetLogger(Logger{log.New(os.Stdout, "\r\n", 0)})
@@ -1290,7 +1291,7 @@ func TestRaw(t *testing.T) {
 	}
 
 	TestDB.Exec("update users set name=? where name in (?)", "jinzhu", []string{user1.Name, user2.Name, user3.Name})
-	if TestDB.Where("name in (?)", []string{user1.Name, user2.Name, user3.Name}).First(&User{}).Error != ErrRecordNotFound {
+	if TestDB.Where("name in (?)", []string{user1.Name, user2.Name, user3.Name}).First(&User{}).Error != gorm.ErrRecordNotFound {
 		t.Error("Raw sql to update records")
 	}
 }
@@ -1499,7 +1500,7 @@ func TestSetAndGet(t *testing.T) {
 
 func TestCompatibilityMode(t *testing.T) {
 	t.Log("21) TestCompatibilityMode")
-	DB, _ := Open("testdb", "")
+	DB, _ := gorm.Open("testdb", "")
 	testdb.SetQueryFunc(func(query string) (driver.Rows, error) {
 		columns := []string{"id", "name", "age"}
 		result := `
@@ -1522,13 +1523,13 @@ func TestOpenExistingDB(t *testing.T) {
 	TestDB.Save(&User{Name: "jnfeinstein"})
 	dialect := os.Getenv("GORM_DIALECT")
 
-	db, err := Open(dialect, TestDB.DB())
+	db, err := gorm.Open(dialect, TestDB.DB())
 	if err != nil {
 		t.Errorf("Should have wrapped the existing DB connection")
 	}
 
 	var user User
-	if db.Where("name = ?", "jnfeinstein").First(&user).Error == ErrRecordNotFound {
+	if db.Where("name = ?", "jnfeinstein").First(&user).Error == gorm.ErrRecordNotFound {
 		t.Errorf("Should have found existing record")
 	}
 }
@@ -1554,7 +1555,7 @@ func TestDdlErrors(t *testing.T) {
 
 func TestOpenWithOneParameter(t *testing.T) {
 	t.Log("24) TestOpenWithOneParameter")
-	db, err := Open("dialect")
+	db, err := gorm.Open("dialect")
 	if db != nil {
 		t.Error("Open with one parameter returned non nil for db")
 	}

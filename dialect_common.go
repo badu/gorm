@@ -9,8 +9,26 @@ import (
 	"time"
 )
 
+const (
+	DIALECT_COMMON_NAME   = "common"
+	COMMON_BOOLEAN        = "BOOLEAN"
+	COMMON_INTEGER        = "INTEGER"
+	COMMON_AUTO_INCREMENT = "INTEGER AUTO_INCREMENT"
+	COMMON_BIGINT         = "BIGINT"
+	COMMON_FLOAT          = "FLOAT"
+	COMMON_VARCHAR        = "VARCHAR"
+	COMMON_TIMESTAMP      = "TIMESTAMP"
+	COMMON_BINARY         = "BINARY"
+
+	COMMON_HASINDEXSQL   = "SELECT count(*) FROM INFORMATION_SCHEMA.STATISTICS WHERE table_schema = ? AND table_name = ? AND index_name = ?"
+	COMMON_DROPINDEX     = "DROP INDEX %v"
+	COMMON_HASTABLE_SQL  = "SELECT count(*) FROM INFORMATION_SCHEMA.TABLES WHERE table_schema = ? AND table_name = ?"
+	COMMON_HASCOLUMN_SQL = "SELECT count(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE table_schema = ? AND table_name = ? AND column_name = ?"
+	COMMON_SELECT_DB     = "SELECT DATABASE()"
+)
+
 func (commonDialect) GetName() string {
-	return "common"
+	return DIALECT_COMMON_NAME
 }
 
 func (s *commonDialect) SetDB(db *sql.DB) {
@@ -31,37 +49,37 @@ func (commonDialect) DataTypeOf(field *StructField) string {
 	if sqlType == "" {
 		switch dataValue.Kind() {
 		case reflect.Bool:
-			sqlType = "BOOLEAN"
+			sqlType = COMMON_BOOLEAN
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uintptr:
 			if field.HasSetting(AUTO_INCREMENT) {
-				sqlType = "INTEGER AUTO_INCREMENT"
+				sqlType = fmt.Sprintf("%s %s", COMMON_BOOLEAN, COMMON_AUTO_INCREMENT)
 			} else {
-				sqlType = "INTEGER"
+				sqlType = COMMON_INTEGER
 			}
 		case reflect.Int64, reflect.Uint64:
 			if field.HasSetting(AUTO_INCREMENT) {
-				sqlType = "BIGINT AUTO_INCREMENT"
+				sqlType = fmt.Sprintf("%s %s", COMMON_BIGINT, COMMON_AUTO_INCREMENT)
 			} else {
-				sqlType = "BIGINT"
+				sqlType = COMMON_BIGINT
 			}
 		case reflect.Float32, reflect.Float64:
-			sqlType = "FLOAT"
+			sqlType = COMMON_FLOAT
 		case reflect.String:
 			if size > 0 && size < 65532 {
-				sqlType = fmt.Sprintf("VARCHAR(%d)", size)
+				sqlType = fmt.Sprintf("%s(%d)", COMMON_VARCHAR, size)
 			} else {
-				sqlType = "VARCHAR(65532)"
+				sqlType = fmt.Sprintf("%s(%d)", COMMON_VARCHAR, 65532)
 			}
 		case reflect.Struct:
 			if _, ok := dataValue.Interface().(time.Time); ok {
-				sqlType = "TIMESTAMP"
+				sqlType = COMMON_TIMESTAMP
 			}
 		default:
 			if _, ok := dataValue.Interface().([]byte); ok {
 				if size > 0 && size < 65532 {
-					sqlType = fmt.Sprintf("BINARY(%d)", size)
+					sqlType = fmt.Sprintf("%s(%d)", COMMON_BINARY, size)
 				} else {
-					sqlType = "BINARY(65532)"
+					sqlType = fmt.Sprintf("%s(%d)", COMMON_BINARY, 65532)
 				}
 			}
 		}
@@ -79,12 +97,12 @@ func (commonDialect) DataTypeOf(field *StructField) string {
 
 func (s commonDialect) HasIndex(tableName string, indexName string) bool {
 	var count int
-	s.db.QueryRow("SELECT count(*) FROM INFORMATION_SCHEMA.STATISTICS WHERE table_schema = ? AND table_name = ? AND index_name = ?", s.CurrentDatabase(), tableName, indexName).Scan(&count)
+	s.db.QueryRow(COMMON_HASINDEXSQL, s.CurrentDatabase(), tableName, indexName).Scan(&count)
 	return count > 0
 }
 
 func (s commonDialect) RemoveIndex(tableName string, indexName string) error {
-	_, err := s.db.Exec(fmt.Sprintf("DROP INDEX %v", indexName))
+	_, err := s.db.Exec(fmt.Sprintf(COMMON_DROPINDEX, indexName))
 	return err
 }
 
@@ -94,18 +112,18 @@ func (s commonDialect) HasForeignKey(tableName string, foreignKeyName string) bo
 
 func (s commonDialect) HasTable(tableName string) bool {
 	var count int
-	s.db.QueryRow("SELECT count(*) FROM INFORMATION_SCHEMA.TABLES WHERE table_schema = ? AND table_name = ?", s.CurrentDatabase(), tableName).Scan(&count)
+	s.db.QueryRow(COMMON_HASTABLE_SQL, s.CurrentDatabase(), tableName).Scan(&count)
 	return count > 0
 }
 
 func (s commonDialect) HasColumn(tableName string, columnName string) bool {
 	var count int
-	s.db.QueryRow("SELECT count(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE table_schema = ? AND table_name = ? AND column_name = ?", s.CurrentDatabase(), tableName, columnName).Scan(&count)
+	s.db.QueryRow(COMMON_HASCOLUMN_SQL, s.CurrentDatabase(), tableName, columnName).Scan(&count)
 	return count > 0
 }
 
 func (s commonDialect) CurrentDatabase() (name string) {
-	s.db.QueryRow("SELECT DATABASE()").Scan(&name)
+	s.db.QueryRow(COMMON_SELECT_DB).Scan(&name)
 	return
 }
 

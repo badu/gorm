@@ -1,8 +1,9 @@
-package gorm
+package tests
 
 import (
 	"fmt"
 	"testing"
+	"gorm"
 )
 
 func TestCalculateField(t *testing.T) {
@@ -19,7 +20,7 @@ func TestCalculateField(t *testing.T) {
 
 	if field, ok := scope.FieldByName("EmbeddedName"); !ok {
 		t.Errorf("should find embedded field")
-	} else if !field.HasSetting(NOT_NULL) {
+	} else if !field.HasSetting(gorm.NOT_NULL) {
 		t.Errorf(fmt.Sprintf("Should find embedded field's tag settings\n%s", field))
 	}
 }

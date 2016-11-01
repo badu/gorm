@@ -4,13 +4,22 @@ import (
 	"strings"
 )
 
+type (
+	errorsInterface interface {
+		GetErrors() []error
+	}
+	// Errors contains all happened errors
+	GormErrors struct {
+		errors []error
+	}
+)
 // GetErrors get all happened errors
-func (errs Errors) GetErrors() []error {
+func (errs GormErrors) GetErrors() []error {
 	return errs.errors
 }
 
 // Add add an error
-func (errs *Errors) Add(err error) {
+func (errs *GormErrors) Add(err error) {
 	if errors, ok := err.(errorsInterface); ok {
 		for _, err := range errors.GetErrors() {
 			errs.Add(err)
@@ -26,7 +35,7 @@ func (errs *Errors) Add(err error) {
 }
 
 // Error format happened errors
-func (errs Errors) Error() string {
+func (errs GormErrors) Error() string {
 	var errors = []string{}
 	for _, e := range errs.errors {
 		errors = append(errors, e.Error())

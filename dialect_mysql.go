@@ -10,6 +10,24 @@ import (
 	"unicode/utf8"
 )
 
+const (
+	MYSQL_BOOLEAN_TYPE   = "boolean"
+	MYSQL_INT_TYPE       = "int"
+	MYSQL_AUTO_INCREMENT = "AUTO_INCREMENT"
+	MYSQL_UNSIGNED       = "unsigned"
+	MYSQL_BIGINT         = "bigint"
+	MYSQL_DOUBLE         = "double"
+	MYSQL_LONGTEXT       = "longtext"
+	MYSQL_VARCHAR        = "varchar"
+	MYSQL_TIMESTAMP      = "timestamp"
+	MYSQL_LONGBLOG       = "longblob"
+	MYSQL_VARBINARY      = "varbinary"
+
+	MYSQL_HAS_FOREIGN_KEY = "SELECT count(*) FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA=? AND TABLE_NAME=? AND CONSTRAINT_NAME=? AND CONSTRAINT_TYPE='FOREIGN KEY'"
+	MYSQL_DROP_INDEX      = "DROP INDEX %v ON %v"
+	MYSQL_SELECT_DB       = "SELECT DATABASE()"
+)
+
 func (mysql) GetName() string {
 	return "mysql"
 }
@@ -34,57 +52,57 @@ func (mysql) DataTypeOf(field *StructField) string {
 	if sqlType == "" {
 		switch dataValue.Kind() {
 		case reflect.Bool:
-			sqlType = "boolean"
+			sqlType = MYSQL_BOOLEAN_TYPE
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32:
 			if field.HasSetting(AUTO_INCREMENT) || field.IsPrimaryKey {
 				field.SetSetting(AUTO_INCREMENT, "AUTO_INCREMENT")
-				sqlType = "int AUTO_INCREMENT"
+				sqlType = fmt.Sprintf("%s %s", MYSQL_INT_TYPE, MYSQL_AUTO_INCREMENT)
 			} else {
-				sqlType = "int"
+				sqlType = MYSQL_INT_TYPE
 			}
 		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uintptr:
 			if field.HasSetting(AUTO_INCREMENT) || field.IsPrimaryKey {
 				field.SetSetting(AUTO_INCREMENT, "AUTO_INCREMENT")
-				sqlType = "int unsigned AUTO_INCREMENT"
+				sqlType = fmt.Sprintf("%s %s %s", MYSQL_INT_TYPE, MYSQL_UNSIGNED, MYSQL_AUTO_INCREMENT)
 			} else {
-				sqlType = "int unsigned"
+				sqlType = fmt.Sprintf("%s %s", MYSQL_INT_TYPE, MYSQL_UNSIGNED)
 			}
 		case reflect.Int64:
 			if field.HasSetting(AUTO_INCREMENT) || field.IsPrimaryKey {
 				field.SetSetting(AUTO_INCREMENT, "AUTO_INCREMENT")
-				sqlType = "bigint AUTO_INCREMENT"
+				sqlType = fmt.Sprintf("%s %s", MYSQL_BIGINT, MYSQL_AUTO_INCREMENT)
 			} else {
-				sqlType = "bigint"
+				sqlType = MYSQL_BIGINT
 			}
 		case reflect.Uint64:
 			if field.HasSetting(AUTO_INCREMENT) || field.IsPrimaryKey {
 				field.SetSetting(AUTO_INCREMENT, "AUTO_INCREMENT")
-				sqlType = "bigint unsigned AUTO_INCREMENT"
+				sqlType = fmt.Sprintf("%s %s %s", MYSQL_BIGINT, MYSQL_UNSIGNED, MYSQL_AUTO_INCREMENT)
 			} else {
-				sqlType = "bigint unsigned"
+				sqlType = fmt.Sprintf("%s %s", MYSQL_BIGINT, MYSQL_UNSIGNED)
 			}
 		case reflect.Float32, reflect.Float64:
-			sqlType = "double"
+			sqlType = MYSQL_DOUBLE
 		case reflect.String:
 			if size > 0 && size < 65532 {
-				sqlType = fmt.Sprintf("varchar(%d)", size)
+				sqlType = fmt.Sprintf("%s(%d)", MYSQL_VARCHAR, size)
 			} else {
-				sqlType = "longtext"
+				sqlType = MYSQL_LONGTEXT
 			}
 		case reflect.Struct:
 			if _, ok := dataValue.Interface().(time.Time); ok {
 				if field.HasSetting(NOT_NULL) {
-					sqlType = "timestamp"
+					sqlType = MYSQL_TIMESTAMP
 				} else {
-					sqlType = "timestamp NULL"
+					sqlType = MYSQL_TIMESTAMP + " NULL"
 				}
 			}
 		default:
 			if _, ok := dataValue.Interface().([]byte); ok {
 				if size > 0 && size < 65532 {
-					sqlType = fmt.Sprintf("varbinary(%d)", size)
+					sqlType = fmt.Sprintf("%s(%d)", MYSQL_VARBINARY, size)
 				} else {
-					sqlType = "longblob"
+					sqlType = MYSQL_LONGBLOG
 				}
 			}
 		}
@@ -101,18 +119,19 @@ func (mysql) DataTypeOf(field *StructField) string {
 }
 
 func (s mysql) RemoveIndex(tableName string, indexName string) error {
-	_, err := s.db.Exec(fmt.Sprintf("DROP INDEX %v ON %v", indexName, s.Quote(tableName)))
+	_, err := s.db.Exec(fmt.Sprintf(MYSQL_DROP_INDEX, indexName, s.Quote(tableName)))
 	return err
 }
 
 func (s mysql) HasForeignKey(tableName string, foreignKeyName string) bool {
 	var count int
-	s.db.QueryRow("SELECT count(*) FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA=? AND TABLE_NAME=? AND CONSTRAINT_NAME=? AND CONSTRAINT_TYPE='FOREIGN KEY'", s.CurrentDatabase(), tableName, foreignKeyName).Scan(&count)
+
+	s.db.QueryRow(MYSQL_HAS_FOREIGN_KEY, s.CurrentDatabase(), tableName, foreignKeyName).Scan(&count)
 	return count > 0
 }
 
 func (s mysql) CurrentDatabase() (name string) {
-	s.db.QueryRow("SELECT DATABASE()").Scan(&name)
+	s.db.QueryRow(MYSQL_SELECT_DB).Scan(&name)
 	return
 }
 

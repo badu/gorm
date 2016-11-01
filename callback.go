@@ -71,3 +71,18 @@ func (c *Callback) reorder() {
 	c.queries = sortProcessors(queries)
 	c.rowQueries = sortProcessors(rowQueries)
 }
+//Added for tests : DO NOT USE DIRECTLY
+func (c *Callback) GetCreates() []*func(scope *Scope){
+	return c.creates
+}
+
+func (c *Callback) GetUpdates() []*func(scope *Scope){
+	return c.updates
+}
+
+func (c *Callback) GetQueries() []*func(scope *Scope){
+	return c.queries
+}
+func (c *Callback) GetDeletes() []*func(scope *Scope){
+	return c.deletes
+}

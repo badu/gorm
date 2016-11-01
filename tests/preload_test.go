@@ -1,10 +1,11 @@
-package gorm
+package tests
 
 import (
 	"database/sql"
 	"os"
 	"reflect"
 	"testing"
+	"gorm"
 )
 
 func TestPreload(t *testing.T) {
@@ -94,7 +95,7 @@ func TestNestedPreload1(t *testing.T) {
 		t.Errorf("got %s; want %s", toJSONString(got), toJSONString(want))
 	}
 
-	if err := TestDB.Preload("Level2").Preload("Level2.Level1").Find(&got, "name = ?", "not_found").Error; err != ErrRecordNotFound {
+	if err := TestDB.Preload("Level2").Preload("Level2.Level1").Find(&got, "name = ?", "not_found").Error; err != gorm.ErrRecordNotFound {
 		t.Error(err)
 	}
 }
@@ -974,7 +975,7 @@ func TestNestedManyToManyPreload(t *testing.T) {
 		t.Errorf("got %s; want %s", toJSONString(got), toJSONString(want))
 	}
 
-	if err := TestDB.Preload("Level2s.Level1s").Find(&got, "value = ?", "not_found").Error; err != ErrRecordNotFound {
+	if err := TestDB.Preload("Level2s.Level1s").Find(&got, "value = ?", "not_found").Error; err != gorm.ErrRecordNotFound {
 		t.Error(err)
 	}
 }
@@ -1032,7 +1033,7 @@ func TestNestedManyToManyPreload2(t *testing.T) {
 		t.Errorf("got %s; want %s", toJSONString(got), toJSONString(want))
 	}
 
-	if err := TestDB.Preload("Level2.Level1s").Find(&got, "value = ?", "not_found").Error; err != ErrRecordNotFound {
+	if err := TestDB.Preload("Level2.Level1s").Find(&got, "value = ?", "not_found").Error; err != gorm.ErrRecordNotFound {
 		t.Error(err)
 	}
 }
@@ -1102,7 +1103,7 @@ func TestNestedManyToManyPreload3(t *testing.T) {
 	}
 
 	var gots []*Level3
-	if err := TestDB.Preload("Level2.Level1s", func(db *DBCon) *DBCon {
+	if err := TestDB.Preload("Level2.Level1s", func(db *gorm.DBCon) *gorm.DBCon {
 		return db.Order("level1.id ASC")
 	}).Find(&gots).Error; err != nil {
 		t.Error(err)
@@ -1178,7 +1179,7 @@ func TestNestedManyToManyPreload3ForStruct(t *testing.T) {
 	}
 
 	var gots []*Level3
-	if err := TestDB.Preload("Level2.Level1s", func(db *DBCon) *DBCon {
+	if err := TestDB.Preload("Level2.Level1s", func(db *gorm.DBCon) *gorm.DBCon {
 		return db.Order("level1.id ASC")
 	}).Find(&gots).Error; err != nil {
 		t.Error(err)

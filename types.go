@@ -182,9 +182,11 @@ type (
 		conditions []interface{}
 	}
 
+	//interface used for overriding table name
 	tabler interface {
 		TableName() string
 	}
+	//interface used for overriding table name
 	dbTabler interface {
 		TableName(*DBCon) string
 	}
@@ -198,20 +200,6 @@ type (
 		CreatedAt time.Time
 		UpdatedAt time.Time
 		DeletedAt *time.Time `sql:"index"`
-	}
-
-	logger interface {
-		Print(v ...interface{})
-	}
-
-	// LogWriter log writer interface
-	LogWriter interface {
-		Println(v ...interface{})
-	}
-
-	// Logger default logger
-	Logger struct {
-		LogWriter
 	}
 
 	// Callback is a struct that contains all CURD callbacks
@@ -305,14 +293,6 @@ type (
 	sqlTx interface {
 		Commit() error
 		Rollback() error
-	}
-
-	errorsInterface interface {
-		GetErrors() []error
-	}
-	// Errors contains all happened errors
-	Errors struct {
-		errors []error
 	}
 
 	// JoinTableHandlerInterface is an interface for how to handle many2many relations

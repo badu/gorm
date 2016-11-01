@@ -1,4 +1,6 @@
 # Todo
+- [ ] Extract strings from dialect_postgres.go
+- [ ] Extracted strings from dialect_sqlite3.go
 - [ ] Concurent slice and map where needed
 - [ ] Documentation for tests and build examples
 - [ ] Stringer implementation on all structs for debugging
@@ -6,25 +8,33 @@
 - [ ] Reorganize deferred functions from various places
 - [ ] Extract strings from code (make constants)
 - [ ] Collect errors and their messages in one place
-- [ ] replace slices of strings with ```
-var buf bytes.Buffer
-buf.WriteString("string")
-buf.Write([]byte("bytes"))
-return buf.String()
-```. Also, organize fmt.Sprintf to be called once
+- [ ] replace slices of strings with 
+        `var buf bytes.Buffer
+        buf.WriteString("string")
+        buf.Write([]byte("bytes"))
+        return buf.String()`
+. Also, organize fmt.Sprintf to be called once
 
 # Comments and thoughts
 - Generated SQL let's the SQL engine cast : SELECT * FROM aTable WHERE id = '1' (id being int). I think it's a bad practice and it should be fixed
 
 # Breaking changes
 - DB struct - renamed to DBCon, since that is what it represents
+- Removed MSSQL support - out of my concerns with this project
 
 # Changes log
 ## 01.11.2016
+- [x] TestCloneSearch could not be moved
+- [x] Exposed some methods on Callback for tests to run (GetCreates, GetUpdates, GetQueries, GetDeletes)
+- [x] Moved tests to tests folder (helps IDE)
+- [x] Extracted strings from dialect_common.go
+- [x] Extracted strings from dialect_mysql.go
+- [x] Modified some variable names to comply to linter ("collides with imported package name")
+- [x] Remove explicit variable name on returns
 - [x] Removed method newDialect from utils.go (moved it into Open() method)
 - [x] Removed MSSQL support - out of my concerns with this project
 - [x] Fix (chore) in StructField Set method : if implements Scanner don't attempt to convert, just pass it over
-- [x] Test named TestNot is working on itself : it
+- [x] Test named TestNot
 - [x] CallbackProcessor kind field changed from string to uint8
 
 ## 30.10.2016 (Others)

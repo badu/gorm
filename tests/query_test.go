@@ -1,4 +1,4 @@
-package gorm
+package tests
 
 import (
 	"fmt"
@@ -6,6 +6,7 @@ import (
 
 	"testing"
 	"time"
+	"gorm"
 )
 
 func TestFirstAndLast(t *testing.T) {
@@ -318,7 +319,7 @@ func TestOrderAndPluck(t *testing.T) {
 	scopedb := TestDB.Model(&User{}).Where("name like ?", "%OrderPluckUser%")
 
 	var user User
-	scopedb.Order(Expr("name = ? DESC", "OrderPluckUser2")).First(&user)
+	scopedb.Order(gorm.Expr("name = ? DESC", "OrderPluckUser2")).First(&user)
 	if user.Name != "OrderPluckUser2" {
 		t.Errorf("Order with sql expression")
 	}
@@ -662,7 +663,7 @@ func TestSelectWithVariables(t *testing.T) {
 	t.Log("125) TestSelectWithVariables")
 	TestDB.Save(&User{Name: "jinzhu"})
 
-	rows, _ := TestDB.Table("users").Select("? as fake", Expr("name")).Rows()
+	rows, _ := TestDB.Table("users").Select("? as fake", gorm.Expr("name")).Rows()
 
 	if !rows.Next() {
 		t.Errorf("Should have returned at least one row")

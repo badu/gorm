@@ -7,6 +7,22 @@ import (
 	"time"
 )
 
+type (
+	logger interface {
+		Print(v ...interface{})
+	}
+
+	// LogWriter log writer interface
+	LogWriter interface {
+		Println(v ...interface{})
+	}
+
+	// Logger default logger
+	Logger struct {
+		LogWriter
+	}
+)
+
 // Print format & print log
 func (logger Logger) Print(values ...interface{}) {
 	if len(values) > 1 {
