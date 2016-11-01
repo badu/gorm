@@ -4,14 +4,28 @@
 - [ ] Stringer implementation on all structs for debugging
 - [ ] Reorganize local vars from various places
 - [ ] Reorganize deferred functions from various places
-- [ ] Fix test named TestNot :
-```
-func TestNot(t *testing.T) {
+- [ ] Extract strings from code (make constants)
+- [ ] Collect errors and their messages in one place
+- [ ] replace slices of strings with ```
+var buf bytes.Buffer
+buf.WriteString("string")
+buf.Write([]byte("bytes"))
+return buf.String()
+```. Also, organize fmt.Sprintf to be called once
 
-}
-```
+# Comments and thoughts
+- Generated SQL let's the SQL engine cast : SELECT * FROM aTable WHERE id = '1' (id being int). I think it's a bad practice and it should be fixed
+
+# Breaking changes
+- DB struct - renamed to DBCon, since that is what it represents
 
 # Changes log
+## 01.11.2016
+- [x] Removed method newDialect from utils.go (moved it into Open() method)
+- [x] Removed MSSQL support - out of my concerns with this project
+- [x] Fix (chore) in StructField Set method : if implements Scanner don't attempt to convert, just pass it over
+- [x] Test named TestNot is working on itself : it
+- [x] CallbackProcessor kind field changed from string to uint8
 
 ## 30.10.2016 (Others)
 - [x] DB struct - renamed to DBCon, since that is what it represents

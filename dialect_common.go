@@ -39,7 +39,7 @@ func (commonDialect) DataTypeOf(field *StructField) string {
 				sqlType = "INTEGER"
 			}
 		case reflect.Int64, reflect.Uint64:
-			if field.HasSetting(AUTO_INCREMENT){
+			if field.HasSetting(AUTO_INCREMENT) {
 				sqlType = "BIGINT AUTO_INCREMENT"
 			} else {
 				sqlType = "BIGINT"

@@ -1,7 +1,5 @@
 package gorm
 
-import "fmt"
-
 // After insert a new callback after callback `callbackName`, refer `Callbacks.Create`
 func (cp *CallbackProcessor) After(callbackName string) *CallbackProcessor {
 	cp.after = callbackName
@@ -25,7 +23,7 @@ func (cp *CallbackProcessor) Register(callbackName string, callback func(scope *
 // Remove a registered callback
 //     db.Callback().Create().Remove("gorm:update_time_stamp_when_create")
 func (cp *CallbackProcessor) Remove(callbackName string) {
-	fmt.Printf("[info] removing callback `%v` from %v\n", callbackName, fileWithLineNum())
+	//fmt.Printf("[info] removing callback `%v` from %v\n", callbackName, fileWithLineNum())
 	cp.name = callbackName
 	cp.remove = true
 	cp.parent.processors = append(cp.parent.processors, cp)
@@ -38,7 +36,7 @@ func (cp *CallbackProcessor) Remove(callbackName string) {
 //		   scope.SetColumn("Updated", now)
 //     })
 func (cp *CallbackProcessor) Replace(callbackName string, callback func(scope *Scope)) {
-	fmt.Printf("[info] replacing callback `%v` from %v\n", callbackName, fileWithLineNum())
+	//fmt.Printf("[info] replacing callback `%v` from %v\n", callbackName, fileWithLineNum())
 	cp.name = callbackName
 	cp.processor = &callback
 	cp.replace = true

@@ -73,7 +73,8 @@ func (structField *StructField) parseTagSettings() error {
 }
 
 // Set set a value to the field
-func (field *StructField) Set(value interface{}) (err error) {
+func (field *StructField) Set(value interface{}) error {
+	var err error
 	if !field.Value.IsValid() {
 		//TODO : @Badu - make errors more explicit : which field...
 		return errors.New("field value not valid")
@@ -104,12 +105,12 @@ func (field *StructField) Set(value interface{}) (err error) {
 				//we dereference it
 				fieldValue = fieldValue.Elem()
 			}
-
-			if reflectValue.Type().ConvertibleTo(fieldValue.Type()) {
-				fieldValue.Set(reflectValue.Convert(fieldValue.Type()))
-			} else if scanner, ok := fieldValue.Addr().Interface().(sql.Scanner); ok {
+			//#fix (chore) : if implements scanner don't attempt to convert, just pass it over
+			if scanner, ok := fieldValue.Addr().Interface().(sql.Scanner); ok {
 				//implements Scanner - we pass it over
 				err = scanner.Scan(reflectValue.Interface())
+			}else if reflectValue.Type().ConvertibleTo(fieldValue.Type()) {
+				fieldValue.Set(reflectValue.Convert(fieldValue.Type()))
 			} else {
 				//Oops
 				//TODO : @Badu - make errors more explicit
@@ -120,6 +121,8 @@ func (field *StructField) Set(value interface{}) (err error) {
 		//it's not valid
 		field.Value.Set(reflect.Zero(field.Value.Type()))
 	}
+	//TODO : @Badu - seems invalid logic : above we set it ot zero if it's not valid
+	//then we check if the value is blank
 	//check if the value is blank
 	field.setIsBlank()
 	return err
@@ -185,7 +188,7 @@ reflect.StructField{
 */
 
 //implementation of Stringer
-//TODO : implement it
+//TODO : fully implement it
 func (structField StructField) String() string {
 	result := fmt.Sprintf("%q:%q", "FieldName", structField.Struct.Name)
 	if structField.Struct.PkgPath != "" {

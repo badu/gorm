@@ -19,6 +19,7 @@ func TestFirstAndLast(t *testing.T) {
 
 	TestDB.Last(&user3)
 	TestDB.Order("id desc").Limit(1).Find(&user4)
+	//TODO : @Badu - simplify
 	if user1.Id != user2.Id || user3.Id != user4.Id {
 		t.Errorf("First and Last should by order by primary key")
 	}
@@ -50,6 +51,7 @@ func TestFirstAndLastWithNoStdPrimaryKey(t *testing.T) {
 
 	TestDB.Last(&animal3)
 	TestDB.Order("counter desc").Limit(1).Find(&animal4)
+	//TODO : @Badu - simplify
 	if animal1.Counter != animal2.Counter || animal3.Counter != animal4.Counter {
 		t.Errorf("First and Last should work correctly")
 	}
@@ -422,10 +424,8 @@ func TestCount(t *testing.T) {
 }
 
 func TestNot(t *testing.T) {
-
-	//TODO : @Badu - make test work
-	t.Log("120) TestNot [commented]")
-	/**
+	t.Log("120) TestNot")
+	TestDB.Unscoped().Delete(User{})
 	TestDB.Create(getPreparedUser("user1", "not"))
 	TestDB.Create(getPreparedUser("user2", "not"))
 	TestDB.Create(getPreparedUser("user3", "not"))
@@ -435,18 +435,25 @@ func TestNot(t *testing.T) {
 	TestDB.Create(user4)
 
 	var users1, users2, users3, users4, users5, users6, users7, users8, users9 []User
-	if TestDB.Where("role = ?", "not").Find(&users1).RowsAffected != 4 {
-		t.Errorf("should find 4 not users")
+	rowsAffected := TestDB.Where("role = ?", "not").Find(&users1).RowsAffected
+	if rowsAffected != 4 {
+		t.Errorf("should find 4 `not` users")
+	} else {
+		t.Logf("Found %d users", rowsAffected)
 	}
 	TestDB.Not(users1[0].Id).Find(&users2)
 
 	if len(users1)-len(users2) != 1 {
 		t.Errorf("Should ignore the first users with Not")
+	} else {
+		t.Logf("Correct")
 	}
 
 	TestDB.Not([]int{}).Find(&users3)
 	if len(users1)-len(users3) != 0 {
 		t.Errorf("Should find all users with a blank condition")
+	} else {
+		t.Logf("Correct")
 	}
 
 	var name3Count int64
@@ -454,37 +461,51 @@ func TestNot(t *testing.T) {
 	TestDB.Not("name", "user3").Find(&users4)
 	if len(users1)-len(users4) != int(name3Count) {
 		t.Errorf("Should find all users's name not equal 3")
+	} else {
+		t.Logf("Correct")
 	}
 
 	TestDB.Not("name = ?", "user3").Find(&users4)
 	if len(users1)-len(users4) != int(name3Count) {
 		t.Errorf("Should find all users's name not equal 3")
+	} else {
+		t.Logf("Correct")
 	}
 
 	TestDB.Not("name <> ?", "user3").Find(&users4)
 	if len(users4) != int(name3Count) {
 		t.Errorf("Should find all users's name not equal 3")
+	} else {
+		t.Logf("Correct")
 	}
 
 	TestDB.Not(User{Name: "user3"}).Find(&users5)
 
 	if len(users1)-len(users5) != int(name3Count) {
 		t.Errorf("Should find all users's name not equal 3")
+	} else {
+		t.Logf("Correct")
 	}
 
 	TestDB.Not(map[string]interface{}{"name": "user3"}).Find(&users6)
 	if len(users1)-len(users6) != int(name3Count) {
 		t.Errorf("Should find all users's name not equal 3")
+	} else {
+		t.Logf("Correct")
 	}
 
 	TestDB.Not(map[string]interface{}{"name": "user3", "company_id": nil}).Find(&users7)
 	if len(users1)-len(users7) != 2 { // not user3 or user4
 		t.Errorf("Should find all user's name not equal to 3 who do not have company id")
+	} else {
+		t.Logf("Correct")
 	}
 
 	TestDB.Not("name", []string{"user3"}).Find(&users8)
 	if len(users1)-len(users8) != int(name3Count) {
 		t.Errorf("Should find all users's name not equal 3")
+	} else {
+		t.Logf("Correct")
 	}
 
 	var name2Count int64
@@ -492,8 +513,11 @@ func TestNot(t *testing.T) {
 	TestDB.Not("name", []string{"user3", "user2"}).Find(&users9)
 	if len(users1)-len(users9) != (int(name3Count) + int(name2Count)) {
 		t.Errorf("Should find all users's name not equal 3")
+	} else {
+		t.Logf("Correct")
 	}
-	**/
+	t.Log("120) TestNot FINISHED")
+
 }
 
 func TestFillSmallerStruct(t *testing.T) {

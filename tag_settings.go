@@ -77,11 +77,10 @@ func (ts *TagSettings) loadFromTags(str string) error {
 	for _, value := range tags {
 		v := strings.Split(value, ":")
 		k := strings.TrimSpace(strings.ToUpper(v[0]))
-		//avoid empty keys : for original gorm didn't mind
+		//avoid empty keys : original gorm didn't mind creating them
 		if k != "" {
 			uint8Key, ok := tagSettingMap[k]
 			if ok {
-				//fmt.Print("Ok, key found\n")
 				if len(v) >= 2 {
 					ts.set(uint8Key, strings.Join(v[1:], ":"))
 				} else {
@@ -108,24 +107,16 @@ func (t *TagSettings) clone() TagSettings {
 //deletes a key from the settings map
 func (t *TagSettings) unset(named uint8) {
 	delete(t.Uint8Map, named)
-	//fmt.Printf("<--UNSET %s (new len = %d)\n", reverseTagSettingsMap()[named], len(t.Uint8Map))
 }
 
 //adds a key to the settings map
 func (t *TagSettings) set(named uint8, value string) {
 	t.Uint8Map[named] = value
-	//fmt.Printf("-->SET %s : %s (new len = %d)\n", reverseTagSettingsMap()[named], value, len(t.Uint8Map))
 }
 
 //checks if has such a key (for code readability)
 func (t *TagSettings) has(named uint8) bool {
 	_, ok := t.Uint8Map[named]
-	/**
-	if len(t.Uint8Map) == 0 {
-		fmt.Printf("HAS NOT %q\n", reverseTagSettingsMap()[named])
-	}
-	fmt.Printf("HAS %q ? => %t\n", reverseTagSettingsMap()[named], ok)
-	**/
 	return ok
 }
 

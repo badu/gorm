@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"reflect"
 	"runtime"
 	"strconv"
@@ -17,19 +16,17 @@ import (
 
 	"encoding/json"
 	"github.com/jinzhu/now"
-	//TODO : @Badu - find a better way to import mssql - and avoid circular references
-	//	_ "gorm/dialects/mssql"
 	_ "gorm/dialects/mysql"
-	_ "gorm/dialects/sqlite"
 	pgdialect "gorm/dialects/postgres"
+	_ "gorm/dialects/sqlite"
 	"sort"
 	"strings"
 )
 
 var (
-	TestDB             *DBCon
-	t1, t2, t3, t4, t5 time.Time
-	compareToys        = func(toys []Toy, contents []string) bool {
+	TestDB *DBCon
+
+	compareToys = func(toys []Toy, contents []string) bool {
 		var toyContents []string
 		for _, toy := range toys {
 			toyContents = append(toyContents, toy.Name)
@@ -601,7 +598,7 @@ func NameIn2And3(d *DBCon) *DBCon {
 	return d.Where("name in (?)", []string{"ScopeUser2", "ScopeUser3"})
 }
 
-func NameIn(names []string) func(d *DBCon) *DBCon{
+func NameIn(names []string) func(d *DBCon) *DBCon {
 	return func(d *DBCon) *DBCon {
 		return d.Where("name in (?)", names)
 	}
@@ -850,7 +847,7 @@ func OpenTestConnection() (db *DBCon, err error) {
 		db, err = Open("mssql", "server=SERVER_HERE;database=rogue;user id=USER_HERE;password=PW_HERE;port=1433")
 	default:
 		fmt.Println("testing sqlite3...")
-		db, err = Open("sqlite3", filepath.Join(os.TempDir(), "db"))
+		db, err = Open("sqlite3", "test.db?cache=shared&mode=memory")
 	}
 
 	// db.SetLogger(Logger{log.New(os.Stdout, "\r\n", 0)})
@@ -951,6 +948,7 @@ func TestSetTable(t *testing.T) {
 	TestDB.Table("deleted_users").Save(getPreparedUser("deleted_user", "reset_table"))
 	var user1, user2, user3 User
 	TestDB.Where("role = ?", "reset_table").First(&user1).Table("deleted_users").First(&user2).Table("").First(&user3)
+	//TODO : @Badu - simplify
 	if (user1.Name != "normal_user") || (user2.Name != "deleted_user") || (user3.Name != "normal_user") {
 		t.Errorf("unset specified table with blank string")
 	}

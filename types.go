@@ -13,19 +13,24 @@ import (
 )
 
 const (
-	lower strCase = false
 	upper strCase = true
 	//Relationship Kind constants
 	MANY_TO_MANY uint8 = 1
 	HAS_MANY     uint8 = 2
 	HAS_ONE      uint8 = 3
 	BELONGS_TO   uint8 = 4
+	//Callback Kind constants
+	CREATE_CALLBACK    uint8 = 1
+	UPDATE_CALLBACK    uint8 = 2
+	DELETE_CALLBACK    uint8 = 3
+	QUERY_CALLBACK     uint8 = 4
+	ROW_QUERY_CALLBACK uint8 = 5
 )
 
 type (
 	Uint8Map map[uint8]string
 	//since there is no other way of embedding a map
-	TagSettings    struct {
+	TagSettings struct {
 		Uint8Map
 	}
 	// StructField model field's struct definition
@@ -71,6 +76,7 @@ type (
 	}
 
 	strCase bool
+	//TODO : @Badu - Association has a field named Error - should be passed to DBCon
 	// Association Mode contains some helper methods to handle relationship things easily.
 	Association struct {
 		Error  error
@@ -78,7 +84,8 @@ type (
 		column string
 		field  *StructField
 	}
-
+	//TODO : @Badu - if StructField has IsPrimaryKey field, why having two sets of []*StructField
+	//unify them into something called Fields which StructFields type would provide via method
 	// ModelStruct model definition
 	ModelStruct struct {
 		PrimaryFields    StructFields
@@ -86,12 +93,12 @@ type (
 		ModelType        reflect.Type
 		defaultTableName string
 	}
-
+	//TODO : Get rid of these
 	safeMap struct {
 		m map[string]string
 		l *sync.RWMutex
 	}
-
+	//TODO : Get rid of these
 	safeModelStructsMap struct {
 		m map[reflect.Type]*ModelStruct
 		l *sync.RWMutex
@@ -103,8 +110,7 @@ type (
 		args []interface{}
 	}
 
-	// DB contains information for current db connection
-	//TODO : @Badu - if it holds current db connection why not name it accordingly???
+	// DBCon contains information for current db connection
 	DBCon struct {
 		parent  *DBCon
 		dialect Dialect
@@ -231,7 +237,7 @@ type (
 		after     string              // register current callback after a callback
 		replace   bool                // replace callbacks with same name
 		remove    bool                // delete callbacks with same name
-		kind      string              // callback type: create, update, delete, query, row_query
+		kind      uint8               // callback type: create, update, delete, query, row_query
 		processor *func(scope *Scope) // callback handler
 		parent    *Callback
 	}

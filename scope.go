@@ -108,11 +108,11 @@ func (scope *Scope) Fields() StructFields {
 					fieldValue = reflect.Indirect(fieldValue).FieldByName(name)
 				}
 				clonedField := structField.cloneWithValue(fieldValue)
-				fields = append(fields, clonedField)
+				fields.add(clonedField)
 			} else {
 				clonedField := structField.clone()
 				clonedField.IsBlank = true
-				fields = append(fields, clonedField)
+				fields.add(clonedField)
 			}
 		}
 		//TODO : @Badu - really ???
@@ -139,7 +139,7 @@ func (scope *Scope) FieldByName(name string) (field *StructField, ok bool) {
 	}
 	return mostMatchedField, mostMatchedField != nil
 }
-
+// TODO : @Badu - should be StructFields responsability to know it's primary keys once they were added to the slice
 // PrimaryFields return scope's primary fields
 func (scope *Scope) PrimaryFields() (fields StructFields) {
 	for _, field := range scope.Fields() {
@@ -150,6 +150,7 @@ func (scope *Scope) PrimaryFields() (fields StructFields) {
 	return fields
 }
 
+// TODO : @Badu - should be StructFields responsability to know it's primary key once they were added to the slice
 // PrimaryField return scope's main primary field, if defined more that one primary fields, will return the one having column name `id` or the first one
 func (scope *Scope) PrimaryField() *StructField {
 	primaryFieldsNo := scope.GetModelStruct().PrimaryFields.len()
@@ -653,30 +654,35 @@ func (scope *Scope) whereSQL() (sql string) {
 	)
 
 	if !scope.Search.Unscoped && scope.HasColumn("deleted_at") {
+		//TODO : @Badu - rename this - collides with imported package name
 		sql := fmt.Sprintf("%v.deleted_at IS NULL", quotedTableName)
 		primaryConditions = append(primaryConditions, sql)
 	}
 
 	if !scope.PrimaryKeyZero() {
 		for _, field := range scope.PrimaryFields() {
+			//TODO : @Badu - rename this - collides with imported package name
 			sql := fmt.Sprintf("%v.%v = %v", quotedTableName, scope.Quote(field.DBName), scope.AddToVars(field.Value.Interface()))
 			primaryConditions = append(primaryConditions, sql)
 		}
 	}
 
 	for _, clause := range scope.Search.whereConditions {
+		//TODO : @Badu - rename this - collides with imported package name
 		if sql := scope.buildWhereCondition(clause); sql != "" {
 			andConditions = append(andConditions, sql)
 		}
 	}
 
 	for _, clause := range scope.Search.orConditions {
+		//TODO : @Badu - rename this - collides with imported package name
 		if sql := scope.buildWhereCondition(clause); sql != "" {
 			orConditions = append(orConditions, sql)
 		}
 	}
 
 	for _, clause := range scope.Search.notConditions {
+		//TODO : @Badu - rename this - collides with imported package name
 		if sql := scope.buildNotCondition(clause); sql != "" {
 			andConditions = append(andConditions, sql)
 		}
@@ -751,6 +757,7 @@ func (scope *Scope) havingSQL() string {
 
 	var andConditions []string
 	for _, clause := range scope.Search.havingConditions {
+		//TODO : @Badu - rename this - collides with imported package name
 		if sql := scope.buildWhereCondition(clause); sql != "" {
 			andConditions = append(andConditions, sql)
 		}
@@ -767,6 +774,7 @@ func (scope *Scope) havingSQL() string {
 func (scope *Scope) joinsSQL() string {
 	var joinConditions []string
 	for _, clause := range scope.Search.joinConditions {
+		//TODO : @Badu - rename this - collides with imported package name
 		if sql := scope.buildWhereCondition(clause); sql != "" {
 			joinConditions = append(joinConditions, strings.TrimSuffix(strings.TrimPrefix(sql, "("), ")"))
 		}
@@ -923,6 +931,7 @@ func (scope *Scope) shouldSaveAssociations() bool {
 	if saveAssociations, ok := scope.Get("gorm:save_associations"); ok && !saveAssociations.(bool) {
 		return false
 	}
+	//TODO : @Badu - simplify
 	return true && !scope.HasError()
 }
 
@@ -960,11 +969,13 @@ func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
 					scope.Err(query.Find(value).Error)
 				}
 			} else {
+				//TODO : @Badu - rename this - collides with imported package name
 				sql := fmt.Sprintf("%v = ?", scope.Quote(toScope.PrimaryKey()))
 				scope.Err(toScope.db.Where(sql, fromField.Value.Interface()).Find(value).Error)
 			}
 			return scope
 		} else if toField != nil {
+			//TODO : @Badu - rename this - collides with imported package name
 			sql := fmt.Sprintf("%v = ?", scope.Quote(toField.DBName))
 			scope.Err(toScope.db.Where(sql, scope.PrimaryKeyValue()).Find(value).Error)
 			return scope
@@ -1236,6 +1247,7 @@ func (scope *Scope) getColumnAsScope(column string) *Scope {
 func (scope *Scope) GetModelStruct() *ModelStruct {
 	var modelStruct ModelStruct
 	// Scope value can't be nil
+	//TODO : @Badu - why can't be null and why we are not returning an error?
 	if scope.Value == nil {
 		return &modelStruct
 	}

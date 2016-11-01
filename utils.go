@@ -28,7 +28,7 @@ func getRIndex(strs []string, str string) int {
 	}
 	return -1
 }
-
+//TODO : @Badu - this is really hard to read : slice of pointer to closures!
 // sortProcessors sort callback processors based on its before, after, remove, replace
 func sortProcessors(cps []*CallbackProcessor) []*func(scope *Scope) {
 	var (
@@ -96,7 +96,7 @@ func sortProcessors(cps []*CallbackProcessor) []*func(scope *Scope) {
 //============================================
 //Callback create functions
 //============================================
-
+//TODO : @Badu - since all these have Scope param, should be methods in Scope
 // beforeCreateCallback will invoke `BeforeSave`, `BeforeCreate` method before creating
 func beforeCreateCallback(scope *Scope) {
 	if !scope.HasError() {
@@ -106,7 +106,7 @@ func beforeCreateCallback(scope *Scope) {
 		scope.CallMethod("BeforeCreate")
 	}
 }
-
+//TODO : @Badu - since all these have Scope param, should be methods in Scope
 // updateTimeStampForCreateCallback will set `CreatedAt`, `UpdatedAt` when creating
 func updateTimeStampForCreateCallback(scope *Scope) {
 	if !scope.HasError() {
@@ -115,7 +115,7 @@ func updateTimeStampForCreateCallback(scope *Scope) {
 		scope.SetColumn("UpdatedAt", now)
 	}
 }
-
+//TODO : @Badu - since all these have Scope param, should be methods in Scope
 // createCallback the callback used to insert data into database
 func createCallback(scope *Scope) {
 	if !scope.HasError() {
@@ -203,7 +203,7 @@ func createCallback(scope *Scope) {
 		}
 	}
 }
-
+//TODO : @Badu - since all these have Scope param, should be methods in Scope
 // forceReloadAfterCreateCallback will reload columns that having default value, and set it back to current object
 func forceReloadAfterCreateCallback(scope *Scope) {
 	if blankColumnsWithDefaultValue, ok := scope.InstanceGet("gorm:blank_columns_with_default_value"); ok {
@@ -216,7 +216,7 @@ func forceReloadAfterCreateCallback(scope *Scope) {
 		db.Scan(scope.Value)
 	}
 }
-
+//TODO : @Badu - since all these have Scope param, should be methods in Scope
 // afterCreateCallback will invoke `AfterCreate`, `AfterSave` method after creating
 func afterCreateCallback(scope *Scope) {
 	if !scope.HasError() {
@@ -230,15 +230,15 @@ func afterCreateCallback(scope *Scope) {
 //============================================
 // Callback save functions
 //============================================
-
+//TODO : @Badu - since all these have Scope param, should be methods in Scope
 func beginTransactionCallback(scope *Scope) {
 	scope.Begin()
 }
-
+//TODO : @Badu - since all these have Scope param, should be methods in Scope
 func commitOrRollbackTransactionCallback(scope *Scope) {
 	scope.CommitOrRollback()
 }
-
+//TODO : @Badu - since all these have Scope param, should be methods in Scope
 func saveBeforeAssociationsCallback(scope *Scope) {
 	if !scope.shouldSaveAssociations() {
 		return
@@ -261,7 +261,7 @@ func saveBeforeAssociationsCallback(scope *Scope) {
 		}
 	}
 }
-
+//TODO : @Badu - since all these have Scope param, should be methods in Scope
 func saveAfterAssociationsCallback(scope *Scope) {
 	if !scope.shouldSaveAssociations() {
 		return
@@ -322,7 +322,7 @@ func saveAfterAssociationsCallback(scope *Scope) {
 //============================================
 // Callback update functions
 //============================================
-
+//TODO : @Badu - since all these have Scope param, should be methods in Scope
 // assignUpdatingAttributesCallback assign updating attributes to model
 func assignUpdatingAttributesCallback(scope *Scope) {
 	if attrs, ok := scope.InstanceGet("gorm:update_interface"); ok {
@@ -333,7 +333,7 @@ func assignUpdatingAttributesCallback(scope *Scope) {
 		}
 	}
 }
-
+//TODO : @Badu - since all these have Scope param, should be methods in Scope
 // beforeUpdateCallback will invoke `BeforeSave`, `BeforeUpdate` method before updating
 func beforeUpdateCallback(scope *Scope) {
 	if _, ok := scope.Get("gorm:update_column"); !ok {
@@ -345,14 +345,14 @@ func beforeUpdateCallback(scope *Scope) {
 		}
 	}
 }
-
+//TODO : @Badu - since all these have Scope param, should be methods in Scope
 // updateTimeStampForUpdateCallback will set `UpdatedAt` when updating
 func updateTimeStampForUpdateCallback(scope *Scope) {
 	if _, ok := scope.Get("gorm:update_column"); !ok {
 		scope.SetColumn("UpdatedAt", NowFunc())
 	}
 }
-
+//TODO : @Badu - since all these have Scope param, should be methods in Scope
 // updateCallback the callback used to update data to database
 func updateCallback(scope *Scope) {
 	if !scope.HasError() {
@@ -395,7 +395,7 @@ func updateCallback(scope *Scope) {
 		}
 	}
 }
-
+//TODO : @Badu - since all these have Scope param, should be methods in Scope
 // afterUpdateCallback will invoke `AfterUpdate`, `AfterSave` method after updating
 func afterUpdateCallback(scope *Scope) {
 	if _, ok := scope.Get("gorm:update_column"); !ok {
@@ -411,7 +411,7 @@ func afterUpdateCallback(scope *Scope) {
 //============================================
 // Callback query functions
 //============================================
-
+//TODO : @Badu - since all these have Scope param, should be methods in Scope
 // queryCallback used to query data from database
 func queryCallback(scope *Scope) {
 	defer scope.trace(NowFunc())
@@ -483,7 +483,7 @@ func queryCallback(scope *Scope) {
 		}
 	}
 }
-
+//TODO : @Badu - since all these have Scope param, should be methods in Scope
 // afterQueryCallback will invoke `AfterFind` method after querying
 func afterQueryCallback(scope *Scope) {
 	if !scope.HasError() {
@@ -494,7 +494,7 @@ func afterQueryCallback(scope *Scope) {
 //============================================
 // Callback query preload function
 //============================================
-
+//TODO : @Badu - since all these have Scope param, should be methods in Scope
 // preloadCallback used to preload associations
 func preloadCallback(scope *Scope) {
 	if scope.Search.preload == nil || scope.HasError() {
@@ -570,14 +570,14 @@ func preloadCallback(scope *Scope) {
 //============================================
 // Callback delete functions
 //============================================
-
+//TODO : @Badu - since all these have Scope param, should be methods in Scope
 // beforeDeleteCallback will invoke `BeforeDelete` method before deleting
 func beforeDeleteCallback(scope *Scope) {
 	if !scope.HasError() {
 		scope.CallMethod("BeforeDelete")
 	}
 }
-
+//TODO : @Badu - since all these have Scope param, should be methods in Scope
 // deleteCallback used to delete data from database or set deleted_at to current time (when using with soft delete)
 func deleteCallback(scope *Scope) {
 	if !scope.HasError() {
@@ -604,7 +604,7 @@ func deleteCallback(scope *Scope) {
 		}
 	}
 }
-
+//TODO : @Badu - since all these have Scope param, should be methods in Scope
 // afterDeleteCallback will invoke `AfterDelete` method after deleting
 func afterDeleteCallback(scope *Scope) {
 	if !scope.HasError() {
@@ -615,19 +615,6 @@ func afterDeleteCallback(scope *Scope) {
 //============================================
 // Dialect functions
 //============================================
-
-func newDialect(name string, db *sql.DB) Dialect {
-	if value, ok := dialectsMap[name]; ok {
-		dialect := reflect.New(reflect.TypeOf(value).Elem()).Interface().(Dialect)
-		dialect.SetDB(db)
-		return dialect
-	}
-
-	fmt.Printf("`%v` is not officially supported, running under compatibility mode.\n", name)
-	commontDialect := &commonDialect{}
-	commontDialect.SetDB(db)
-	return commontDialect
-}
 
 // RegisterDialect register new dialect
 func RegisterDialect(name string, dialect Dialect) {
@@ -732,7 +719,7 @@ func convertInterfaceToMap(values interface{}, withIgnoredField bool) map[string
 	}
 	return attrs
 }
-
+//TODO : @Badu - seems to be called everywhere! Optimize, cache or get rid of it!
 // ToDBName convert string to db name
 func ToDBName(name string) string {
 	if v := smap.Get(name); v != "" {
@@ -869,8 +856,8 @@ func toString(str interface{}) string {
 			results = append(results, toString(value))
 		}
 		return strings.Join(results, "_")
-	} else if bytes, ok := str.([]byte); ok {
-		return string(bytes)
+	} else if strBytes, ok := str.([]byte); ok {
+		return string(strBytes)
 	} else if reflectValue := reflect.Indirect(reflect.ValueOf(str)); reflectValue.IsValid() {
 		return fmt.Sprintf("%v", reflectValue.Interface())
 	}
@@ -951,7 +938,7 @@ func parseTagSetting(tags reflect.StructTag) map[uint8]string {
 //    // import _ "github.com/badu/gorm/dialects/postgres"
 //    // import _ "github.com/badu/gorm/dialects/sqlite"
 //    // import _ "github.com/badu/gorm/dialects/mssql"
-func Open(dialect string, args ...interface{}) (*DBCon, error) {
+func Open(dialectName string, args ...interface{}) (*DBCon, error) {
 	var db DBCon
 	var err error
 
@@ -964,21 +951,31 @@ func Open(dialect string, args ...interface{}) (*DBCon, error) {
 
 	switch value := args[0].(type) {
 	case string:
-		var driver = dialect
+		var driverName = dialectName
 		if len(args) == 1 {
 			source = value
 		} else if len(args) >= 2 {
-			driver = value
+			driverName = value
 			source = args[1].(string)
 		}
-		dbSQL, err = sql.Open(driver, source)
+		dbSQL, err = sql.Open(driverName, source)
 	case sqlCommon:
 		source = reflect.Indirect(reflect.ValueOf(value)).FieldByName("dsn").String()
 		dbSQL = value
 	}
+	//TODO : dialects map should disappear - instead of dialectName we should receive directly the Dialect
+	var commontDialect Dialect
+	if value, ok := dialectsMap[dialectName]; ok {
+		commontDialect = reflect.New(reflect.TypeOf(value).Elem()).Interface().(Dialect)
+		commontDialect.SetDB(dbSQL.(*sql.DB))
+	}else {
+		fmt.Printf("`%v` is not officially supported, running under compatibility mode.\n", dialectName)
+		commontDialect = &commonDialect{}
+		commontDialect.SetDB(dbSQL.(*sql.DB))
+	}
 
 	db = DBCon{
-		dialect:   newDialect(dialect, dbSQL.(*sql.DB)),
+		dialect:   commontDialect,
 		logger:    defaultLogger,
 		callbacks: DefaultCallback,
 		source:    source,

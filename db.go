@@ -580,7 +580,7 @@ func (orm *DBCon) AddError(err error) error {
 			} else {
 				orm.log(err)
 			}
-
+			//TODO : @Badu - rename this - collides with imported package name
 			errors := Errors{errors: orm.GetErrors()}
 			errors.Add(err)
 			if len(errors.GetErrors()) > 1 {
@@ -604,12 +604,20 @@ func (orm *DBCon) GetErrors() (errors []error) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Private Methods For *gorm.DB
+// Private Methods For *gorm.DBCon
 ////////////////////////////////////////////////////////////////////////////////
 //TODO : @Badu - since some calls want this without values and search (like scope.NewDB)
 //maybe it's a good idea to have a parameter to instruct search and value transfers
 func (orm *DBCon) clone() *DBCon {
-	db := DBCon{db: orm.db, parent: orm.parent, logger: orm.logger, logMode: orm.logMode, values: map[string]interface{}{}, Value: orm.Value, Error: orm.Error}
+	db := DBCon{
+		db:      orm.db,
+		parent:  orm.parent,
+		logger:  orm.logger,
+		logMode: orm.logMode,
+		values:  map[string]interface{}{},
+		Value:   orm.Value,
+		Error:   orm.Error,
+	}
 
 	for key, value := range orm.values {
 		db.values[key] = value
@@ -625,6 +633,7 @@ func (orm *DBCon) clone() *DBCon {
 	return &db
 }
 
+//TODO : @Badu - rename this - collides with builtin function
 func (orm *DBCon) print(v ...interface{}) {
 	orm.logger.(logger).Print(v...)
 }

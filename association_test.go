@@ -823,7 +823,7 @@ func TestForeignKey(t *testing.T) {
 	t.Log("36) TestForeignKey")
 	for _, structField := range TestDB.NewScope(&User{}).GetStructFields() {
 		for _, foreignKey := range []string{"BillingAddressID", "ShippingAddressId", "CompanyID"} {
-			if structField.GetName()== foreignKey && !structField.IsForeignKey {
+			if structField.GetName() == foreignKey && !structField.IsForeignKey {
 				t.Errorf(fmt.Sprintf("%v should be foreign key", foreignKey))
 			}
 		}

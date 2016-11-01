@@ -12,6 +12,7 @@ type Hstore map[string]*string
 
 // Value get value of Hstore
 func (h Hstore) Value() (driver.Value, error) {
+	//TODO : @Badu - rename this - collides with imported package name
 	hstore := hstore.Hstore{Map: map[string]sql.NullString{}}
 	if len(h) == 0 {
 		return nil, nil
@@ -30,6 +31,7 @@ func (h Hstore) Value() (driver.Value, error) {
 
 // Scan scan value into Hstore
 func (h *Hstore) Scan(value interface{}) error {
+	//TODO : @Badu - rename this - collides with imported package name
 	hstore := hstore.Hstore{}
 
 	if err := hstore.Scan(value); err != nil {
