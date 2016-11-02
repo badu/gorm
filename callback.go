@@ -46,43 +46,22 @@ func (c *Callback) RowQuery() *CallbackProcessor {
 
 // reorder all registered processors, and reset CURD callbacks
 func (c *Callback) reorder() {
-	var creates, updates, deletes, queries, rowQueries []*CallbackProcessor
-
-	for _, processor := range c.processors {
-		if processor.name != "" {
-			switch processor.kind {
-			case CREATE_CALLBACK:
-				creates = append(creates, processor)
-			case UPDATE_CALLBACK:
-				updates = append(updates, processor)
-			case DELETE_CALLBACK:
-				deletes = append(deletes, processor)
-			case QUERY_CALLBACK:
-				queries = append(queries, processor)
-			case ROW_QUERY_CALLBACK:
-				rowQueries = append(rowQueries, processor)
-			}
-		}
-	}
-
-	c.creates = sortProcessors(creates)
-	c.updates = sortProcessors(updates)
-	c.deletes = sortProcessors(deletes)
-	c.queries = sortProcessors(queries)
-	c.rowQueries = sortProcessors(rowQueries)
+	c.processors.reorder(c)
 }
+
 //Added for tests : DO NOT USE DIRECTLY
-func (c *Callback) GetCreates() []*func(scope *Scope){
+func (c *Callback) GetCreates() ScopedFuncs {
 	return c.creates
 }
 
-func (c *Callback) GetUpdates() []*func(scope *Scope){
+func (c *Callback) GetUpdates() ScopedFuncs {
 	return c.updates
 }
 
-func (c *Callback) GetQueries() []*func(scope *Scope){
+func (c *Callback) GetQueries() ScopedFuncs {
 	return c.queries
 }
-func (c *Callback) GetDeletes() []*func(scope *Scope){
+
+func (c *Callback) GetDeletes() ScopedFuncs {
 	return c.deletes
 }

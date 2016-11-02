@@ -1,7 +1,6 @@
 # Todo
 - [ ] Extract strings from dialect_postgres.go
 - [ ] Extracted strings from dialect_sqlite3.go
-- [ ] Concurent slice and map where needed
 - [ ] Documentation for tests and build examples
 - [ ] Stringer implementation on all structs for debugging
 - [ ] Reorganize local vars from various places
@@ -23,6 +22,18 @@
 - Removed MSSQL support - out of my concerns with this project
 
 # Changes log
+## 02.11.2016
+- [ ] move callback functions from utils where they supposed to be (defaults)
+- [x] avoid unnecessary calls in CallbackProcessors reorder method (lengths zero)
+- [x] Refactored sortProcessors not to be recursive, but have a method called sortCallbackProcessor inside CallbackProcessor
+- [x] Concurent slice and map in utils (so far, unused)
+- [x] type CallbackProcessors []*CallbackProcessor for readability
+- [x] callback_processors.go file which holds methods for type CallbackProcessors (add, len)
+- [x] moved sortProcessors from utils.go to callback_processors.go as method
+- [x] created type ScopedFunc  func(*Scope)
+- [x] created type ScopedFuncs []*ScopedFunc
+- [x] replaced types ScopedFunc and ScopedFuncs to be more readable  
+
 ## 01.11.2016
 - [x] TestCloneSearch could not be moved
 - [x] Exposed some methods on Callback for tests to run (GetCreates, GetUpdates, GetQueries, GetDeletes)

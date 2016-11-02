@@ -582,7 +582,7 @@ func runMigration() {
 	}
 }
 
-func equalFuncs(funcs []*func(s *gorm.Scope), fnames []string) bool {
+func equalFuncs(funcs gorm.ScopedFuncs, fnames []string) bool {
 	var names []string
 	for _, f := range funcs {
 		fnames := strings.Split(runtime.FuncForPC(reflect.ValueOf(*f).Pointer()).Name(), ".")

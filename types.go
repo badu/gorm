@@ -60,6 +60,7 @@ type (
 		Relationship *Relationship
 	}
 
+	//easier to read and can apply methods
 	StructFields []*StructField
 
 	// Relationship described the relationship between models
@@ -202,6 +203,10 @@ type (
 		DeletedAt *time.Time `sql:"index"`
 	}
 
+	ScopedFuncs []*ScopedFunc
+	ScopedFunc  func(*Scope)
+	//easier to read and can apply methods
+	CallbackProcessors []*CallbackProcessor
 	// Callback is a struct that contains all CURD callbacks
 	//   Field `creates` contains callbacks will be call when creating object
 	//   Field `updates` contains callbacks will be call when updating object
@@ -210,23 +215,24 @@ type (
 	//   Field `rowQueries` contains callbacks will be call when querying object with Row, Rows...
 	//   Field `processors` contains all callback processors, will be used to generate above callbacks in order
 	Callback struct {
-		creates    []*func(scope *Scope)
-		updates    []*func(scope *Scope)
-		deletes    []*func(scope *Scope)
-		queries    []*func(scope *Scope)
-		rowQueries []*func(scope *Scope)
-		processors []*CallbackProcessor
+		creates    ScopedFuncs
+		updates    ScopedFuncs
+		deletes    ScopedFuncs
+		queries    ScopedFuncs
+		rowQueries ScopedFuncs
+		processors CallbackProcessors
 	}
 
 	// CallbackProcessor contains callback informations
 	CallbackProcessor struct {
-		name      string              // current callback's name
-		before    string              // register current callback before a callback
-		after     string              // register current callback after a callback
-		replace   bool                // replace callbacks with same name
-		remove    bool                // delete callbacks with same name
-		kind      uint8               // callback type: create, update, delete, query, row_query
-		processor *func(scope *Scope) // callback handler
+		//remember : we can't remove "name" property, since callbacks gets sorted/re-ordered
+		name      string      // current callback's name
+		before    string      // register current callback before a callback
+		after     string      // register current callback after a callback
+		replace   bool        // replace callbacks with same name
+		remove    bool        // delete callbacks with same name
+		kind      uint8       // callback type: create, update, delete, query, row_query
+		processor *ScopedFunc // callback handler
 		parent    *Callback
 	}
 

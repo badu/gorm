@@ -13,10 +13,10 @@ func (cp *CallbackProcessor) Before(callbackName string) *CallbackProcessor {
 }
 
 // Register a new callback, refer `Callbacks.Create`
-func (cp *CallbackProcessor) Register(callbackName string, callback func(scope *Scope)) {
+func (cp *CallbackProcessor) Register(callbackName string, callback ScopedFunc) {
 	cp.name = callbackName
 	cp.processor = &callback
-	cp.parent.processors = append(cp.parent.processors, cp)
+	cp.parent.processors.add(cp)
 	cp.parent.reorder()
 }
 
@@ -26,7 +26,7 @@ func (cp *CallbackProcessor) Remove(callbackName string) {
 	//fmt.Printf("[info] removing callback `%v` from %v\n", callbackName, fileWithLineNum())
 	cp.name = callbackName
 	cp.remove = true
-	cp.parent.processors = append(cp.parent.processors, cp)
+	cp.parent.processors.add(cp)
 	cp.parent.reorder()
 }
 
@@ -35,22 +35,63 @@ func (cp *CallbackProcessor) Remove(callbackName string) {
 //		   scope.SetColumn("Created", now)
 //		   scope.SetColumn("Updated", now)
 //     })
-func (cp *CallbackProcessor) Replace(callbackName string, callback func(scope *Scope)) {
+func (cp *CallbackProcessor) Replace(callbackName string, callback ScopedFunc) {
 	//fmt.Printf("[info] replacing callback `%v` from %v\n", callbackName, fileWithLineNum())
 	cp.name = callbackName
 	cp.processor = &callback
 	cp.replace = true
-	cp.parent.processors = append(cp.parent.processors, cp)
+	cp.parent.processors.add(cp)
 	cp.parent.reorder()
 }
 
 // Get registered callback
 //    db.Callback().Create().Get("gorm:create")
-func (cp *CallbackProcessor) Get(callbackName string) (callback func(scope *Scope)) {
+func (cp *CallbackProcessor) Get(callbackName string) ScopedFunc {
 	for _, p := range cp.parent.processors {
 		if p.name == callbackName && p.kind == cp.kind && !cp.remove {
 			return *p.processor
 		}
 	}
 	return nil
+}
+
+//sorts callback processors
+func (cp *CallbackProcessor) sortCallbackProcessor(allNames, sortedNames *StrSlice, parent CallbackProcessors){
+	if sortedNames.rIndex(cp.name) == -1 { // if not sorted
+		if cp.before != "" {
+			// if defined before callback
+			if idx := sortedNames.rIndex(cp.before); idx != -1 {
+				// if before callback already sorted, append current callback just after it
+				sortedNames.midSert(idx, cp.name)
+			} else if index := allNames.rIndex(cp.before); index != -1 {
+				// if before callback exists but haven't sorted, append current callback to last
+				sortedNames.add(cp.name)
+				//sort next
+				nextCp := parent[index]
+				nextCp.sortCallbackProcessor(allNames, sortedNames, parent)
+			}
+		}
+
+		if cp.after != "" {
+			// if defined after callback
+			if index := sortedNames.rIndex(cp.after); index != -1 {
+				// if after callback already sorted, append current callback just before it
+				sortedNames.midSert(index+1, cp.name)
+			} else if idx := allNames.rIndex(cp.after); idx != -1 {
+				//sort next
+				// if after callback exists but haven't sorted
+				nextCp := parent[idx]
+				// set after callback's before callback to current callback
+				if nextCp.before == "" {
+					nextCp.before = cp.name
+				}
+				nextCp.sortCallbackProcessor(allNames, sortedNames, parent)
+			}
+		}
+
+		// if current callback haven't been sorted, append it to last
+		if sortedNames.rIndex(cp.name) == -1 {
+			sortedNames.add(cp.name)
+		}
+	}
 }

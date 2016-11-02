@@ -805,7 +805,7 @@ func (scope *Scope) inlineCondition(values ...interface{}) *Scope {
 }
 
 //TODO : @Badu - that's ugly - simplify
-func (scope *Scope) callCallbacks(funcs []*func(s *Scope)) *Scope {
+func (scope *Scope) callCallbacks(funcs ScopedFuncs) *Scope {
 	for _, f := range funcs {
 		//was (*f)(scope) - but IDE went balistic
 		rf := *f

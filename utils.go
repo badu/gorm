@@ -16,81 +16,40 @@ import (
 )
 
 //============================================
-//Callback common functions
+// Slice of strings for better reading
 //============================================
+type StrSlice []string
+
+//shorter than append, better reading
+func (s *StrSlice) add(str string) {
+	*s = append(*s, str)
+}
+
+func (s *StrSlice) len() int {
+	return len(*s)
+}
 
 // getRIndex get right index from string slice
-func getRIndex(strs []string, str string) int {
-	for i := len(strs) - 1; i >= 0; i-- {
-		if strs[i] == str {
+func (s StrSlice) rIndex(str string) int {
+	for i := s.len() - 1; i >= 0; i-- {
+		if s[i] == str {
 			return i
 		}
 	}
 	return -1
 }
-//TODO : @Badu - this is really hard to read : slice of pointer to closures!
-// sortProcessors sort callback processors based on its before, after, remove, replace
-func sortProcessors(cps []*CallbackProcessor) []*func(scope *Scope) {
-	var (
-		allNames, sortedNames []string
-		sortCallbackProcessor func(c *CallbackProcessor)
-	)
 
-	for _, cp := range cps {
-		// show warning message the callback name already exists
-		if index := getRIndex(allNames, cp.name); index > -1 && !cp.replace && !cp.remove {
-			fmt.Printf("[warning] duplicated callback `%v` from %v\n", cp.name, fileWithLineNum())
-		}
-		allNames = append(allNames, cp.name)
-	}
+//inserts in the middle of the slice
+func (s *StrSlice) midSert(index int, name string) {
+	*s = append((*s)[:index], append([]string{name}, (*s)[index:]...)...)
+}
 
-	sortCallbackProcessor = func(c *CallbackProcessor) {
-		if getRIndex(sortedNames, c.name) == -1 { // if not sorted
-			if c.before != "" { // if defined before callback
-				if index := getRIndex(sortedNames, c.before); index != -1 {
-					// if before callback already sorted, append current callback just after it
-					sortedNames = append(sortedNames[:index], append([]string{c.name}, sortedNames[index:]...)...)
-				} else if index := getRIndex(allNames, c.before); index != -1 {
-					// if before callback exists but haven't sorted, append current callback to last
-					sortedNames = append(sortedNames, c.name)
-					sortCallbackProcessor(cps[index])
-				}
-			}
+//============================================
 
-			if c.after != "" { // if defined after callback
-				if index := getRIndex(sortedNames, c.after); index != -1 {
-					// if after callback already sorted, append current callback just before it
-					sortedNames = append(sortedNames[:index+1], append([]string{c.name}, sortedNames[index+1:]...)...)
-				} else if index := getRIndex(allNames, c.after); index != -1 {
-					// if after callback exists but haven't sorted
-					cp := cps[index]
-					// set after callback's before callback to current callback
-					if cp.before == "" {
-						cp.before = c.name
-					}
-					sortCallbackProcessor(cp)
-				}
-			}
-
-			// if current callback haven't been sorted, append it to last
-			if getRIndex(sortedNames, c.name) == -1 {
-				sortedNames = append(sortedNames, c.name)
-			}
-		}
-	}
-
-	for _, cp := range cps {
-		sortCallbackProcessor(cp)
-	}
-
-	var sortedFuncs []*func(scope *Scope)
-	for _, name := range sortedNames {
-		if index := getRIndex(allNames, name); !cps[index].remove {
-			sortedFuncs = append(sortedFuncs, cps[index].processor)
-		}
-	}
-
-	return sortedFuncs
+//============================================
+//shorter than append, better reading
+func (s *ScopedFuncs) add(fx *ScopedFunc) {
+	*s = append(*s, fx)
 }
 
 //============================================
@@ -106,6 +65,7 @@ func beforeCreateCallback(scope *Scope) {
 		scope.CallMethod("BeforeCreate")
 	}
 }
+
 //TODO : @Badu - since all these have Scope param, should be methods in Scope
 // updateTimeStampForCreateCallback will set `CreatedAt`, `UpdatedAt` when creating
 func updateTimeStampForCreateCallback(scope *Scope) {
@@ -115,6 +75,7 @@ func updateTimeStampForCreateCallback(scope *Scope) {
 		scope.SetColumn("UpdatedAt", now)
 	}
 }
+
 //TODO : @Badu - since all these have Scope param, should be methods in Scope
 // createCallback the callback used to insert data into database
 func createCallback(scope *Scope) {
@@ -203,6 +164,7 @@ func createCallback(scope *Scope) {
 		}
 	}
 }
+
 //TODO : @Badu - since all these have Scope param, should be methods in Scope
 // forceReloadAfterCreateCallback will reload columns that having default value, and set it back to current object
 func forceReloadAfterCreateCallback(scope *Scope) {
@@ -216,6 +178,7 @@ func forceReloadAfterCreateCallback(scope *Scope) {
 		db.Scan(scope.Value)
 	}
 }
+
 //TODO : @Badu - since all these have Scope param, should be methods in Scope
 // afterCreateCallback will invoke `AfterCreate`, `AfterSave` method after creating
 func afterCreateCallback(scope *Scope) {
@@ -234,10 +197,12 @@ func afterCreateCallback(scope *Scope) {
 func beginTransactionCallback(scope *Scope) {
 	scope.Begin()
 }
+
 //TODO : @Badu - since all these have Scope param, should be methods in Scope
 func commitOrRollbackTransactionCallback(scope *Scope) {
 	scope.CommitOrRollback()
 }
+
 //TODO : @Badu - since all these have Scope param, should be methods in Scope
 func saveBeforeAssociationsCallback(scope *Scope) {
 	if !scope.shouldSaveAssociations() {
@@ -261,6 +226,7 @@ func saveBeforeAssociationsCallback(scope *Scope) {
 		}
 	}
 }
+
 //TODO : @Badu - since all these have Scope param, should be methods in Scope
 func saveAfterAssociationsCallback(scope *Scope) {
 	if !scope.shouldSaveAssociations() {
@@ -333,6 +299,7 @@ func assignUpdatingAttributesCallback(scope *Scope) {
 		}
 	}
 }
+
 //TODO : @Badu - since all these have Scope param, should be methods in Scope
 // beforeUpdateCallback will invoke `BeforeSave`, `BeforeUpdate` method before updating
 func beforeUpdateCallback(scope *Scope) {
@@ -345,6 +312,7 @@ func beforeUpdateCallback(scope *Scope) {
 		}
 	}
 }
+
 //TODO : @Badu - since all these have Scope param, should be methods in Scope
 // updateTimeStampForUpdateCallback will set `UpdatedAt` when updating
 func updateTimeStampForUpdateCallback(scope *Scope) {
@@ -352,6 +320,7 @@ func updateTimeStampForUpdateCallback(scope *Scope) {
 		scope.SetColumn("UpdatedAt", NowFunc())
 	}
 }
+
 //TODO : @Badu - since all these have Scope param, should be methods in Scope
 // updateCallback the callback used to update data to database
 func updateCallback(scope *Scope) {
@@ -395,6 +364,7 @@ func updateCallback(scope *Scope) {
 		}
 	}
 }
+
 //TODO : @Badu - since all these have Scope param, should be methods in Scope
 // afterUpdateCallback will invoke `AfterUpdate`, `AfterSave` method after updating
 func afterUpdateCallback(scope *Scope) {
@@ -483,6 +453,7 @@ func queryCallback(scope *Scope) {
 		}
 	}
 }
+
 //TODO : @Badu - since all these have Scope param, should be methods in Scope
 // afterQueryCallback will invoke `AfterFind` method after querying
 func afterQueryCallback(scope *Scope) {
@@ -577,6 +548,7 @@ func beforeDeleteCallback(scope *Scope) {
 		scope.CallMethod("BeforeDelete")
 	}
 }
+
 //TODO : @Badu - since all these have Scope param, should be methods in Scope
 // deleteCallback used to delete data from database or set deleted_at to current time (when using with soft delete)
 func deleteCallback(scope *Scope) {
@@ -604,6 +576,7 @@ func deleteCallback(scope *Scope) {
 		}
 	}
 }
+
 //TODO : @Badu - since all these have Scope param, should be methods in Scope
 // afterDeleteCallback will invoke `AfterDelete` method after deleting
 func afterDeleteCallback(scope *Scope) {
@@ -719,6 +692,7 @@ func convertInterfaceToMap(values interface{}, withIgnoredField bool) map[string
 	}
 	return attrs
 }
+
 //TODO : @Badu - seems to be called everywhere! Optimize, cache or get rid of it!
 // ToDBName convert string to db name
 func ToDBName(name string) string {
@@ -968,7 +942,7 @@ func Open(dialectName string, args ...interface{}) (*DBCon, error) {
 	if value, ok := dialectsMap[dialectName]; ok {
 		commontDialect = reflect.New(reflect.TypeOf(value).Elem()).Interface().(Dialect)
 		commontDialect.SetDB(dbSQL.(*sql.DB))
-	}else {
+	} else {
 		fmt.Printf("`%v` is not officially supported, running under compatibility mode.\n", dialectName)
 		commontDialect = &commonDialect{}
 		commontDialect.SetDB(dbSQL.(*sql.DB))
