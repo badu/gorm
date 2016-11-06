@@ -22,8 +22,16 @@
 - Removed MSSQL support - out of my concerns with this project
 
 # Changes log
+
+## 06.11.2016
+- [x] got rid of parseTagSetting method from utils.go
+
+## 05.11.2016
+- [x] DefaultCallback removed from types - it's made under open and registers all callbacks there
+- [x] callback.go has now a method named registerDefaults
+- [x] scope's GetModelStruct refactored and fixed a few lint problems
+
 ## 02.11.2016
-- [ ] move callback functions from utils where they supposed to be (defaults)
 - [x] avoid unnecessary calls in CallbackProcessors reorder method (lengths zero)
 - [x] Refactored sortProcessors not to be recursive, but have a method called sortCallbackProcessor inside CallbackProcessor
 - [x] Concurent slice and map in utils (so far, unused)

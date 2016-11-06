@@ -14,6 +14,30 @@ func NewStructField(fieldStruct reflect.StructField) (*StructField, error) {
 	}
 	//field should process itself the tag settings
 	err := result.parseTagSettings()
+
+	if result.tagSettings.has(IGNORED) {
+		result.IsIgnored = true
+	}
+
+	if result.tagSettings.has(PRIMARY_KEY) {
+		result.IsPrimaryKey = true
+	}
+
+	if result.tagSettings.has(DEFAULT) {
+		result.HasDefaultValue = true
+	}
+
+	if result.tagSettings.has(AUTO_INCREMENT) && !result.IsPrimaryKey {
+		result.HasDefaultValue = true
+	}
+
+	// Even it is ignored, also possible to decode db value into the field
+	if value := result.tagSettings.get(COLUMN); value != "" {
+		result.DBName = value
+	} else {
+		result.DBName = ToDBName(fieldStruct.Name)
+	}
+
 	return result, err
 }
 
@@ -68,7 +92,6 @@ func (structField *StructField) parseTagSettings() error {
 			return err
 		}
 	}
-	//fmt.Printf("After StructField parseTagSettings\n%s\n\n", structField)
 	return nil
 }
 
@@ -109,7 +132,7 @@ func (field *StructField) Set(value interface{}) error {
 			if scanner, ok := fieldValue.Addr().Interface().(sql.Scanner); ok {
 				//implements Scanner - we pass it over
 				err = scanner.Scan(reflectValue.Interface())
-			}else if reflectValue.Type().ConvertibleTo(fieldValue.Type()) {
+			} else if reflectValue.Type().ConvertibleTo(fieldValue.Type()) {
 				fieldValue.Set(reflectValue.Convert(fieldValue.Type()))
 			} else {
 				//Oops

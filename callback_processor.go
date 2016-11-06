@@ -56,13 +56,13 @@ func (cp *CallbackProcessor) Get(callbackName string) ScopedFunc {
 }
 
 //sorts callback processors
-func (cp *CallbackProcessor) sortCallbackProcessor(allNames, sortedNames *StrSlice, parent CallbackProcessors){
+func (cp *CallbackProcessor) sortCallbackProcessor(allNames, sortedNames *StrSlice, parent CallbackProcessors) {
 	if sortedNames.rIndex(cp.name) == -1 { // if not sorted
 		if cp.before != "" {
 			// if defined before callback
 			if idx := sortedNames.rIndex(cp.before); idx != -1 {
 				// if before callback already sorted, append current callback just after it
-				sortedNames.midSert(idx, cp.name)
+				sortedNames.insertAt(idx, cp.name)
 			} else if index := allNames.rIndex(cp.before); index != -1 {
 				// if before callback exists but haven't sorted, append current callback to last
 				sortedNames.add(cp.name)
@@ -76,7 +76,7 @@ func (cp *CallbackProcessor) sortCallbackProcessor(allNames, sortedNames *StrSli
 			// if defined after callback
 			if index := sortedNames.rIndex(cp.after); index != -1 {
 				// if after callback already sorted, append current callback just before it
-				sortedNames.midSert(index+1, cp.name)
+				sortedNames.insertAt(index+1, cp.name)
 			} else if idx := allNames.rIndex(cp.after); idx != -1 {
 				//sort next
 				// if after callback exists but haven't sorted

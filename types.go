@@ -94,14 +94,9 @@ type (
 		ModelType        reflect.Type
 		defaultTableName string
 	}
-	//TODO : Get rid of these
+
 	safeMap struct {
 		m map[string]string
-		l *sync.RWMutex
-	}
-	//TODO : Get rid of these
-	safeModelStructsMap struct {
-		m map[reflect.Type]*ModelStruct
 		l *sync.RWMutex
 	}
 
@@ -120,8 +115,8 @@ type (
 
 		Error error
 
-		callbacks *Callback
-		db        sqlCommon
+		callback *Callback
+		db       sqlCommon
 
 		search       *search
 		RowsAffected int64
@@ -151,7 +146,7 @@ type (
 
 		primaryKeyField *StructField
 		fields          *StructFields
-
+		//skip left remaining callbacks
 		skipLeft bool
 	}
 
@@ -339,15 +334,11 @@ type (
 var (
 	dialectsMap = map[string]Dialect{}
 
-	// DefaultCallback default callbacks defined by gorm
-	DefaultCallback = &Callback{}
-
 	smap = newSafeMap()
 	// DefaultTableNameHandler default table name handler
 	DefaultTableNameHandler = func(db *DBCon, defaultTableName string) string {
 		return defaultTableName
 	}
-	modelStructsMap = newModelStructsMap()
 
 	// NowFunc returns current time, this function is exported in order to be able
 	// to give the flexibility to the developer to customize it according to their
