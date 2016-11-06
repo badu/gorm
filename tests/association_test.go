@@ -195,8 +195,8 @@ func TestBelongsToOverrideForeignKey1(t *testing.T) {
 
 	if relation, ok := TestDB.NewScope(&User{}).FieldByName("Profile"); ok {
 		if relation.Relationship.Kind != gorm.BELONGS_TO ||
-			!reflect.DeepEqual(relation.Relationship.ForeignFieldNames, []string{"ProfileRefer"}) ||
-			!reflect.DeepEqual(relation.Relationship.AssociationForeignFieldNames, []string{"ID"}) {
+			!reflect.DeepEqual(relation.Relationship.ForeignFieldNames, gorm.StrSlice{"ProfileRefer"}) ||
+			!reflect.DeepEqual(relation.Relationship.AssociationForeignFieldNames, gorm.StrSlice{"ID"}) {
 			t.Errorf("Override belongs to foreign key with tag")
 		}
 	}
@@ -218,8 +218,8 @@ func TestBelongsToOverrideForeignKey2(t *testing.T) {
 
 	if relation, ok := TestDB.NewScope(&User{}).FieldByName("Profile"); ok {
 		if relation.Relationship.Kind != gorm.BELONGS_TO ||
-			!reflect.DeepEqual(relation.Relationship.ForeignFieldNames, []string{"ProfileID"}) ||
-			!reflect.DeepEqual(relation.Relationship.AssociationForeignFieldNames, []string{"Refer"}) {
+			!reflect.DeepEqual(relation.Relationship.ForeignFieldNames, gorm.StrSlice{"ProfileID"}) ||
+			!reflect.DeepEqual(relation.Relationship.AssociationForeignFieldNames, gorm.StrSlice{"Refer"}) {
 			t.Errorf("Override belongs to foreign key with tag")
 		}
 	}
@@ -387,8 +387,8 @@ func TestHasOneOverrideForeignKey1(t *testing.T) {
 
 	if relation, ok := TestDB.NewScope(&User{}).FieldByName("Profile"); ok {
 		if relation.Relationship.Kind != gorm.HAS_ONE ||
-			!reflect.DeepEqual(relation.Relationship.ForeignFieldNames, []string{"UserRefer"}) ||
-			!reflect.DeepEqual(relation.Relationship.AssociationForeignFieldNames, []string{"ID"}) {
+			!reflect.DeepEqual(relation.Relationship.ForeignFieldNames, gorm.StrSlice{"UserRefer"}) ||
+			!reflect.DeepEqual(relation.Relationship.AssociationForeignFieldNames, gorm.StrSlice{"ID"}) {
 			t.Errorf("Override belongs to foreign key with tag")
 		}
 	}
@@ -410,8 +410,8 @@ func TestHasOneOverrideForeignKey2(t *testing.T) {
 
 	if relation, ok := TestDB.NewScope(&User{}).FieldByName("Profile"); ok {
 		if relation.Relationship.Kind != gorm.HAS_ONE ||
-			!reflect.DeepEqual(relation.Relationship.ForeignFieldNames, []string{"UserID"}) ||
-			!reflect.DeepEqual(relation.Relationship.AssociationForeignFieldNames, []string{"Refer"}) {
+			!reflect.DeepEqual(relation.Relationship.ForeignFieldNames, gorm.StrSlice{"UserID"}) ||
+			!reflect.DeepEqual(relation.Relationship.AssociationForeignFieldNames, gorm.StrSlice{"Refer"}) {
 			t.Errorf("Override belongs to foreign key with tag")
 		}
 	}
@@ -573,8 +573,8 @@ func TestHasManyOverrideForeignKey1(t *testing.T) {
 
 	if relation, ok := TestDB.NewScope(&User{}).FieldByName("Profile"); ok {
 		if relation.Relationship.Kind != gorm.HAS_MANY ||
-			!reflect.DeepEqual(relation.Relationship.ForeignFieldNames, []string{"UserRefer"}) ||
-			!reflect.DeepEqual(relation.Relationship.AssociationForeignFieldNames, []string{"ID"}) {
+			!reflect.DeepEqual(relation.Relationship.ForeignFieldNames, gorm.StrSlice{"UserRefer"}) ||
+			!reflect.DeepEqual(relation.Relationship.AssociationForeignFieldNames, gorm.StrSlice{"ID"}) {
 			t.Errorf("Override belongs to foreign key with tag")
 		}
 	}
@@ -596,8 +596,8 @@ func TestHasManyOverrideForeignKey2(t *testing.T) {
 
 	if relation, ok := TestDB.NewScope(&User{}).FieldByName("Profile"); ok {
 		if relation.Relationship.Kind != gorm.HAS_MANY ||
-			!reflect.DeepEqual(relation.Relationship.ForeignFieldNames, []string{"UserID"}) ||
-			!reflect.DeepEqual(relation.Relationship.AssociationForeignFieldNames, []string{"Refer"}) {
+			!reflect.DeepEqual(relation.Relationship.ForeignFieldNames, gorm.StrSlice{"UserID"}) ||
+			!reflect.DeepEqual(relation.Relationship.AssociationForeignFieldNames, gorm.StrSlice{"Refer"}) {
 			t.Errorf("Override belongs to foreign key with tag")
 		}
 	}

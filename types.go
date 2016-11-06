@@ -7,8 +7,6 @@ import (
 	"os"
 	"reflect"
 	"regexp"
-	"strings"
-	"sync"
 	"time"
 )
 
@@ -69,10 +67,10 @@ type (
 		PolymorphicType              string
 		PolymorphicDBName            string
 		PolymorphicValue             string
-		ForeignFieldNames            []string
-		ForeignDBNames               []string
-		AssociationForeignFieldNames []string
-		AssociationForeignDBNames    []string
+		ForeignFieldNames            StrSlice
+		ForeignDBNames               StrSlice
+		AssociationForeignFieldNames StrSlice
+		AssociationForeignDBNames    StrSlice
 		JoinTableHandler             JoinTableHandlerInterface
 	}
 
@@ -93,11 +91,6 @@ type (
 		StructFields     StructFields
 		ModelType        reflect.Type
 		defaultTableName string
-	}
-
-	safeMap struct {
-		m map[string]string
-		l *sync.RWMutex
 	}
 
 	// SQL expression
@@ -334,7 +327,6 @@ type (
 var (
 	dialectsMap = map[string]Dialect{}
 
-	smap = newSafeMap()
 	// DefaultTableNameHandler default table name handler
 	DefaultTableNameHandler = func(db *DBCon, defaultTableName string) string {
 		return defaultTableName
@@ -349,10 +341,6 @@ var (
 	NowFunc = func() time.Time {
 		return time.Now()
 	}
-
-	// Copied from golint
-	commonInitialisms         = []string{"API", "ASCII", "CPU", "CSS", "DNS", "EOF", "GUID", "HTML", "HTTP", "HTTPS", "ID", "IP", "JSON", "LHS", "QPS", "RAM", "RHS", "RPC", "SLA", "SMTP", "SSH", "TLS", "TTL", "UI", "UID", "UUID", "URI", "URL", "UTF8", "VM", "XML", "XSRF", "XSS"}
-	commonInitialismsReplacer *strings.Replacer
 
 	columnRegexp = regexp.MustCompile("^[a-zA-Z]+(\\.[a-zA-Z]+)*$") // only match string like `name`, `users.name`
 

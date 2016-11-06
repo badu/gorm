@@ -35,25 +35,25 @@ func createCallback(scope *Scope) {
 		defer scope.trace(NowFunc())
 
 		var (
-			columns, placeholders        []string
-			blankColumnsWithDefaultValue []string
+			columns, placeholders        StrSlice
+			blankColumnsWithDefaultValue StrSlice
 		)
 
 		for _, field := range scope.Fields() {
 			if scope.changeableField(field) {
 				if field.IsNormal {
 					if field.IsBlank && field.HasDefaultValue {
-						blankColumnsWithDefaultValue = append(blankColumnsWithDefaultValue, scope.Quote(field.DBName))
+						blankColumnsWithDefaultValue.add(scope.Quote(field.DBName))
 						scope.InstanceSet("gorm:blank_columns_with_default_value", blankColumnsWithDefaultValue)
 					} else if !field.IsPrimaryKey || !field.IsBlank {
-						columns = append(columns, scope.Quote(field.DBName))
-						placeholders = append(placeholders, scope.AddToVars(field.Value.Interface()))
+						columns.add(scope.Quote(field.DBName))
+						placeholders.add(scope.AddToVars(field.Value.Interface()))
 					}
 				} else if field.Relationship != nil && field.Relationship.Kind == BELONGS_TO {
 					for _, foreignKey := range field.Relationship.ForeignDBNames {
 						if foreignField, ok := scope.FieldByName(foreignKey); ok && !scope.changeableField(foreignField) {
-							columns = append(columns, scope.Quote(foreignField.DBName))
-							placeholders = append(placeholders, scope.AddToVars(foreignField.Value.Interface()))
+							columns.add(scope.Quote(foreignField.DBName))
+							placeholders.add(scope.AddToVars(foreignField.Value.Interface()))
 						}
 					}
 				}
@@ -120,7 +120,7 @@ func createCallback(scope *Scope) {
 // forceReloadAfterCreateCallback will reload columns that having default value, and set it back to current object
 func forceReloadAfterCreateCallback(scope *Scope) {
 	if blankColumnsWithDefaultValue, ok := scope.InstanceGet("gorm:blank_columns_with_default_value"); ok {
-		db := scope.DB().New().Table(scope.TableName()).Select(blankColumnsWithDefaultValue.([]string))
+		db := scope.DB().New().Table(scope.TableName()).Select(blankColumnsWithDefaultValue.(StrSlice))
 		for _, field := range scope.Fields() {
 			if field.IsPrimaryKey && !field.IsBlank {
 				db = db.Where(fmt.Sprintf("%v = ?", field.DBName), field.Value.Interface())
@@ -160,7 +160,7 @@ func saveBeforeAssociationsCallback(scope *Scope) {
 			if relationship := field.Relationship; relationship != nil && relationship.Kind == BELONGS_TO {
 				fieldValue := field.Value.Addr().Interface()
 				scope.Err(scope.NewDB().Save(fieldValue).Error)
-				if len(relationship.ForeignFieldNames) != 0 {
+				if relationship.ForeignFieldNames.len() != 0 {
 					// set value's foreign key
 					for idx, fieldName := range relationship.ForeignFieldNames {
 						associationForeignName := relationship.AssociationForeignDBNames[idx]
@@ -190,7 +190,7 @@ func saveAfterAssociationsCallback(scope *Scope) {
 						elem := value.Index(i).Addr().Interface()
 						newScope := newDB.NewScope(elem)
 
-						if relationship.JoinTableHandler == nil && len(relationship.ForeignFieldNames) != 0 {
+						if relationship.JoinTableHandler == nil && relationship.ForeignFieldNames.len() != 0 {
 							for idx, fieldName := range relationship.ForeignFieldNames {
 								associationForeignName := relationship.AssociationForeignDBNames[idx]
 								if f, ok := scope.FieldByName(associationForeignName); ok {
@@ -212,7 +212,7 @@ func saveAfterAssociationsCallback(scope *Scope) {
 				default:
 					elem := value.Addr().Interface()
 					newScope := scope.New(elem)
-					if len(relationship.ForeignFieldNames) != 0 {
+					if relationship.ForeignFieldNames.len() != 0 {
 						for idx, fieldName := range relationship.ForeignFieldNames {
 							associationForeignName := relationship.AssociationForeignDBNames[idx]
 							if f, ok := scope.FieldByName(associationForeignName); ok {

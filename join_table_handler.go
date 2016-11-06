@@ -131,13 +131,13 @@ func (s JoinTableHandler) JoinWith(handler JoinTableHandlerInterface, db *DBCon,
 			joinConditions = append(joinConditions, fmt.Sprintf("%v.%v = %v.%v", quotedTableName, scope.Quote(foreignKey.DBName), destinationTableName, scope.Quote(foreignKey.AssociationDBName)))
 		}
 
-		var foreignDBNames []string
-		var foreignFieldNames []string
+		var foreignDBNames StrSlice
+		var foreignFieldNames StrSlice
 
 		for _, foreignKey := range s.Source.ForeignKeys {
 			foreignDBNames = append(foreignDBNames, foreignKey.DBName)
 			if field, ok := scope.FieldByName(foreignKey.AssociationDBName); ok {
-				foreignFieldNames = append(foreignFieldNames, field.GetName())
+				foreignFieldNames.add(field.GetName())
 			}
 		}
 

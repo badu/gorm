@@ -60,21 +60,21 @@ func (association *Association) Replace(values ...interface{}) *Association {
 
 		// Delete Relations except new created
 		if len(values) > 0 {
-			var associationForeignFieldNames, associationForeignDBNames []string
+			var associationForeignFieldNames, associationForeignDBNames StrSlice
 			if relationship.Kind == MANY_TO_MANY {
 				// if many to many relations, get association fields name from association foreign keys
 				associationScope := scope.New(reflect.New(field.Type()).Interface())
 				for idx, dbName := range relationship.AssociationForeignFieldNames {
 					if field, ok := associationScope.FieldByName(dbName); ok {
-						associationForeignFieldNames = append(associationForeignFieldNames, field.GetName())
-						associationForeignDBNames = append(associationForeignDBNames, relationship.AssociationForeignDBNames[idx])
+						associationForeignFieldNames.add(field.GetName())
+						associationForeignDBNames.add(relationship.AssociationForeignDBNames[idx])
 					}
 				}
 			} else {
 				// If has one/many relations, use primary keys
 				for _, field := range scope.New(reflect.New(field.Type()).Interface()).PrimaryFields() {
-					associationForeignFieldNames = append(associationForeignFieldNames, field.GetName())
-					associationForeignDBNames = append(associationForeignDBNames, field.DBName)
+					associationForeignFieldNames.add(field.GetName())
+					associationForeignDBNames.add(field.DBName)
 				}
 			}
 
@@ -88,11 +88,11 @@ func (association *Association) Replace(values ...interface{}) *Association {
 
 		if relationship.Kind == MANY_TO_MANY {
 			// if many to many relations, delete related relations from join table
-			var sourceForeignFieldNames []string
+			var sourceForeignFieldNames StrSlice
 
 			for _, dbName := range relationship.ForeignFieldNames {
 				if field, ok := scope.FieldByName(dbName); ok {
-					sourceForeignFieldNames = append(sourceForeignFieldNames, field.GetName())
+					sourceForeignFieldNames.add(field.GetName())
 				}
 			}
 
@@ -135,10 +135,10 @@ func (association *Association) Delete(values ...interface{}) *Association {
 		return association
 	}
 
-	var deletingResourcePrimaryFieldNames, deletingResourcePrimaryDBNames []string
+	var deletingResourcePrimaryFieldNames, deletingResourcePrimaryDBNames StrSlice
 	for _, field := range scope.New(reflect.New(field.Type()).Interface()).PrimaryFields() {
-		deletingResourcePrimaryFieldNames = append(deletingResourcePrimaryFieldNames, field.GetName())
-		deletingResourcePrimaryDBNames = append(deletingResourcePrimaryDBNames, field.DBName)
+		deletingResourcePrimaryFieldNames.add(field.GetName())
+		deletingResourcePrimaryDBNames.add(field.DBName)
 	}
 
 	deletingPrimaryKeys := scope.getColumnAsArray(deletingResourcePrimaryFieldNames, values...)
@@ -153,10 +153,10 @@ func (association *Association) Delete(values ...interface{}) *Association {
 
 		// get association's foreign fields name
 		var associationScope = scope.New(reflect.New(field.Type()).Interface())
-		var associationForeignFieldNames []string
+		var associationForeignFieldNames StrSlice
 		for _, associationDBName := range relationship.AssociationForeignFieldNames {
 			if field, ok := associationScope.FieldByName(associationDBName); ok {
-				associationForeignFieldNames = append(associationForeignFieldNames, field.GetName())
+				associationForeignFieldNames.add(field.GetName())
 			}
 		}
 

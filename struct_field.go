@@ -35,7 +35,7 @@ func NewStructField(fieldStruct reflect.StructField) (*StructField, error) {
 	if value := result.tagSettings.get(COLUMN); value != "" {
 		result.DBName = value
 	} else {
-		result.DBName = ToDBName(fieldStruct.Name)
+		result.DBName = NamesMap.ToDBName(fieldStruct.Name)
 	}
 
 	return result, err

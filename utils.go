@@ -1,7 +1,6 @@
 package gorm
 
 import (
-	"bytes"
 	"database/sql"
 	"database/sql/driver"
 	"errors"
@@ -11,7 +10,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"sync"
 	"unicode"
 )
 
@@ -79,10 +77,6 @@ func isUUID(value reflect.Value) bool {
 // Other utils functions
 //============================================
 
-func newSafeMap() *safeMap {
-	return &safeMap{l: new(sync.RWMutex), m: make(map[string]string)}
-}
-
 func isPrintable(s string) bool {
 	for _, r := range s {
 		if !unicode.IsPrint(r) {
@@ -110,7 +104,7 @@ func convertInterfaceToMap(values interface{}, withIgnoredField bool) map[string
 		switch reflectValue.Kind() {
 		case reflect.Map:
 			for _, key := range reflectValue.MapKeys() {
-				attrs[ToDBName(key.Interface().(string))] = reflectValue.MapIndex(key).Interface()
+				attrs[NamesMap.ToDBName(key.Interface().(string))] = reflectValue.MapIndex(key).Interface()
 			}
 		default:
 			for _, field := range (&Scope{Value: values}).Fields() {
@@ -123,59 +117,12 @@ func convertInterfaceToMap(values interface{}, withIgnoredField bool) map[string
 	return attrs
 }
 
-//TODO : @Badu - seems to be called everywhere! Optimize, cache or get rid of it!
-// ToDBName convert string to db name
-func ToDBName(name string) string {
-	if v := smap.Get(name); v != "" {
-		return v
-	}
-
-	if name == "" {
-		return ""
-	}
-
-	var (
-		value                        = commonInitialismsReplacer.Replace(name)
-		buf                          = bytes.NewBufferString("")
-		lastCase, currCase, nextCase strCase
-	)
-
-	for i, v := range value[:len(value)-1] {
-		nextCase = strCase(value[i+1] >= 'A' && value[i+1] <= 'Z')
-		if i > 0 {
-			if currCase == upper {
-				if lastCase == upper && nextCase == upper {
-					buf.WriteRune(v)
-				} else {
-					if value[i-1] != '_' && value[i+1] != '_' {
-						buf.WriteRune('_')
-					}
-					buf.WriteRune(v)
-				}
-			} else {
-				buf.WriteRune(v)
-			}
-		} else {
-			currCase = upper
-			buf.WriteRune(v)
-		}
-		lastCase = currCase
-		currCase = nextCase
-	}
-
-	buf.WriteByte(value[len(value)-1])
-
-	s := strings.ToLower(buf.String())
-	smap.Set(name, s)
-	return s
-}
-
 // Expr generate raw SQL expression, for example:
 //     DB.Model(&product).Update("price", gorm.Expr("price * ? + ?", 2, 100))
 func Expr(expression string, args ...interface{}) *expr {
 	return &expr{expr: expression, args: args}
 }
-
+//TODO : @Badu - needs to be swallowed
 func indirect(reflectValue reflect.Value) reflect.Value {
 	for reflectValue.Kind() == reflect.Ptr {
 		reflectValue = reflectValue.Elem()
@@ -201,7 +148,7 @@ func toQueryMarks(primaryValues [][]interface{}) string {
 	return strings.Join(results, ",")
 }
 
-func toQueryCondition(scope *Scope, columns []string) string {
+func toQueryCondition(scope *Scope, columns StrSlice) string {
 	var newColumns []string
 	for _, column := range columns {
 		newColumns = append(newColumns, scope.Quote(column))
@@ -279,7 +226,7 @@ func makeSlice(elemType reflect.Type) interface{} {
 }
 
 // getValueFromFields return given fields's value
-func getValueFromFields(value reflect.Value, fieldNames []string) (results []interface{}) {
+func getValueFromFields(value reflect.Value, fieldNames StrSlice) (results []interface{}) {
 	// If value is a nil pointer, Indirect returns a zero Value!
 	// Therefor we need to check for a zero value,
 	// as FieldByName could panic
