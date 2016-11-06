@@ -122,7 +122,7 @@ func convertInterfaceToMap(values interface{}, withIgnoredField bool) map[string
 func Expr(expression string, args ...interface{}) *expr {
 	return &expr{expr: expression, args: args}
 }
-//TODO : @Badu - needs to be swallowed
+
 func indirect(reflectValue reflect.Value) reflect.Value {
 	for reflectValue.Kind() == reflect.Ptr {
 		reflectValue = reflectValue.Elem()

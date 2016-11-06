@@ -27,7 +27,8 @@
 - [x] got rid of parseTagSetting method from utils.go
 - [x] moved ToDBName into safe_map.go - renamed smap to NamesMap
 - [x] StrSlice is used in Relationship
-- [x] more cleanups 
+- [x] more cleanups
+- [x] more renaming
 
 ## 05.11.2016
 - [x] DefaultCallback removed from types - it's made under open and registers all callbacks there

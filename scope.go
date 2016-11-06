@@ -37,7 +37,7 @@ func (scope *Scope) DB() *DBCon {
 // NewDB create a new DB without search information
 func (scope *Scope) NewDB() *DBCon {
 	if scope.db != nil {
-		db := scope.db.clone(true)
+		db := scope.db.clone(true, true)
 		return db
 	}
 	return nil
