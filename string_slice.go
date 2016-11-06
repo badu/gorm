@@ -34,3 +34,7 @@ func (s *StrSlice) insertAt(index int, name string) {
 func (s *StrSlice) commaLoad(target string) {
 	*s = strings.Split(target, ",")
 }
+
+func (s StrSlice) slice() []string {
+	return s
+}

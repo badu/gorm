@@ -618,7 +618,7 @@ func (e ElementWithIgnoredField) TableName() string {
 
 func (s *Product) BeforeCreate() (err error) {
 	if s.Code == "Invalid" {
-		err = errors.New("invalid product")
+		err = errors.New("BeforeCreate invalid product")
 	}
 	s.BeforeCreateCallTimes = s.BeforeCreateCallTimes + 1
 	return
@@ -626,7 +626,7 @@ func (s *Product) BeforeCreate() (err error) {
 
 func (s *Product) BeforeUpdate() (err error) {
 	if s.Code == "dont_update" {
-		err = errors.New("can't update")
+		err = errors.New("BeforeUpdate can't update")
 	}
 	s.BeforeUpdateCallTimes = s.BeforeUpdateCallTimes + 1
 	return
@@ -634,7 +634,7 @@ func (s *Product) BeforeUpdate() (err error) {
 
 func (s *Product) BeforeSave() (err error) {
 	if s.Code == "dont_save" {
-		err = errors.New("can't save")
+		err = errors.New("BeforeSave can't save")
 	}
 	s.BeforeSaveCallTimes = s.BeforeSaveCallTimes + 1
 	return
@@ -654,7 +654,7 @@ func (s *Product) AfterUpdate() {
 
 func (s *Product) AfterSave() (err error) {
 	if s.Code == "after_save_error" {
-		err = errors.New("can't save")
+		err = errors.New("AfterSave can't save")
 	}
 	s.AfterSaveCallTimes = s.AfterSaveCallTimes + 1
 	return
@@ -662,7 +662,7 @@ func (s *Product) AfterSave() (err error) {
 
 func (s *Product) BeforeDelete() (err error) {
 	if s.Code == "dont_delete" {
-		err = errors.New("can't delete")
+		err = errors.New("BeforeDelete can't delete")
 	}
 	s.BeforeDeleteCallTimes = s.BeforeDeleteCallTimes + 1
 	return
@@ -670,7 +670,7 @@ func (s *Product) BeforeDelete() (err error) {
 
 func (s *Product) AfterDelete() (err error) {
 	if s.Code == "after_delete_error" {
-		err = errors.New("can't delete")
+		err = errors.New("AfterDelete can't delete")
 	}
 	s.AfterDeleteCallTimes = s.AfterDeleteCallTimes + 1
 	return
@@ -843,9 +843,6 @@ func OpenTestConnection() (db *gorm.DBCon, err error) {
 	case "foundation":
 		fmt.Println("testing foundation...")
 		db, err = gorm.Open("foundation", "dbname=gorm port=15432 sslmode=disable")
-	case "mssql":
-		fmt.Println("testing mssql...")
-		db, err = gorm.Open("mssql", "server=SERVER_HERE;database=rogue;user id=USER_HERE;password=PW_HERE;port=1433")
 	default:
 		fmt.Println("testing sqlite3...")
 		db, err = gorm.Open("sqlite3", "test.db?cache=shared&mode=memory")
@@ -853,9 +850,6 @@ func OpenTestConnection() (db *gorm.DBCon, err error) {
 
 	// db.SetLogger(Logger{log.New(os.Stdout, "\r\n", 0)})
 	// db.SetLogger(log.New(os.Stdout, "\r\n", 0))
-	if os.Getenv("DEBUG") == "true" {
-		db.LogMode(true)
-	}
 
 	db.DB().SetMaxIdleConns(10)
 

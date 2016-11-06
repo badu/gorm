@@ -15,9 +15,11 @@ func TestFirstAndLast(t *testing.T) {
 	TestDB.Save(&User{Name: "user2", Emails: []Email{{Email: "user2@example.com"}}})
 
 	var user1, user2, user3, user4 User
+	t.Log("First")
 	TestDB.First(&user1)
 	TestDB.Order("id").Limit(1).Find(&user2)
 
+	t.Log("Last")
 	TestDB.Last(&user3)
 	TestDB.Order("id desc").Limit(1).Find(&user4)
 	//TODO : @Badu - simplify
@@ -27,6 +29,7 @@ func TestFirstAndLast(t *testing.T) {
 
 	var users []User
 	TestDB.First(&users)
+	t.Log("First")
 	if len(users) != 1 {
 		t.Errorf("Find first record as slice")
 	}
