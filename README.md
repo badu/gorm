@@ -1,10 +1,6 @@
 # Todo
-- [ ] Extract strings from dialect_postgres.go
-- [ ] Extracted strings from dialect_sqlite3.go
 - [ ] Documentation for tests and build examples
 - [ ] Stringer implementation on all structs for debugging
-- [ ] Reorganize local vars from various places
-- [ ] Reorganize deferred functions from various places
 - [ ] Extract strings from code (make constants)
 - [ ] Collect errors and their messages in one place
 - [ ] replace slices of strings with 
@@ -16,12 +12,25 @@
 
 # Comments and thoughts
 - Generated SQL let's the SQL engine cast : SELECT * FROM aTable WHERE id = '1' (id being int). I think it's a bad practice and it should be fixed
+- I'm almost convinced that default Callbacks should be Scope methods :
+ handleHasOnePreload, handleHasManyPreload, handleBelongsToPreload, handleManyToManyPreload are all in Scope, but called
+ from preloadCallback in callback_functions.go. Anyway, callbacks needs reconsideration - it has good parts (customization) and bad parts 
+ (the separation is artificial, since if you remove default callbacks, gorm won't work as intended)
+- There are so many checks all over the place, which show insecurity. For example, we know what's to know about a StructField - maybe it's best 
+to have the dereferenced pointer to the struct/slice kept inside. Same goes for Scope...
 
 # Breaking changes
 - DB struct - renamed to DBCon, since that is what it represents
 - Removed MSSQL support - out of my concerns with this project
 
 # Changes log
+
+## 07.11.2016
+- [x] ParseFieldStructForDialect() moved to struct_field.go from utils.go
+- [x] makeSlice() moved to struct_field.go from utils.go
+- [x] indirect() from utils.go, swallowed where needed (shows logic better when dereferencing pointer)
+- [x] file for expr struct (will add more functionality)
+- [x] cloneWithValue() method in db.go 
 
 ## 06.11.2016
 - [x] got rid of parseTagSetting method from utils.go

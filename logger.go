@@ -4,7 +4,10 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"reflect"
+	"regexp"
+	"runtime"
 	"time"
+	"unicode"
 )
 
 type (
@@ -22,6 +25,28 @@ type (
 		LogWriter
 	}
 )
+
+func isPrintable(s string) bool {
+	for _, r := range s {
+		if !unicode.IsPrint(r) {
+			return false
+		}
+	}
+	return true
+}
+
+func fileWithLineNum() string {
+	//TODO : @Badu - from exactly 2 to 15! Well...
+	for i := 2; i < 15; i++ {
+		_, file, line, ok := runtime.Caller(i)
+		//TODO : @Badu - and this boiler plate regexps
+		if ok && (!regexp.MustCompile(`badu/gorm/.*.go`).MatchString(file) ||
+			regexp.MustCompile(`badu/gorm/.*test.go`).MatchString(file)) {
+			return fmt.Sprintf("%v:%v", file, line)
+		}
+	}
+	return ""
+}
 
 // Print format & print log
 func (logger Logger) Print(values ...interface{}) {

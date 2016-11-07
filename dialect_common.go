@@ -44,7 +44,7 @@ func (commonDialect) Quote(key string) string {
 }
 
 func (commonDialect) DataTypeOf(field *StructField) string {
-	var dataValue, sqlType, size, additionalType = ParseFieldStructForDialect(field)
+	var dataValue, sqlType, size, additionalType = field.ParseFieldStructForDialect()
 
 	if sqlType == "" {
 		switch dataValue.Kind() {

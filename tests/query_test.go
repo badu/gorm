@@ -443,21 +443,21 @@ func TestNot(t *testing.T) {
 	if rowsAffected != 4 {
 		t.Errorf("should find 4 `not` users")
 	} else {
-		t.Logf("Found %d users", rowsAffected)
+		//t.Logf("Found %d users", rowsAffected)
 	}
 	TestDB.Not(users1[0].Id).Find(&users2)
 
 	if len(users1)-len(users2) != 1 {
 		t.Errorf("Should ignore the first users with Not")
 	} else {
-		t.Logf("Correct")
+		//t.Logf("Correct")
 	}
 
 	TestDB.Not([]int{}).Find(&users3)
 	if len(users1)-len(users3) != 0 {
 		t.Errorf("Should find all users with a blank condition")
 	} else {
-		t.Logf("Correct")
+		//t.Logf("Correct")
 	}
 
 	var name3Count int64
@@ -466,21 +466,21 @@ func TestNot(t *testing.T) {
 	if len(users1)-len(users4) != int(name3Count) {
 		t.Errorf("Should find all users's name not equal 3")
 	} else {
-		t.Logf("Correct")
+		//t.Logf("Correct")
 	}
 
 	TestDB.Not("name = ?", "user3").Find(&users4)
 	if len(users1)-len(users4) != int(name3Count) {
 		t.Errorf("Should find all users's name not equal 3")
 	} else {
-		t.Logf("Correct")
+		//t.Logf("Correct")
 	}
 
 	TestDB.Not("name <> ?", "user3").Find(&users4)
 	if len(users4) != int(name3Count) {
 		t.Errorf("Should find all users's name not equal 3")
 	} else {
-		t.Logf("Correct")
+		//t.Logf("Correct")
 	}
 
 	TestDB.Not(User{Name: "user3"}).Find(&users5)
@@ -488,28 +488,28 @@ func TestNot(t *testing.T) {
 	if len(users1)-len(users5) != int(name3Count) {
 		t.Errorf("Should find all users's name not equal 3")
 	} else {
-		t.Logf("Correct")
+		//t.Logf("Correct")
 	}
 
 	TestDB.Not(map[string]interface{}{"name": "user3"}).Find(&users6)
 	if len(users1)-len(users6) != int(name3Count) {
 		t.Errorf("Should find all users's name not equal 3")
 	} else {
-		t.Logf("Correct")
+		//t.Logf("Correct")
 	}
 
 	TestDB.Not(map[string]interface{}{"name": "user3", "company_id": nil}).Find(&users7)
 	if len(users1)-len(users7) != 2 { // not user3 or user4
 		t.Errorf("Should find all user's name not equal to 3 who do not have company id")
 	} else {
-		t.Logf("Correct")
+		//t.Logf("Correct")
 	}
 
 	TestDB.Not("name", []string{"user3"}).Find(&users8)
 	if len(users1)-len(users8) != int(name3Count) {
 		t.Errorf("Should find all users's name not equal 3")
 	} else {
-		t.Logf("Correct")
+		//t.Logf("Correct")
 	}
 
 	var name2Count int64
@@ -518,9 +518,9 @@ func TestNot(t *testing.T) {
 	if len(users1)-len(users9) != (int(name3Count) + int(name2Count)) {
 		t.Errorf("Should find all users's name not equal 3")
 	} else {
-		t.Logf("Correct")
+		//t.Logf("Correct")
 	}
-	t.Log("120) TestNot FINISHED")
+	//t.Log("120) TestNot FINISHED")
 
 }
 

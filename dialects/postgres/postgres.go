@@ -12,8 +12,7 @@ type Hstore map[string]*string
 
 // Value get value of Hstore
 func (h Hstore) Value() (driver.Value, error) {
-	//TODO : @Badu - rename this - collides with imported package name
-	hstore := hstore.Hstore{Map: map[string]sql.NullString{}}
+	hstoreMap := hstore.Hstore{Map: map[string]sql.NullString{}}
 	if len(h) == 0 {
 		return nil, nil
 	}
@@ -24,29 +23,28 @@ func (h Hstore) Value() (driver.Value, error) {
 			s.String = *value
 			s.Valid = true
 		}
-		hstore.Map[key] = s
+		hstoreMap.Map[key] = s
 	}
-	return hstore.Value()
+	return hstoreMap.Value()
 }
 
 // Scan scan value into Hstore
 func (h *Hstore) Scan(value interface{}) error {
-	//TODO : @Badu - rename this - collides with imported package name
-	hstore := hstore.Hstore{}
+	hstoreMap := hstore.Hstore{}
 
-	if err := hstore.Scan(value); err != nil {
+	if err := hstoreMap.Scan(value); err != nil {
 		return err
 	}
 
-	if len(hstore.Map) == 0 {
+	if len(hstoreMap.Map) == 0 {
 		return nil
 	}
-	//TODO : @Badu - assignment to method receiver propagates only to callees but not to callers
+
 	*h = Hstore{}
-	for k := range hstore.Map {
-		elem := hstore.Map[k]
+	for k := range hstoreMap.Map {
+		elem := hstoreMap.Map[k]
 		if elem.Valid {
-			s := hstore.Map[k].String
+			s := hstoreMap.Map[k].String
 			(*h)[k] = &s
 		} else {
 			(*h)[k] = nil

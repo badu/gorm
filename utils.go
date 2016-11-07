@@ -6,11 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"regexp"
-	"runtime"
-	"strconv"
 	"strings"
-	"unicode"
 )
 
 //============================================
@@ -20,44 +16,6 @@ import (
 // RegisterDialect register new dialect
 func RegisterDialect(name string, dialect Dialect) {
 	dialectsMap[name] = dialect
-}
-
-// ParseFieldStructForDialect parse field struct for dialect
-func ParseFieldStructForDialect(field *StructField) (fieldValue reflect.Value, sqlType string, size int, additionalType string) {
-	// Get redirected field type
-	var reflectType = field.Struct.Type
-	for reflectType.Kind() == reflect.Ptr {
-		reflectType = reflectType.Elem()
-	}
-
-	// Get redirected field value
-	fieldValue = reflect.Indirect(reflect.New(reflectType))
-
-	// Get scanner's real value
-	var getScannerValue func(reflect.Value)
-	getScannerValue = func(value reflect.Value) {
-		fieldValue = value
-		if _, isScanner := reflect.New(fieldValue.Type()).Interface().(sql.Scanner); isScanner && fieldValue.Kind() == reflect.Struct {
-			getScannerValue(fieldValue.Field(0))
-		}
-	}
-	getScannerValue(fieldValue)
-
-	// Default Size
-	if num := field.GetSetting(SIZE); num != "" {
-		size, _ = strconv.Atoi(num)
-	} else {
-		size = 255
-	}
-
-	//TODO : @Badu - what if the settings below are empty?
-	// Default type from tag setting
-	additionalType = field.GetSetting(NOT_NULL) + " " + field.GetSetting(UNIQUE)
-	if value := field.GetSetting(DEFAULT); value != "" {
-		additionalType = additionalType + " DEFAULT " + value
-	}
-
-	return fieldValue, field.GetSetting(TYPE), size, strings.TrimSpace(additionalType)
 }
 
 func isByteArrayOrSlice(value reflect.Value) bool {
@@ -76,15 +34,6 @@ func isUUID(value reflect.Value) bool {
 //============================================
 // Other utils functions
 //============================================
-
-func isPrintable(s string) bool {
-	for _, r := range s {
-		if !unicode.IsPrint(r) {
-			return false
-		}
-	}
-	return true
-}
 
 func convertInterfaceToMap(values interface{}, withIgnoredField bool) map[string]interface{} {
 	var attrs = map[string]interface{}{}
@@ -117,18 +66,7 @@ func convertInterfaceToMap(values interface{}, withIgnoredField bool) map[string
 	return attrs
 }
 
-// Expr generate raw SQL expression, for example:
-//     DB.Model(&product).Update("price", gorm.Expr("price * ? + ?", 2, 100))
-func Expr(expression string, args ...interface{}) *expr {
-	return &expr{expr: expression, args: args}
-}
 
-func indirect(reflectValue reflect.Value) reflect.Value {
-	for reflectValue.Kind() == reflect.Ptr {
-		reflectValue = reflectValue.Elem()
-	}
-	return reflectValue
-}
 
 func toQueryMarks(primaryValues [][]interface{}) string {
 	var results []string
@@ -169,16 +107,6 @@ func toQueryValues(values [][]interface{}) (results []interface{}) {
 	return
 }
 
-func fileWithLineNum() string {
-	for i := 2; i < 15; i++ {
-		_, file, line, ok := runtime.Caller(i)
-		if ok && (!regexp.MustCompile(`jinzhu/gorm/.*.go`).MatchString(file) || regexp.MustCompile(`jinzhu/gorm/.*test.go`).MatchString(file)) {
-			return fmt.Sprintf("%v:%v", file, line)
-		}
-	}
-	return ""
-}
-
 func toSearchableMap(attrs ...interface{}) (result interface{}) {
 	if len(attrs) > 1 {
 		if str, ok := attrs[0].(string); ok {
@@ -200,6 +128,7 @@ func equalAsString(a interface{}, b interface{}) bool {
 	return toString(a) == toString(b)
 }
 
+//TODO : @Badu - I really don't like this, being too generic, like we have no idea what we are comparing
 func toString(str interface{}) string {
 	if values, ok := str.([]interface{}); ok {
 		var results []string
@@ -213,16 +142,6 @@ func toString(str interface{}) string {
 		return fmt.Sprintf("%v", reflectValue.Interface())
 	}
 	return ""
-}
-
-func makeSlice(elemType reflect.Type) interface{} {
-	if elemType.Kind() == reflect.Slice {
-		elemType = elemType.Elem()
-	}
-	sliceType := reflect.SliceOf(elemType)
-	slice := reflect.New(sliceType)
-	slice.Elem().Set(reflect.MakeSlice(sliceType, 0, 0))
-	return slice.Interface()
 }
 
 // getValueFromFields return given fields's value

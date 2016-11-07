@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
+	"strconv"
 )
 
 func NewStructField(fieldStruct reflect.StructField) (*StructField, error) {
@@ -191,6 +193,55 @@ func (structField *StructField) SetSetting(named uint8, value string) {
 //deletes a key (for code readability)
 func (structField *StructField) UnsetSetting(named uint8) {
 	structField.tagSettings.unset(named)
+}
+
+func (field *StructField) makeSlice() interface{} {
+	elemType := field.Struct.Type
+	if elemType.Kind() == reflect.Slice {
+		elemType = elemType.Elem()
+	}
+	sliceType := reflect.SliceOf(elemType)
+	slice := reflect.New(sliceType)
+	slice.Elem().Set(reflect.MakeSlice(sliceType, 0, 0))
+	return slice.Interface()
+}
+
+// ParseFieldStructForDialect parse field struct for dialect
+func (field *StructField) ParseFieldStructForDialect()(fieldValue reflect.Value, sqlType string, size int, additionalType string) {
+	// Get redirected field type
+	var reflectType = field.Struct.Type
+	for reflectType.Kind() == reflect.Ptr {
+		reflectType = reflectType.Elem()
+	}
+
+	// Get redirected field value
+	fieldValue = reflect.Indirect(reflect.New(reflectType))
+
+	// Get scanner's real value
+	var getScannerValue func(reflect.Value)
+	getScannerValue = func(value reflect.Value) {
+		fieldValue = value
+		if _, isScanner := reflect.New(fieldValue.Type()).Interface().(sql.Scanner); isScanner && fieldValue.Kind() == reflect.Struct {
+			getScannerValue(fieldValue.Field(0))
+		}
+	}
+	getScannerValue(fieldValue)
+
+	// Default Size
+	if num := field.GetSetting(SIZE); num != "" {
+		size, _ = strconv.Atoi(num)
+	} else {
+		size = 255
+	}
+
+	//TODO : @Badu - what if the settings below are empty?
+	// Default type from tag setting
+	additionalType = field.GetSetting(NOT_NULL) + " " + field.GetSetting(UNIQUE)
+	if value := field.GetSetting(DEFAULT); value != "" {
+		additionalType = additionalType + " DEFAULT " + value
+	}
+
+	return fieldValue, field.GetSetting(TYPE), size, strings.TrimSpace(additionalType)
 }
 
 /**

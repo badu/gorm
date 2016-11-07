@@ -13,6 +13,7 @@ func (s *ModelStruct) TableName(db *DBCon) string {
 
 func (s *ModelStruct) fieldByName(column string) *StructField {
 	//TODO : @Badu - find a easier way to deliver this, instead of iterating over slice
+	//since ModelStructs are cached, it wouldn't be a problem to have a safeMap here too, which delivers the field
 	for _, field := range s.StructFields {
 		if field.GetName() == column || field.DBName == column || field.DBName == NamesMap.ToDBName(column) {
 			return field

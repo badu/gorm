@@ -93,12 +93,6 @@ type (
 		defaultTableName string
 	}
 
-	// SQL expression
-	expr struct {
-		expr string
-		args []interface{}
-	}
-
 	// DBCon contains information for current db connection
 	DBCon struct {
 		parent  *DBCon

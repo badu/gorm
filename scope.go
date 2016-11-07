@@ -17,7 +17,11 @@ import (
 
 // IndirectValue return scope's reflect value's indirect value
 func (scope *Scope) IndirectValue() reflect.Value {
-	return indirect(reflect.ValueOf(scope.Value))
+	reflectValue := reflect.ValueOf(scope.Value)
+	for reflectValue.Kind() == reflect.Ptr {
+		reflectValue = reflectValue.Elem()
+	}
+	return reflectValue
 }
 
 // New create a new Scope without search information
@@ -89,7 +93,8 @@ func (scope *Scope) SkipLeft() {
 	scope.skipLeft = true
 }
 
-// Fields get value's fields
+// Fields get value's fields from ModelStruct
+//TODO : @Badu - maybe this should be in ModelStruct?
 func (scope *Scope) Fields() StructFields {
 	if scope.fields == nil {
 		var (
@@ -119,7 +124,7 @@ func (scope *Scope) Fields() StructFields {
 	return *scope.fields
 }
 
-// FieldByName find `gorm.Field` with field name or db name
+// FieldByName find `gorm.StructField` with field name or db name
 func (scope *Scope) FieldByName(name string) (*StructField, bool) {
 	var (
 		dbName           = NamesMap.ToDBName(name)
@@ -733,6 +738,7 @@ func (scope *Scope) orderSQL() string {
 		if str, ok := order.(string); ok {
 			orders = append(orders, scope.quoteIfPossible(str))
 		} else if expr, ok := order.(*expr); ok {
+			//TODO : @Badu - duplicated code - AddToVars
 			exp := expr.expr
 			for _, arg := range expr.args {
 				exp = strings.Replace(exp, "?", scope.AddToVars(arg), 1)
@@ -1185,9 +1191,12 @@ func (scope *Scope) getColumnAsArray(columns StrSlice, values ...interface{}) []
 		case reflect.Slice:
 			for i := 0; i < indirectValue.Len(); i++ {
 				var result []interface{}
-				var object = indirect(indirectValue.Index(i))
+				reflectValue := indirectValue.Index(i)
+				for reflectValue.Kind() == reflect.Ptr {
+					reflectValue = reflectValue.Elem()
+				}
 				for _, column := range columns {
-					result = append(result, object.FieldByName(column).Interface())
+					result = append(result, reflectValue.FieldByName(column).Interface())
 				}
 				results = append(results, result)
 			}
@@ -1202,6 +1211,7 @@ func (scope *Scope) getColumnAsArray(columns StrSlice, values ...interface{}) []
 	return results
 }
 
+//returns the scope of a slice or struct column
 func (scope *Scope) getColumnAsScope(column string) *Scope {
 	indirectScopeValue := scope.IndirectValue()
 
@@ -1217,18 +1227,26 @@ func (scope *Scope) getColumnAsScope(column string) *Scope {
 			results := reflect.New(reflect.SliceOf(reflect.PtrTo(fieldType))).Elem()
 
 			for i := 0; i < indirectScopeValue.Len(); i++ {
-				result := indirect(indirect(indirectScopeValue.Index(i)).FieldByName(column))
+				reflectValue := indirectScopeValue.Index(i)
+				for reflectValue.Kind() == reflect.Ptr {
+					reflectValue = reflectValue.Elem()
+				}
 
-				if result.Kind() == reflect.Slice {
-					for j := 0; j < result.Len(); j++ {
-						if elem := result.Index(j); elem.CanAddr() && resultsMap[elem.Addr()] != true {
+				fieldRef := reflectValue.FieldByName(column)
+				for fieldRef.Kind() == reflect.Ptr {
+					fieldRef = fieldRef.Elem()
+				}
+
+				if fieldRef.Kind() == reflect.Slice {
+					for j := 0; j < fieldRef.Len(); j++ {
+						if elem := fieldRef.Index(j); elem.CanAddr() && resultsMap[elem.Addr()] != true {
 							resultsMap[elem.Addr()] = true
 							results = reflect.Append(results, elem.Addr())
 						}
 					}
-				} else if result.CanAddr() && resultsMap[result.Addr()] != true {
-					resultsMap[result.Addr()] = true
-					results = reflect.Append(results, result.Addr())
+				} else if fieldRef.CanAddr() && resultsMap[fieldRef.Addr()] != true {
+					resultsMap[fieldRef.Addr()] = true
+					results = reflect.Append(results, fieldRef.Addr())
 				}
 			}
 			return scope.New(results.Interface())
@@ -1338,10 +1356,10 @@ func (scope *Scope) GetModelStruct() *ModelStruct {
 					// build relationships
 					switch indirectType.Kind() {
 					case reflect.Slice:
-						//TODO : @Badu - find a better way than defer
+						//TODO : @Badu - find a better way than defer : repeat the for loop?
 						defer modelStruct.sliceRelationships(scope, field, reflectType)
 					case reflect.Struct:
-						//TODO : @Badu - find a better way than defer
+						//TODO : @Badu - find a better way than defer : repeat the for loop?
 						defer modelStruct.structRelationships(scope, field, reflectType)
 					default:
 						field.IsNormal = true
@@ -1412,21 +1430,29 @@ func (scope *Scope) handleHasOnePreload(field *StructField, conditions []interfa
 		values = append(values, relation.PolymorphicValue)
 	}
 
-	results := makeSlice(field.Struct.Type)
+	results := field.makeSlice()
 	scope.Err(preloadDB.Where(query, values...).Find(results, preloadConditions...).Error)
 
 	// assign find results
 	var (
-		resultsValue       = indirect(reflect.ValueOf(results))
 		indirectScopeValue = scope.IndirectValue()
 	)
+
+	resultsValue := reflect.ValueOf(results)
+	for resultsValue.Kind() == reflect.Ptr {
+		resultsValue = resultsValue.Elem()
+	}
 
 	if indirectScopeValue.Kind() == reflect.Slice {
 		for j := 0; j < indirectScopeValue.Len(); j++ {
 			for i := 0; i < resultsValue.Len(); i++ {
 				result := resultsValue.Index(i)
 				foreignValues := getValueFromFields(result, relation.ForeignFieldNames)
-				if indirectValue := indirect(indirectScopeValue.Index(j)); equalAsString(getValueFromFields(indirectValue, relation.AssociationForeignFieldNames), foreignValues) {
+				indirectValue := indirectScopeValue.Index(j)
+				for indirectValue.Kind() == reflect.Ptr {
+					indirectValue = indirectValue.Elem()
+				}
+				if equalAsString(getValueFromFields(indirectValue, relation.AssociationForeignFieldNames), foreignValues) {
 					indirectValue.FieldByName(field.GetName()).Set(result)
 					break
 				}
@@ -1461,14 +1487,18 @@ func (scope *Scope) handleHasManyPreload(field *StructField, conditions []interf
 		values = append(values, relation.PolymorphicValue)
 	}
 
-	results := makeSlice(field.Struct.Type)
+	results := field.makeSlice()
 	scope.Err(preloadDB.Where(query, values...).Find(results, preloadConditions...).Error)
 
 	// assign find results
 	var (
-		resultsValue       = indirect(reflect.ValueOf(results))
 		indirectScopeValue = scope.IndirectValue()
 	)
+
+	resultsValue := reflect.ValueOf(results)
+	for resultsValue.Kind() == reflect.Ptr {
+		resultsValue = resultsValue.Elem()
+	}
 
 	if indirectScopeValue.Kind() == reflect.Slice {
 		preloadMap := make(map[string][]reflect.Value)
@@ -1479,9 +1509,12 @@ func (scope *Scope) handleHasManyPreload(field *StructField, conditions []interf
 		}
 
 		for j := 0; j < indirectScopeValue.Len(); j++ {
-			object := indirect(indirectScopeValue.Index(j))
-			objectRealValue := getValueFromFields(object, relation.AssociationForeignFieldNames)
-			f := object.FieldByName(field.GetName())
+			reflectValue := indirectScopeValue.Index(j)
+			for reflectValue.Kind() == reflect.Ptr {
+				reflectValue = reflectValue.Elem()
+			}
+			objectRealValue := getValueFromFields(reflectValue, relation.AssociationForeignFieldNames)
+			f := reflectValue.FieldByName(field.GetName())
 			if results, ok := preloadMap[toString(objectRealValue)]; ok {
 				f.Set(reflect.Append(f, results...))
 			} else {
@@ -1507,23 +1540,30 @@ func (scope *Scope) handleBelongsToPreload(field *StructField, conditions []inte
 	}
 
 	// find relations
-	results := makeSlice(field.Struct.Type)
+	results := field.makeSlice()
 	scope.Err(preloadDB.Where(fmt.Sprintf("%v IN (%v)", toQueryCondition(scope, relation.AssociationForeignDBNames), toQueryMarks(primaryKeys)), toQueryValues(primaryKeys)...).Find(results, preloadConditions...).Error)
 
 	// assign find results
 	var (
-		resultsValue       = indirect(reflect.ValueOf(results))
 		indirectScopeValue = scope.IndirectValue()
 	)
+
+	resultsValue := reflect.ValueOf(results)
+	for resultsValue.Kind() == reflect.Ptr {
+		resultsValue = resultsValue.Elem()
+	}
 
 	for i := 0; i < resultsValue.Len(); i++ {
 		result := resultsValue.Index(i)
 		if indirectScopeValue.Kind() == reflect.Slice {
 			value := getValueFromFields(result, relation.AssociationForeignFieldNames)
 			for j := 0; j < indirectScopeValue.Len(); j++ {
-				object := indirect(indirectScopeValue.Index(j))
-				if equalAsString(getValueFromFields(object, relation.ForeignFieldNames), value) {
-					object.FieldByName(field.GetName()).Set(result)
+				reflectValue := indirectScopeValue.Index(j)
+				for reflectValue.Kind() == reflect.Ptr {
+					reflectValue = reflectValue.Elem()
+				}
+				if equalAsString(getValueFromFields(reflectValue, relation.ForeignFieldNames), value) {
+					reflectValue.FieldByName(field.GetName()).Set(result)
 				}
 			}
 		} else {
@@ -1625,9 +1665,12 @@ func (scope *Scope) handleManyToManyPreload(field *StructField, conditions []int
 
 	if indirectScopeValue.Kind() == reflect.Slice {
 		for j := 0; j < indirectScopeValue.Len(); j++ {
-			object := indirect(indirectScopeValue.Index(j))
-			key := toString(getValueFromFields(object, foreignFieldNames))
-			fieldsSourceMap[key] = append(fieldsSourceMap[key], object.FieldByName(field.GetName()))
+			reflectValue := indirectScopeValue.Index(j)
+			for reflectValue.Kind() == reflect.Ptr {
+				reflectValue = reflectValue.Elem()
+			}
+			key := toString(getValueFromFields(reflectValue, foreignFieldNames))
+			fieldsSourceMap[key] = append(fieldsSourceMap[key], reflectValue.FieldByName(field.GetName()))
 		}
 	} else if indirectScopeValue.IsValid() {
 		key := toString(getValueFromFields(indirectScopeValue, foreignFieldNames))

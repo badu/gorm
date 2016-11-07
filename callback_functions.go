@@ -429,7 +429,7 @@ func preloadCallback(scope *Scope) {
 
 		for idx, preloadField := range preloadFields {
 			var currentPreloadConditions []interface{}
-
+			//there is no next level
 			if currentScope == nil {
 				continue
 			}
@@ -472,6 +472,7 @@ func preloadCallback(scope *Scope) {
 
 			// preload next level
 			if idx < len(preloadFields)-1 {
+				//if preloadField is struct or slice, we need to get it's scope
 				currentScope = currentScope.getColumnAsScope(preloadField)
 				if currentScope != nil {
 					currentFields = currentScope.Fields()

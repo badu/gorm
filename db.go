@@ -32,8 +32,7 @@ func (orm *DBCon) New() *DBCon {
 
 // NewScope create a scope for current operation
 func (orm *DBCon) NewScope(value interface{}) *Scope {
-	dbClone := orm.clone(false, false)
-	dbClone.Value = value
+	dbClone := orm.cloneWithValue(value)
 	return &Scope{db: dbClone, Search: dbClone.search.clone(), Value: value}
 }
 
@@ -605,7 +604,7 @@ func (orm *DBCon) GetErrors() []error {
 // Private Methods For *gorm.DBCon
 ////////////////////////////////////////////////////////////////////////////////
 //clone - blank param is for copying values and search as well
-func (orm *DBCon) clone(withoutValue bool, withoutSearch bool) *DBCon {
+func (orm *DBCon) clone(withoutValues bool, withoutSearch bool) *DBCon {
 	clone := DBCon{
 		db:      orm.db,
 		parent:  orm.parent,
@@ -615,12 +614,12 @@ func (orm *DBCon) clone(withoutValue bool, withoutSearch bool) *DBCon {
 		Value:   orm.Value,
 		Error:   orm.Error,
 	}
-	if !withoutValue {
+	if !withoutValues {
 		for key, value := range orm.values {
 			clone.values[key] = value
 		}
 	}
-	if !withoutSearch{
+	if !withoutSearch {
 		if orm.search == nil {
 			clone.search = &search{limit: -1, offset: -1}
 		} else {
@@ -630,6 +629,12 @@ func (orm *DBCon) clone(withoutValue bool, withoutSearch bool) *DBCon {
 		clone.search.db = &clone
 	}
 	return &clone
+}
+
+func (orm *DBCon) cloneWithValue(value interface{}) *DBCon {
+	dbClone := orm.clone(false, false)
+	dbClone.Value = value
+	return dbClone
 }
 
 func (orm *DBCon) toLog(v ...interface{}) {
