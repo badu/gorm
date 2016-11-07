@@ -18,6 +18,7 @@
  (the separation is artificial, since if you remove default callbacks, gorm won't work as intended)
 - There are so many checks all over the place, which show insecurity. For example, we know what's to know about a StructField - maybe it's best 
 to have the dereferenced pointer to the struct/slice kept inside. Same goes for Scope...
+- Set and Get, SetInstance and all that, should be nicer
 
 # Breaking changes
 - DB struct - renamed to DBCon, since that is what it represents

@@ -383,7 +383,10 @@ func (scope *Scope) InstanceGet(name string) (interface{}, bool) {
 // Begin start a transaction
 func (scope *Scope) Begin() *Scope {
 	if db, ok := scope.SQLDB().(sqlDb); ok {
+		//parent db implements Begin() -> call Begin()
 		if tx, err := db.Begin(); err == nil {
+			//TODO : @Badu - maybe the parent should do so, since it's owner of db.db
+			//parent db.db implements Exec(), Prepare(), Query() and QueryRow()
 			scope.db.db = interface{}(tx).(sqlCommon)
 			scope.InstanceSet("gorm:started_transaction", true)
 		}
@@ -396,8 +399,10 @@ func (scope *Scope) CommitOrRollback() *Scope {
 	if _, ok := scope.InstanceGet("gorm:started_transaction"); ok {
 		if db, ok := scope.db.db.(sqlTx); ok {
 			if scope.HasError() {
+				//orm.db implements Commit() and Rollback() -> call Rollback()
 				db.Rollback()
 			} else {
+				//orm.db implements Commit() and Rollback() -> call Commit()
 				scope.Err(db.Commit())
 			}
 			scope.db.db = scope.db.parent.db

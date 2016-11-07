@@ -76,15 +76,16 @@ type (
 
 	strCase bool
 	//TODO : @Badu - Association has a field named Error - should be passed to DBCon
-	// Association Mode contains some helper methods to handle relationship things easily.
+	//TODO : @Badu - Association Mode contains some helper methods to handle relationship things easily.
 	Association struct {
 		Error  error
 		scope  *Scope
 		column string
 		field  *StructField
 	}
-	//TODO : @Badu - if StructField has IsPrimaryKey field, why having two sets of []*StructField
-	//unify them into something called Fields which StructFields type would provide via method
+	//TODO : @Badu - if StructField has IsPrimaryKey field, why having two sets of StructFields
+	//TODO : @Badu - unify them into something called Fields which StructFields type would provide via method
+	//TODO : @Badu - add a map to obtain fields by name easy
 	// ModelStruct model definition
 	ModelStruct struct {
 		PrimaryFields    StructFields
@@ -115,6 +116,10 @@ type (
 		source        string
 
 		joinTableHandlers map[string]JoinTableHandler
+	}
+
+	DB struct {
+		DBCon
 	}
 
 	// Scope contain current operation's information when you perform any operation on the database
@@ -165,14 +170,6 @@ type (
 		conditions []interface{}
 	}
 
-	//interface used for overriding table name
-	tabler interface {
-		TableName() string
-	}
-	//interface used for overriding table name
-	dbTabler interface {
-		TableName(*DBCon) string
-	}
 
 	// Model base model definition, including fields `ID`, `CreatedAt`, `UpdatedAt`, `DeletedAt`, which could be embedded in your models
 	//    type User struct {
@@ -218,6 +215,85 @@ type (
 		parent    *Callback
 	}
 
+
+
+	// DefaultForeignKeyNamer contains the default foreign key name generator method
+	DefaultForeignKeyNamer struct {
+	}
+
+	commonDialect struct {
+		db *sql.DB
+		DefaultForeignKeyNamer
+	}
+	mysql struct {
+		commonDialect
+	}
+	postgres struct {
+		commonDialect
+	}
+	sqlite3 struct {
+		commonDialect
+	}
+
+	// JoinTableForeignKey join table foreign key struct
+	JoinTableForeignKey struct {
+		DBName            string
+		AssociationDBName string
+	}
+	// JoinTableSource is a struct that contains model type and foreign keys
+	JoinTableSource struct {
+		ModelType   reflect.Type
+		ForeignKeys []JoinTableForeignKey
+	}
+	// JoinTableHandler default join table handler
+	JoinTableHandler struct {
+		TableName   string          `sql:"-"`
+		Source      JoinTableSource `sql:"-"`
+		Destination JoinTableSource `sql:"-"`
+	}
+
+	//interface used for overriding table name
+	tabler interface {
+		TableName() string
+	}
+	//interface used for overriding table name
+	dbTabler interface {
+		TableName(*DBCon) string
+	}
+	//interface
+	sqlCommon interface {
+		Exec(query string, args ...interface{}) (sql.Result, error)
+		Prepare(query string) (*sql.Stmt, error)
+		Query(query string, args ...interface{}) (*sql.Rows, error)
+		QueryRow(query string, args ...interface{}) *sql.Row
+	}
+	//interface
+	sqlDb interface {
+		Begin() (*sql.Tx, error)
+	}
+	//interface
+	sqlTx interface {
+		Commit() error
+		Rollback() error
+	}
+	// JoinTableHandlerInterface is an interface for how to handle many2many relations
+	JoinTableHandlerInterface interface {
+		// initialize join table handler
+		Setup(relationship *Relationship, tableName string, source reflect.Type, destination reflect.Type)
+		// Table return join table's table name
+		Table(db *DBCon) string
+		// Add create relationship in join table for source and destination
+		Add(handler JoinTableHandlerInterface, db *DBCon, source interface{}, destination interface{}) error
+		// Delete delete relationship in join table for sources
+		Delete(handler JoinTableHandlerInterface, db *DBCon, sources ...interface{}) error
+		// JoinWith query with `Join` conditions
+		JoinWith(handler JoinTableHandlerInterface, db *DBCon, source interface{}) *DBCon
+		// SourceForeignKeys return source foreign keys
+		SourceForeignKeys() []JoinTableForeignKey
+		// DestinationForeignKeys return destination foreign keys
+		DestinationForeignKeys() []JoinTableForeignKey
+	}
+
 	// Dialect interface contains behaviors that differ across SQL database
 	Dialect interface {
 		// GetName get dialect's name
@@ -250,71 +326,6 @@ type (
 		BuildForeignKeyName(tableName, field, dest string) string
 		// CurrentDatabase return current database name
 		CurrentDatabase() string
-	}
-
-	// DefaultForeignKeyNamer contains the default foreign key name generator method
-	DefaultForeignKeyNamer struct {
-	}
-
-	commonDialect struct {
-		db *sql.DB
-		DefaultForeignKeyNamer
-	}
-	mysql struct {
-		commonDialect
-	}
-	postgres struct {
-		commonDialect
-	}
-	sqlite3 struct {
-		commonDialect
-	}
-	sqlCommon interface {
-		Exec(query string, args ...interface{}) (sql.Result, error)
-		Prepare(query string) (*sql.Stmt, error)
-		Query(query string, args ...interface{}) (*sql.Rows, error)
-		QueryRow(query string, args ...interface{}) *sql.Row
-	}
-	sqlDb interface {
-		Begin() (*sql.Tx, error)
-	}
-	sqlTx interface {
-		Commit() error
-		Rollback() error
-	}
-
-	// JoinTableHandlerInterface is an interface for how to handle many2many relations
-	JoinTableHandlerInterface interface {
-		// initialize join table handler
-		Setup(relationship *Relationship, tableName string, source reflect.Type, destination reflect.Type)
-		// Table return join table's table name
-		Table(db *DBCon) string
-		// Add create relationship in join table for source and destination
-		Add(handler JoinTableHandlerInterface, db *DBCon, source interface{}, destination interface{}) error
-		// Delete delete relationship in join table for sources
-		Delete(handler JoinTableHandlerInterface, db *DBCon, sources ...interface{}) error
-		// JoinWith query with `Join` conditions
-		JoinWith(handler JoinTableHandlerInterface, db *DBCon, source interface{}) *DBCon
-		// SourceForeignKeys return source foreign keys
-		SourceForeignKeys() []JoinTableForeignKey
-		// DestinationForeignKeys return destination foreign keys
-		DestinationForeignKeys() []JoinTableForeignKey
-	}
-	// JoinTableForeignKey join table foreign key struct
-	JoinTableForeignKey struct {
-		DBName            string
-		AssociationDBName string
-	}
-	// JoinTableSource is a struct that contains model type and foreign keys
-	JoinTableSource struct {
-		ModelType   reflect.Type
-		ForeignKeys []JoinTableForeignKey
-	}
-	// JoinTableHandler default join table handler
-	JoinTableHandler struct {
-		TableName   string          `sql:"-"`
-		Source      JoinTableSource `sql:"-"`
-		Destination JoinTableSource `sql:"-"`
 	}
 )
 

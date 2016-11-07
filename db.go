@@ -359,6 +359,7 @@ func (orm *DBCon) Debug() *DBCon {
 func (orm *DBCon) Begin() *DBCon {
 	c := orm.clone(false, false)
 	if db, ok := c.db.(sqlDb); ok {
+		//clone.db implements Begin() -> call Begin()
 		tx, err := db.Begin()
 		c.db = interface{}(tx).(sqlCommon)
 		c.AddError(err)
@@ -371,6 +372,7 @@ func (orm *DBCon) Begin() *DBCon {
 // Commit commit a transaction
 func (orm *DBCon) Commit() *DBCon {
 	if db, ok := orm.db.(sqlTx); ok {
+		//orm.db implements Commit() and Rollback() -> call Commit()
 		orm.AddError(db.Commit())
 	} else {
 		orm.AddError(ErrInvalidTransaction)
@@ -381,6 +383,7 @@ func (orm *DBCon) Commit() *DBCon {
 // Rollback rollback a transaction
 func (orm *DBCon) Rollback() *DBCon {
 	if db, ok := orm.db.(sqlTx); ok {
+		//orm.db implements Commit() and Rollback() -> call Rollback()
 		orm.AddError(db.Rollback())
 	} else {
 		orm.AddError(ErrInvalidTransaction)
@@ -506,7 +509,7 @@ func (orm *DBCon) AddForeignKey(field string, dest string, onDelete string, onUp
 	return scope.db
 }
 
-// Association start `Association Mode` to handler relations things easir in that mode, refer: https://jinzhu.github.io/gorm/associations.html#association-mode
+// Association start `Association Mode` to handler relations things easier in that mode, refer: https://jinzhu.github.io/gorm/associations.html#association-mode
 func (orm *DBCon) Association(column string) *Association {
 	var err error
 	scope := orm.clone(false, false).NewScope(orm.Value)
