@@ -16,12 +16,12 @@ import (
 
 	"encoding/json"
 	"github.com/jinzhu/now"
+	"gorm"
 	_ "gorm/dialects/mysql"
 	pgdialect "gorm/dialects/postgres"
 	_ "gorm/dialects/sqlite"
 	"sort"
 	"strings"
-	"gorm"
 )
 
 var (
@@ -1321,7 +1321,7 @@ func TestJoins(t *testing.T) {
 	}
 
 	var users2 []User
-	TestDB.Joins("left join emails on emails.user_id = users.id AND emails.email = ?", "join1@example.com").Where("name = ?", "joins").First(&users2)
+	TestDB.Joins("left join emails on emails.user_id = users.id AND emails.email = ?", "join1@example.com").Where("users.name = ?", "joins").First(&users2)
 	if len(users2) != 1 {
 		t.Errorf("should find one users using left join with conditions")
 	}
@@ -1329,7 +1329,7 @@ func TestJoins(t *testing.T) {
 	var users3 []User
 	TestDB.Joins("join emails on emails.user_id = users.id AND emails.email = ?", "join1@example.com").Joins("join credit_cards on credit_cards.user_id = users.id AND credit_cards.number = ?", "411111111111").Where("name = ?", "joins").First(&users3)
 	if len(users3) != 1 {
-		t.Errorf("should find one users using multiple left join conditions")
+		t.Errorf("should find one users using multiple left join conditions : %v")
 	}
 
 	var users4 []User

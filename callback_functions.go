@@ -121,7 +121,7 @@ func createCallback(scope *Scope) {
 func forceReloadAfterCreateCallback(scope *Scope) {
 	if blankColumnsWithDefaultValue, ok := scope.InstanceGet("gorm:blank_columns_with_default_value"); ok {
 		sSlice, yes := blankColumnsWithDefaultValue.(StrSlice)
-		if !yes{
+		if !yes {
 			fmt.Errorf("ERROR in forceReloadAfterCreateCallback : blankColumnsWithDefaultValue IS NOT StrSlice!\n")
 		}
 		db := scope.DB().New().Table(scope.TableName()).Select(sSlice.slice())
@@ -156,13 +156,28 @@ func commitOrRollbackTransactionCallback(scope *Scope) {
 	scope.CommitOrRollback()
 }
 
+func saveFieldAsAssociation(scope *Scope, field *StructField) (bool, *Relationship) {
+	if scope.changeableField(field) && !field.IsBlank && !field.IsIgnored {
+		if field.HasSetting(SAVE_ASSOCIATIONS) {
+			set := field.GetSetting(SAVE_ASSOCIATIONS)
+			if set == "false" || set == "skip" {
+				return false, nil
+			}
+		}
+		if relationship := field.Relationship; relationship != nil {
+			return true, relationship
+		}
+	}
+	return false, nil
+}
+
 func saveBeforeAssociationsCallback(scope *Scope) {
 	if !scope.shouldSaveAssociations() {
 		return
 	}
 	for _, field := range scope.Fields() {
 		if scope.changeableField(field) && !field.IsBlank && !field.IsIgnored {
-			if relationship := field.Relationship; relationship != nil && relationship.Kind == BELONGS_TO {
+			if ok, relationship := saveFieldAsAssociation(scope, field); ok && relationship.Kind == BELONGS_TO {
 				fieldValue := field.Value.Addr().Interface()
 				scope.Err(scope.NewDB().Save(fieldValue).Error)
 				if relationship.ForeignFieldNames.len() != 0 {
@@ -185,7 +200,8 @@ func saveAfterAssociationsCallback(scope *Scope) {
 	}
 	for _, field := range scope.Fields() {
 		if scope.changeableField(field) && !field.IsBlank && !field.IsIgnored {
-			if relationship := field.Relationship; relationship != nil && relationship.Kind <= HAS_ONE {
+			//Attention : relationship.Kind <= HAS_ONE
+			if ok, relationship := saveFieldAsAssociation(scope, field); ok && relationship.Kind <= HAS_ONE {
 				value := field.Value
 
 				switch value.Kind() {

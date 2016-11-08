@@ -16,7 +16,10 @@ const (
 	MANY_TO_MANY uint8 = 1
 	HAS_MANY     uint8 = 2
 	HAS_ONE      uint8 = 3
+	//Attention : relationship.Kind <= HAS_ONE in callback_functions.go saveAfterAssociationsCallback()
 	BELONGS_TO   uint8 = 4
+
+
 	//Callback Kind constants
 	CREATE_CALLBACK    uint8 = 1
 	UPDATE_CALLBACK    uint8 = 2

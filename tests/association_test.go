@@ -9,6 +9,28 @@ import (
 	"gorm"
 )
 
+func TestSkipSaveAssociation(t *testing.T) {
+	t.Log("FEATURE : TestSkipSaveAssociation")
+	type Company struct {
+		gorm.Model
+		Name string
+	}
+
+	type User struct {
+		gorm.Model
+		Name      string
+		CompanyID uint
+		Company   Company `gorm:"save_associations:false"`
+	}
+	TestDB.AutoMigrate(&Company{}, &User{})
+
+	TestDB.Save(&User{Name: "jinzhu", Company: Company{Name: "skip_save_association"}})
+
+	if !TestDB.Where("name = ?", "skip_save_association").First(&Company{}).RecordNotFound() {
+		t.Errorf("Company skip_save_association should not been saved")
+	}
+}
+
 func TestBelongsTo(t *testing.T) {
 	t.Log("25) TestBelongsTo")
 	post := Post{

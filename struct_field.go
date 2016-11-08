@@ -87,7 +87,7 @@ func (structField *StructField) cloneWithValue(value reflect.Value) *StructField
 //Function collects information from tags named `sql:""` and `gorm:""`
 //TODO : @Badu - seems expensive to be called everytime
 func (structField *StructField) parseTagSettings() error {
-	structField.tagSettings = newTagSettings()
+	structField.tagSettings = TagSettings{Uint8Map: make(map[uint8]string)}
 	for _, str := range []string{structField.Struct.Tag.Get("sql"), structField.Struct.Tag.Get("gorm")} {
 		err := structField.tagSettings.loadFromTags(str)
 		if err != nil {

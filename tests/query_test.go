@@ -15,11 +15,9 @@ func TestFirstAndLast(t *testing.T) {
 	TestDB.Save(&User{Name: "user2", Emails: []Email{{Email: "user2@example.com"}}})
 
 	var user1, user2, user3, user4 User
-	t.Log("First")
 	TestDB.First(&user1)
 	TestDB.Order("id").Limit(1).Find(&user2)
 
-	t.Log("Last")
 	TestDB.Last(&user3)
 	TestDB.Order("id desc").Limit(1).Find(&user4)
 	//TODO : @Badu - simplify
@@ -29,7 +27,6 @@ func TestFirstAndLast(t *testing.T) {
 
 	var users []User
 	TestDB.First(&users)
-	t.Log("First")
 	if len(users) != 1 {
 		t.Errorf("Find first record as slice")
 	}
@@ -58,6 +55,25 @@ func TestFirstAndLastWithNoStdPrimaryKey(t *testing.T) {
 	//TODO : @Badu - simplify
 	if animal1.Counter != animal2.Counter || animal3.Counter != animal4.Counter {
 		t.Errorf("First and Last should work correctly")
+	}
+}
+
+func TestFirstAndLastWithRaw(t *testing.T) {
+	t.Log("Test fix #1214 : db.Raw().First() makes wrong SQL")
+	user1 := User{Name: "user", Emails: []Email{{Email: "user1@example.com"}}}
+	user2 := User{Name: "user", Emails: []Email{{Email: "user2@example.com"}}}
+	TestDB.Save(&user1)
+	TestDB.Save(&user2)
+
+	var user3, user4 User
+	TestDB.Raw("select * from users WHERE name = ?", "user").First(&user3)
+	if user3.Id != user1.Id {
+		t.Errorf("Find first record with raw")
+	}
+
+	TestDB.Raw("select * from users WHERE name = ?", "user").Last(&user4)
+	if user4.Id != user2.Id {
+		t.Errorf("Find last record with raw")
 	}
 }
 

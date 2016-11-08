@@ -27,6 +27,7 @@ const (
 	COLUMN                  uint8 = 17
 	TYPE                    uint8 = 18
 	UNIQUE                  uint8 = 19
+	SAVE_ASSOCIATIONS       uint8 = 20
 )
 
 var (
@@ -53,6 +54,7 @@ var (
 		"COLUMN":                  COLUMN,
 		"TYPE":                    TYPE,
 		"UNIQUE":                  UNIQUE,
+		"SAVE_ASSOCIATIONS":       SAVE_ASSOCIATIONS,
 	}
 	cachedReverseTagSettingsMap map[uint8]string
 )
@@ -68,26 +70,24 @@ func reverseTagSettingsMap() map[uint8]string {
 	return cachedReverseTagSettingsMap
 }
 
-func newTagSettings() TagSettings {
-	return TagSettings{Uint8Map: make(map[uint8]string)}
-}
-
 func (ts *TagSettings) loadFromTags(str string) error {
 	tags := strings.Split(str, ";")
 	for _, value := range tags {
 		v := strings.Split(value, ":")
-		k := strings.TrimSpace(strings.ToUpper(v[0]))
-		//avoid empty keys : original gorm didn't mind creating them
-		if k != "" {
-			uint8Key, ok := tagSettingMap[k]
-			if ok {
-				if len(v) >= 2 {
-					ts.set(uint8Key, strings.Join(v[1:], ":"))
+		if len(v) > 0 {
+			k := strings.TrimSpace(strings.ToUpper(v[0]))
+			//avoid empty keys : original gorm didn't mind creating them
+			if k != "" {
+				uint8Key, ok := tagSettingMap[k]
+				if ok {
+					if len(v) >= 2 {
+						ts.set(uint8Key, strings.Join(v[1:], ":"))
+					} else {
+						ts.set(uint8Key, k)
+					}
 				} else {
-					ts.set(uint8Key, k)
+					return errors.New(fmt.Sprintf("COULDN'T FIND KEY FOR %q ON %q", k, str))
 				}
-			} else {
-				return errors.New(fmt.Sprintf("COULDN'T FIND KEY FOR %q ON %q", k, str))
 			}
 		}
 
@@ -97,7 +97,7 @@ func (ts *TagSettings) loadFromTags(str string) error {
 
 //returns a clone of tag settings (used in cloning StructField)
 func (t *TagSettings) clone() TagSettings {
-	clone := newTagSettings()
+	clone := TagSettings{Uint8Map: make(map[uint8]string)}
 	for key, value := range t.Uint8Map {
 		clone.Uint8Map[key] = value
 	}
@@ -135,12 +135,16 @@ func (t *TagSettings) len() int {
 
 //Stringer implementation
 func (t TagSettings) String() string {
+	//never inited
+	if cachedReverseTagSettingsMap == nil {
+		reverseTagSettingsMap()
+	}
 	result := ""
 	for key, value := range t.Uint8Map {
 		if value == "" {
-			result += fmt.Sprintf("%q ; ", reverseTagSettingsMap()[key])
+			result += fmt.Sprintf("%q ; ", cachedReverseTagSettingsMap[key])
 		} else {
-			result += fmt.Sprintf("%q = %q ; ", reverseTagSettingsMap()[key], value)
+			result += fmt.Sprintf("%q = %q ; ", cachedReverseTagSettingsMap[key], value)
 		}
 	}
 	return result

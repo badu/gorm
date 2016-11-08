@@ -321,12 +321,14 @@ func (scope *Scope) QuotedTableName() string {
 
 // CombinedConditionSql return combined condition sql
 func (scope *Scope) CombinedConditionSql() string {
-	return scope.joinsSQL() +
-		scope.whereSQL() +
-		scope.groupSQL() +
-		scope.havingSQL() +
-		scope.orderSQL() +
-		scope.limitAndOffsetSQL()
+	//Attention : if we don't build joinSql first, joins will fail (it's mixing up the where clauses of the joins)
+	joinsSql := scope.joinsSQL()
+	whereSql := scope.whereSQL()
+	if scope.Search.raw {
+		whereSql = strings.TrimSuffix(strings.TrimPrefix(whereSql, "WHERE ("), ")")
+	}
+	return joinsSql + whereSql + scope.groupSQL() +
+		scope.havingSQL() + scope.orderSQL() + scope.limitAndOffsetSQL()
 }
 
 // Raw set raw sql
@@ -798,11 +800,10 @@ func (scope *Scope) joinsSQL() string {
 
 func (scope *Scope) prepareQuerySQL() {
 	if scope.Search.raw {
-		scope.Raw(strings.TrimSuffix(strings.TrimPrefix(scope.CombinedConditionSql(), " WHERE ("), ")"))
+		scope.Raw(scope.CombinedConditionSql())
 	} else {
 		scope.Raw(fmt.Sprintf("SELECT %v FROM %v %v", scope.selectSQL(), scope.QuotedTableName(), scope.CombinedConditionSql()))
 	}
-	return
 }
 
 func (scope *Scope) inlineCondition(values ...interface{}) *Scope {
@@ -941,11 +942,15 @@ func (scope *Scope) changeableField(field *StructField) bool {
 }
 
 func (scope *Scope) shouldSaveAssociations() bool {
-	if saveAssociations, ok := scope.Get("gorm:save_associations"); ok && !saveAssociations.(bool) {
-		return false
+	if saveAssociations, ok := scope.Get("gorm:save_associations"); ok {
+		if v, ok := saveAssociations.(bool); ok && !v {
+			return false
+		}
+		if v, ok := saveAssociations.(string); ok && (v == "skip" || v == "false") {
+			return false
+		}
 	}
-	//TODO : @Badu - simplify
-	return true && !scope.HasError()
+	return !scope.HasError()
 }
 
 func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
