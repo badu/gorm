@@ -17,20 +17,6 @@ import (
 func RegisterDialect(name string, dialect Dialect) {
 	dialectsMap[name] = dialect
 }
-
-func isByteArrayOrSlice(value reflect.Value) bool {
-	return (value.Kind() == reflect.Array || value.Kind() == reflect.Slice) && value.Type().Elem() == reflect.TypeOf(uint8(0))
-}
-
-func isUUID(value reflect.Value) bool {
-	if value.Kind() != reflect.Array || value.Type().Len() != 16 {
-		return false
-	}
-	typename := value.Type().Name()
-	lower := strings.ToLower(typename)
-	return "uuid" == lower || "guid" == lower
-}
-
 //============================================
 // Other utils functions
 //============================================

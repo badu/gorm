@@ -58,10 +58,17 @@ func (postgres) DataTypeOf(field *StructField) string {
 				sqlType = "hstore"
 			}
 		default:
-			if isByteArrayOrSlice(dataValue) {
+			if (dataValue.Kind() == reflect.Array ||
+				dataValue.Kind() == reflect.Slice) &&
+				dataValue.Type().Elem() == reflect.TypeOf(uint8(0)){
 				sqlType = "bytea"
-			} else if isUUID(dataValue) {
-				sqlType = "uuid"
+			} else if dataValue.Kind() == reflect.Array &&
+				dataValue.Type().Len() == 16{
+				typename := dataValue.Type().Name()
+				lower := strings.ToLower(typename)
+				if "uuid" == lower || "guid" == lower {
+					sqlType = "uuid"
+				}
 			}
 		}
 	}

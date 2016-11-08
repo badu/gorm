@@ -37,6 +37,8 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
 - [x] adopted db.Raw().First() makes wrong sql fix #1214 #1243
 - [x] registerGORMDefaultCallbacks() calls reorder at the end of registration
 - [x] Scope toQueryCondition() from utils.go
+- [x] Moved callbacks into Scope (needs closure functions)
+- [x] Removed some postgres specific functions from utils.go
 
 ## 07.11.2016
 - [x] have NOT integrate original-gorm pull request #1252 (prevent delete/update if conditions are not met, thus preventing delete-all, update-all) tests fail
