@@ -270,6 +270,7 @@ func (scope *Scope) SelectAttrs() []string {
 	if scope.selectAttrs == nil {
 		attrs := []string{}
 		for _, value := range scope.Search.selects {
+			//TODO : @Badu - use switch
 			if str, ok := value.(string); ok {
 				attrs = append(attrs, str)
 			} else if strs, ok := value.([]string); ok {
@@ -414,6 +415,136 @@ func (scope *Scope) CommitOrRollback() *Scope {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// moved here from model_struct.go
+////////////////////////////////////////////////////////////////////////////////
+// GetModelStruct get value's model struct, relationships based on struct and tag definition
+func (scope *Scope) GetModelStruct() *ModelStruct {
+	var modelStruct ModelStruct
+	// Scope value can't be nil
+	//TODO : @Badu - why can't be null and why we are not returning an error?
+	if scope.Value == nil {
+		return &modelStruct
+	}
+
+	reflectType := reflect.ValueOf(scope.Value).Type()
+	for reflectType.Kind() == reflect.Slice || reflectType.Kind() == reflect.Ptr {
+		reflectType = reflectType.Elem()
+	}
+
+	// Scope value need to be a struct
+	if reflectType.Kind() != reflect.Struct {
+		return &modelStruct
+	}
+
+	// Get Cached model struct
+	if value := modelStructsMap.Get(reflectType); value != nil {
+		return value
+	}
+
+	modelStruct.ModelType = reflectType
+	//implements tabler?
+	tabler, ok := reflect.New(reflectType).Interface().(tabler)
+	// Set default table name
+	if ok {
+		modelStruct.defaultTableName = tabler.TableName()
+	} else {
+		tableName := NamesMap.ToDBName(reflectType.Name())
+		if scope.db == nil || !scope.db.parent.singularTable {
+			tableName = inflection.Plural(tableName)
+		}
+		modelStruct.defaultTableName = tableName
+	}
+
+	// Get all fields
+	for i := 0; i < reflectType.NumField(); i++ {
+		if fieldStruct := reflectType.Field(i); ast.IsExported(fieldStruct.Name) {
+			field, err := NewStructField(fieldStruct)
+			if err != nil {
+				fmt.Printf("ERROR processing tags : %v\n", err)
+				//TODO : @Badu - catch this error - we might fail processing tags
+			}
+			// is ignored field
+			if !field.IsIgnored {
+				if field.HasSetting(PRIMARY_KEY) {
+					modelStruct.PrimaryFields.add(field)
+				}
+				indirectType := fieldStruct.Type
+				for indirectType.Kind() == reflect.Ptr {
+					//dereference it, it's a pointer
+					indirectType = indirectType.Elem()
+				}
+
+				fieldValue := reflect.New(indirectType).Interface()
+
+				_, isScanner := fieldValue.(sql.Scanner)
+				_, isTime := fieldValue.(*time.Time)
+
+				if isScanner {
+					// is scanner
+					field.IsScanner, field.IsNormal = true, true
+					if indirectType.Kind() == reflect.Struct {
+						for i := 0; i < indirectType.NumField(); i++ {
+							for _, str := range []string{indirectType.Field(i).Tag.Get("sql"), indirectType.Field(i).Tag.Get("gorm")} {
+								err = field.tagSettings.loadFromTags(str)
+							}
+						}
+					}
+
+				} else if isTime {
+					// is time
+					field.IsNormal = true
+				} else if field.HasSetting(EMBEDDED) || fieldStruct.Anonymous {
+					// is embedded struct
+					for _, subField := range scope.New(fieldValue).GetStructFields() {
+						subField = subField.clone()
+						subField.Names = append([]string{fieldStruct.Name}, subField.Names...)
+						if prefix := field.GetSetting(EMBEDDED_PREFIX); prefix != "" {
+							subField.DBName = prefix + subField.DBName
+						}
+						if subField.IsPrimaryKey {
+							modelStruct.PrimaryFields.add(subField)
+						}
+						modelStruct.StructFields.add(subField)
+					}
+					continue
+				} else {
+					// build relationships
+					switch indirectType.Kind() {
+					case reflect.Slice:
+						//TODO : @Badu - find a better way than defer : repeat the for loop?
+						defer modelStruct.sliceRelationships(scope, field, reflectType)
+					case reflect.Struct:
+						//TODO : @Badu - find a better way than defer : repeat the for loop?
+						defer modelStruct.structRelationships(scope, field, reflectType)
+					default:
+						field.IsNormal = true
+					}
+				}
+			}
+
+			modelStruct.StructFields.add(field)
+		}
+	}
+
+	if modelStruct.PrimaryFields.len() == 0 {
+		//TODO : @Badu - a boiler plate string. Get rid of it!
+		if field := modelStruct.fieldByName("id"); field != nil {
+			field.IsPrimaryKey = true
+			modelStruct.PrimaryFields.add(field)
+		}
+	}
+	//set cached ModelStruc
+	modelStructsMap.Set(reflectType, &modelStruct)
+
+	return &modelStruct
+}
+
+// GetStructFields get model's field structs
+func (scope *Scope) GetStructFields() StructFields {
+	return scope.GetModelStruct().StructFields
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // Private Methods For *gorm.Scope
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -427,9 +558,11 @@ func (scope *Scope) callMethod(methodName string, reflectValue reflect.Value) {
 		switch method := methodValue.Interface().(type) {
 		case func():
 			method()
+			//TODO : @Badu - see if we can use ScopedFunc
 		case func(*Scope):
 			method(scope)
 		case func(*DBCon):
+			//TODO : @Badu - see if we can use ScopedFunc and add DBConFunc - type DBConFunc func(*DBCon)
 			newDB := scope.NewDB()
 			method(newDB)
 			scope.Err(newDB.Error)
@@ -483,7 +616,7 @@ func (scope *Scope) scan(rows *sql.Rows, columns []string, fields StructFields) 
 				}
 
 				selectedColumnsMap[column] = fieldIndex
-
+				//TODO :@Badu - why if it's normal we break last ? shouldn't be first?
 				if field.IsNormal {
 					break
 				}
@@ -962,6 +1095,7 @@ func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
 
 		if fromField != nil {
 			if relationship := fromField.Relationship; relationship != nil {
+				//TODO : @Badu - use switch
 				if relationship.Kind == MANY_TO_MANY {
 					joinTableHandler := relationship.JoinTableHandler
 					scope.Err(joinTableHandler.JoinWith(joinTableHandler, toScope.db, scope.Value).Find(value).Error)
@@ -1267,136 +1401,6 @@ func (scope *Scope) getColumnAsScope(column string) *Scope {
 		}
 	}
 	return nil
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// moved here from model_struct.go
-////////////////////////////////////////////////////////////////////////////////
-// GetModelStruct get value's model struct, relationships based on struct and tag definition
-func (scope *Scope) GetModelStruct() *ModelStruct {
-	var modelStruct ModelStruct
-	// Scope value can't be nil
-	//TODO : @Badu - why can't be null and why we are not returning an error?
-	if scope.Value == nil {
-		return &modelStruct
-	}
-
-	reflectType := reflect.ValueOf(scope.Value).Type()
-	for reflectType.Kind() == reflect.Slice || reflectType.Kind() == reflect.Ptr {
-		reflectType = reflectType.Elem()
-	}
-
-	// Scope value need to be a struct
-	if reflectType.Kind() != reflect.Struct {
-		return &modelStruct
-	}
-
-	// Get Cached model struct
-	if value := modelStructsMap.Get(reflectType); value != nil {
-		return value
-	}
-
-	modelStruct.ModelType = reflectType
-	//implements tabler?
-	tabler, ok := reflect.New(reflectType).Interface().(tabler)
-	// Set default table name
-	if ok {
-		modelStruct.defaultTableName = tabler.TableName()
-	} else {
-		tableName := NamesMap.ToDBName(reflectType.Name())
-		if scope.db == nil || !scope.db.parent.singularTable {
-			tableName = inflection.Plural(tableName)
-		}
-		modelStruct.defaultTableName = tableName
-	}
-
-	// Get all fields
-	for i := 0; i < reflectType.NumField(); i++ {
-		if fieldStruct := reflectType.Field(i); ast.IsExported(fieldStruct.Name) {
-			field, err := NewStructField(fieldStruct)
-			if err != nil {
-				fmt.Printf("ERROR processing tags : %v\n", err)
-				//TODO : @Badu - catch this error - we might fail processing tags
-			}
-			// is ignored field
-			if !field.IsIgnored {
-				if field.HasSetting(PRIMARY_KEY) {
-					modelStruct.PrimaryFields.add(field)
-				}
-				indirectType := fieldStruct.Type
-				for indirectType.Kind() == reflect.Ptr {
-					//dereference it, it's a pointer
-					indirectType = indirectType.Elem()
-				}
-
-				fieldValue := reflect.New(indirectType).Interface()
-
-				_, isScanner := fieldValue.(sql.Scanner)
-				_, isTime := fieldValue.(*time.Time)
-
-				if isScanner {
-					// is scanner
-					field.IsScanner, field.IsNormal = true, true
-					if indirectType.Kind() == reflect.Struct {
-						for i := 0; i < indirectType.NumField(); i++ {
-							for _, str := range []string{indirectType.Field(i).Tag.Get("sql"), indirectType.Field(i).Tag.Get("gorm")} {
-								err = field.tagSettings.loadFromTags(str)
-							}
-						}
-					}
-
-				} else if isTime {
-					// is time
-					field.IsNormal = true
-				} else if field.HasSetting(EMBEDDED) || fieldStruct.Anonymous {
-					// is embedded struct
-					for _, subField := range scope.New(fieldValue).GetStructFields() {
-						subField = subField.clone()
-						subField.Names = append([]string{fieldStruct.Name}, subField.Names...)
-						if prefix := field.GetSetting(EMBEDDED_PREFIX); prefix != "" {
-							subField.DBName = prefix + subField.DBName
-						}
-						if subField.IsPrimaryKey {
-							modelStruct.PrimaryFields.add(subField)
-						}
-						modelStruct.StructFields.add(subField)
-					}
-					continue
-				} else {
-					// build relationships
-					switch indirectType.Kind() {
-					case reflect.Slice:
-						//TODO : @Badu - find a better way than defer : repeat the for loop?
-						defer modelStruct.sliceRelationships(scope, field, reflectType)
-					case reflect.Struct:
-						//TODO : @Badu - find a better way than defer : repeat the for loop?
-						defer modelStruct.structRelationships(scope, field, reflectType)
-					default:
-						field.IsNormal = true
-					}
-				}
-			}
-
-			modelStruct.StructFields.add(field)
-		}
-	}
-
-	if modelStruct.PrimaryFields.len() == 0 {
-		//TODO : @Badu - a boiler plate string. Get rid of it!
-		if field := modelStruct.fieldByName("id"); field != nil {
-			field.IsPrimaryKey = true
-			modelStruct.PrimaryFields.add(field)
-		}
-	}
-	//set cached ModelStruc
-	modelStructsMap.Set(reflectType, &modelStruct)
-
-	return &modelStruct
-}
-
-// GetStructFields get model's field structs
-func (scope *Scope) GetStructFields() StructFields {
-	return scope.GetModelStruct().StructFields
 }
 
 func (scope *Scope) toQueryCondition(columns StrSlice) string {

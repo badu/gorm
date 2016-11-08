@@ -145,7 +145,7 @@ type (
 		skipLeft bool
 	}
 
-	//TODO : @Badu - find out why both Scope and search structs hold pointer to DBCon,
+	//TODO : @Badu - pointer to DBCon is just to expose errors
 	//since they are related (Scope has a search inside)
 	search struct {
 		db               *DBCon

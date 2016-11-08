@@ -17,6 +17,7 @@ import (
 func RegisterDialect(name string, dialect Dialect) {
 	dialectsMap[name] = dialect
 }
+
 //============================================
 // Other utils functions
 //============================================
@@ -51,8 +52,6 @@ func convertInterfaceToMap(values interface{}, withIgnoredField bool) map[string
 	}
 	return attrs
 }
-
-
 
 func toQueryMarks(primaryValues [][]interface{}) string {
 	var results []string

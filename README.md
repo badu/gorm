@@ -1,4 +1,10 @@
 # Todo
+- [ ] StructField should know it's Type, instead of doing 
+`for reflectValue.Kind() == reflect.Ptr {
+    reflectValue = reflectValue.Elem()
+}` everywhere
+- [ ] All create, migrate and alter functions should be moved from the scope inside a separate object 
+(since we're not automigrating often) 
 - [ ] Documentation for tests and build examples
 - [ ] Stringer implementation on all structs for debugging
 - [ ] Extract strings from code (make constants)

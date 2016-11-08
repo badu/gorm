@@ -3,11 +3,13 @@ package gorm
 import "fmt"
 
 func (s *search) clone() *search {
+	//TODO : @Badu - it's a ... clone ?
 	clone := *s
 	return &clone
 }
 
 func (s *search) Where(query interface{}, values ...interface{}) *search {
+	//TODO : @Badu - they all look alike, just to keep "query" and "args" . I think a struct is more suitable
 	s.whereConditions = append(s.whereConditions, map[string]interface{}{"query": query, "args": values})
 	return s
 }
