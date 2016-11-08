@@ -2,8 +2,8 @@ package gorm
 
 import "fmt"
 
-func (cps *CallbackProcessors) add(proc *CallbackProcessor) {
-	*cps = append(*cps, proc)
+func (cps *CallbackProcessors) add(proc ...*CallbackProcessor) {
+	*cps = append(*cps, proc...)
 }
 
 func (cps *CallbackProcessors) len() int {

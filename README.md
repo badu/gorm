@@ -24,7 +24,10 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
 - #1242 - "(Make gorm.Errors available for use outside gorm #1242)" 
  
 # Breaking changes
-- DB struct - renamed to DBCon, since that is what it represents
+- DB struct - renamed to DBCon, since that is what it represents.
+    However, you can do the following, to use the old gorm.DB:
+    `dbcon, err := gorm.Open("mysql", dbstr+"?parseTime=true")`
+    `db = &gorm.DB{*dbcon}`
 - Removed MSSQL support - out of my concerns with this project
 
 # Changes log
@@ -32,6 +35,7 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
 ## 08.11.2016
 - [x] adopted skip association tag from https://github.com/slockij/gorm (`gorm:"save_associations:false"`)
 - [x] adopted db.Raw().First() makes wrong sql fix #1214 #1243
+- [x] registerGORMDefaultCallbacks() calls reorder at the end of registration
 
 ## 07.11.2016
 - [x] have NOT integrate original-gorm pull request #1252 (prevent delete/update if conditions are not met, thus preventing delete-all, update-all) tests fail

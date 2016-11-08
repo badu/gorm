@@ -11,37 +11,176 @@ func (c *Callback) clone() *Callback {
 	}
 }
 
+func takeAddr(callback ScopedFunc) *ScopedFunc {
+	return &callback
+}
+
 func (c *Callback) registerGORMDefaultCallbacks() {
-	// Define callbacks for creating
-	c.Create().Register("gorm:begin_transaction", beginTransactionCallback)
-	c.Create().Register("gorm:before_create", beforeCreateCallback)
-	c.Create().Register("gorm:save_before_associations", saveBeforeAssociationsCallback)
-	c.Create().Register("gorm:update_time_stamp", updateTimeStampForCreateCallback)
-	c.Create().Register("gorm:create", createCallback)
-	c.Create().Register("gorm:force_reload_after_create", forceReloadAfterCreateCallback)
-	c.Create().Register("gorm:save_after_associations", saveAfterAssociationsCallback)
-	c.Create().Register("gorm:after_create", afterCreateCallback)
-	c.Create().Register("gorm:commit_or_rollback_transaction", commitOrRollbackTransactionCallback)
-	// Define callbacks for deleting
-	c.Delete().Register("gorm:begin_transaction", beginTransactionCallback)
-	c.Delete().Register("gorm:before_delete", beforeDeleteCallback)
-	c.Delete().Register("gorm:delete", deleteCallback)
-	c.Delete().Register("gorm:after_delete", afterDeleteCallback)
-	c.Delete().Register("gorm:commit_or_rollback_transaction", commitOrRollbackTransactionCallback)
-	// Define callbacks for querying
-	c.Query().Register("gorm:query", queryCallback)
-	c.Query().Register("gorm:preload", preloadCallback)
-	c.Query().Register("gorm:after_query", afterQueryCallback)
-	// Define callbacks for updating
-	c.Update().Register("gorm:assign_updating_attributes", assignUpdatingAttributesCallback)
-	c.Update().Register("gorm:begin_transaction", beginTransactionCallback)
-	c.Update().Register("gorm:before_update", beforeUpdateCallback)
-	c.Update().Register("gorm:save_before_associations", saveBeforeAssociationsCallback)
-	c.Update().Register("gorm:update_time_stamp", updateTimeStampForUpdateCallback)
-	c.Update().Register("gorm:update", updateCallback)
-	c.Update().Register("gorm:save_after_associations", saveAfterAssociationsCallback)
-	c.Update().Register("gorm:after_update", afterUpdateCallback)
-	c.Update().Register("gorm:commit_or_rollback_transaction", commitOrRollbackTransactionCallback)
+	c.processors.add(
+		// Define callbacks for creating
+		&CallbackProcessor{
+			kind:      CREATE_CALLBACK,
+			parent:    c,
+			name:      "gorm:begin_transaction",
+			processor: takeAddr(beginTransactionCallback),
+		},
+		&CallbackProcessor{
+			kind:      CREATE_CALLBACK,
+			parent:    c,
+			name:      "gorm:before_create",
+			processor: takeAddr(beforeCreateCallback),
+		},
+		&CallbackProcessor{
+			kind:      CREATE_CALLBACK,
+			parent:    c,
+			name:      "gorm:save_before_associations",
+			processor: takeAddr(saveBeforeAssociationsCallback),
+		},
+		&CallbackProcessor{
+			kind:      CREATE_CALLBACK,
+			parent:    c,
+			name:      "gorm:update_time_stamp",
+			processor: takeAddr(updateTimeStampForCreateCallback),
+		},
+		&CallbackProcessor{
+			kind:      CREATE_CALLBACK,
+			parent:    c,
+			name:      "gorm:create",
+			processor: takeAddr(createCallback),
+		},
+		&CallbackProcessor{
+			kind:      CREATE_CALLBACK,
+			parent:    c,
+			name:      "gorm:force_reload_after_create",
+			processor: takeAddr(forceReloadAfterCreateCallback),
+		},
+		&CallbackProcessor{
+			kind:      CREATE_CALLBACK,
+			parent:    c,
+			name:      "gorm:save_after_associations",
+			processor: takeAddr(saveAfterAssociationsCallback),
+		},
+		&CallbackProcessor{
+			kind:      CREATE_CALLBACK,
+			parent:    c,
+			name:      "gorm:after_create",
+			processor: takeAddr(afterCreateCallback),
+		},
+		&CallbackProcessor{
+			kind:      CREATE_CALLBACK,
+			parent:    c,
+			name:      "gorm:commit_or_rollback_transaction",
+			processor: takeAddr(commitOrRollbackTransactionCallback),
+		},
+		// Define callbacks for deleting
+		&CallbackProcessor{
+			kind:      DELETE_CALLBACK,
+			parent:    c,
+			name:      "gorm:begin_transaction",
+			processor: takeAddr(beginTransactionCallback),
+		},
+		&CallbackProcessor{
+			kind:      DELETE_CALLBACK,
+			parent:    c,
+			name:      "gorm:before_delete",
+			processor: takeAddr(beforeDeleteCallback),
+		},
+		&CallbackProcessor{
+			kind:      DELETE_CALLBACK,
+			parent:    c,
+			name:      "gorm:delete",
+			processor: takeAddr(deleteCallback),
+		},
+		&CallbackProcessor{
+			kind:      DELETE_CALLBACK,
+			parent:    c,
+			name:      "gorm:after_delete",
+			processor: takeAddr(afterDeleteCallback),
+		},
+		&CallbackProcessor{
+			kind:      DELETE_CALLBACK,
+			parent:    c,
+			name:      "gorm:commit_or_rollback_transaction",
+			processor: takeAddr(commitOrRollbackTransactionCallback),
+		},
+		// Define callbacks for querying
+		&CallbackProcessor{
+			kind:      QUERY_CALLBACK,
+			parent:    c,
+			name:      "gorm:query",
+			processor: takeAddr(queryCallback),
+		},
+		&CallbackProcessor{
+			kind:      QUERY_CALLBACK,
+			parent:    c,
+			name:      "gorm:preload",
+			processor: takeAddr(preloadCallback),
+		},
+		&CallbackProcessor{
+			kind:      QUERY_CALLBACK,
+			parent:    c,
+			name:      "gorm:after_query",
+			processor: takeAddr(afterQueryCallback),
+		},
+		// Define callbacks for updating
+
+		&CallbackProcessor{
+			kind:      UPDATE_CALLBACK,
+			parent:    c,
+			name:      "gorm:assign_updating_attributes",
+			processor: takeAddr(assignUpdatingAttributesCallback),
+		},
+		&CallbackProcessor{
+			kind:      UPDATE_CALLBACK,
+			parent:    c,
+			name:      "gorm:begin_transaction",
+			processor: takeAddr(beginTransactionCallback),
+		},
+		&CallbackProcessor{
+			kind:      UPDATE_CALLBACK,
+			parent:    c,
+			name:      "gorm:before_update",
+			processor: takeAddr(beforeUpdateCallback),
+		},
+		&CallbackProcessor{
+			kind:      UPDATE_CALLBACK,
+			parent:    c,
+			name:      "gorm:save_before_associations",
+			processor: takeAddr(saveBeforeAssociationsCallback),
+		},
+		&CallbackProcessor{
+			kind:      UPDATE_CALLBACK,
+			parent:    c,
+			name:      "gorm:update_time_stamp",
+			processor: takeAddr(updateTimeStampForUpdateCallback),
+		},
+		&CallbackProcessor{
+			kind:      UPDATE_CALLBACK,
+			parent:    c,
+			name:      "gorm:update",
+			processor: takeAddr(updateCallback),
+		},
+		&CallbackProcessor{
+			kind:      UPDATE_CALLBACK,
+			parent:    c,
+			name:      "gorm:save_after_associations",
+			processor: takeAddr(saveAfterAssociationsCallback),
+		},
+		&CallbackProcessor{
+			kind:      UPDATE_CALLBACK,
+			parent:    c,
+			name:      "gorm:after_update",
+			processor: takeAddr(afterUpdateCallback),
+		},
+		&CallbackProcessor{
+			kind:      UPDATE_CALLBACK,
+			parent:    c,
+			name:      "gorm:commit_or_rollback_transaction",
+			processor: takeAddr(commitOrRollbackTransactionCallback),
+		},
+	)
+	//finally, we call reorder
+	c.reorder()
 }
 
 // reorder all registered processors, and reset CURD callbacks
