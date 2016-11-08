@@ -86,18 +86,6 @@ func toQueryMarks(primaryValues [][]interface{}) string {
 	return strings.Join(results, ",")
 }
 
-func toQueryCondition(scope *Scope, columns StrSlice) string {
-	var newColumns []string
-	for _, column := range columns {
-		newColumns = append(newColumns, scope.Quote(column))
-	}
-
-	if len(columns) > 1 {
-		return fmt.Sprintf("(%v)", strings.Join(newColumns, ","))
-	}
-	return strings.Join(newColumns, ",")
-}
-
 func toQueryValues(values [][]interface{}) (results []interface{}) {
 	for _, value := range values {
 		for _, v := range value {

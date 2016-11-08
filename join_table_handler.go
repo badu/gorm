@@ -150,7 +150,7 @@ func (s JoinTableHandler) JoinWith(handler JoinTableHandlerInterface, db *DBCon,
 				quotedForeignDBNames = append(quotedForeignDBNames, tableName+"."+dbName)
 			}
 
-			condString = fmt.Sprintf("%v IN (%v)", toQueryCondition(scope, quotedForeignDBNames), toQueryMarks(foreignFieldValues))
+			condString = fmt.Sprintf("%v IN (%v)", scope.toQueryCondition(quotedForeignDBNames), toQueryMarks(foreignFieldValues))
 
 			keys := scope.getColumnAsArray(foreignFieldNames, scope.Value)
 			values = append(values, toQueryValues(keys))

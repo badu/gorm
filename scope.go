@@ -1433,7 +1433,7 @@ func (scope *Scope) handleHasOnePreload(field *StructField, conditions []interfa
 	preloadDB, preloadConditions := scope.generatePreloadDBWithConditions(conditions)
 
 	// find relations
-	query := fmt.Sprintf("%v IN (%v)", toQueryCondition(scope, relation.ForeignDBNames), toQueryMarks(primaryKeys))
+	query := fmt.Sprintf("%v IN (%v)", scope.toQueryCondition(relation.ForeignDBNames), toQueryMarks(primaryKeys))
 	values := toQueryValues(primaryKeys)
 	if relation.PolymorphicType != "" {
 		query += fmt.Sprintf(" AND %v = ?", scope.Quote(relation.PolymorphicDBName))
@@ -1490,7 +1490,7 @@ func (scope *Scope) handleHasManyPreload(field *StructField, conditions []interf
 	preloadDB, preloadConditions := scope.generatePreloadDBWithConditions(conditions)
 
 	// find relations
-	query := fmt.Sprintf("%v IN (%v)", toQueryCondition(scope, relation.ForeignDBNames), toQueryMarks(primaryKeys))
+	query := fmt.Sprintf("%v IN (%v)", scope.toQueryCondition(relation.ForeignDBNames), toQueryMarks(primaryKeys))
 	values := toQueryValues(primaryKeys)
 	if relation.PolymorphicType != "" {
 		query += fmt.Sprintf(" AND %v = ?", scope.Quote(relation.PolymorphicDBName))
@@ -1551,7 +1551,7 @@ func (scope *Scope) handleBelongsToPreload(field *StructField, conditions []inte
 
 	// find relations
 	results := field.makeSlice()
-	scope.Err(preloadDB.Where(fmt.Sprintf("%v IN (%v)", toQueryCondition(scope, relation.AssociationForeignDBNames), toQueryMarks(primaryKeys)), toQueryValues(primaryKeys)...).Find(results, preloadConditions...).Error)
+	scope.Err(preloadDB.Where(fmt.Sprintf("%v IN (%v)", scope.toQueryCondition(relation.AssociationForeignDBNames), toQueryMarks(primaryKeys)), toQueryValues(primaryKeys)...).Find(results, preloadConditions...).Error)
 
 	// assign find results
 	var (
@@ -1696,4 +1696,16 @@ func (scope *Scope) handleManyToManyPreload(field *StructField, conditions []int
 		}
 
 	}
+}
+
+func (scope *Scope) toQueryCondition(columns StrSlice) string {
+	var newColumns []string
+	for _, column := range columns {
+		newColumns = append(newColumns, scope.Quote(column))
+	}
+
+	if len(columns) > 1 {
+		return fmt.Sprintf("(%v)", strings.Join(newColumns, ","))
+	}
+	return strings.Join(newColumns, ",")
 }

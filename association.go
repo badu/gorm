@@ -81,7 +81,7 @@ func (association *Association) Replace(values ...interface{}) *Association {
 			newPrimaryKeys := scope.getColumnAsArray(associationForeignFieldNames, field.Interface())
 
 			if len(newPrimaryKeys) > 0 {
-				sql := fmt.Sprintf("%v NOT IN (%v)", toQueryCondition(scope, associationForeignDBNames), toQueryMarks(newPrimaryKeys))
+				sql := fmt.Sprintf("%v NOT IN (%v)", scope.toQueryCondition(associationForeignDBNames), toQueryMarks(newPrimaryKeys))
 				newDB = newDB.Where(sql, toQueryValues(newPrimaryKeys)...)
 			}
 		}
@@ -97,7 +97,7 @@ func (association *Association) Replace(values ...interface{}) *Association {
 			}
 
 			if sourcePrimaryKeys := scope.getColumnAsArray(sourceForeignFieldNames, scope.Value); len(sourcePrimaryKeys) > 0 {
-				newDB = newDB.Where(fmt.Sprintf("%v IN (%v)", toQueryCondition(scope, relationship.ForeignDBNames), toQueryMarks(sourcePrimaryKeys)), toQueryValues(sourcePrimaryKeys)...)
+				newDB = newDB.Where(fmt.Sprintf("%v IN (%v)", scope.toQueryCondition(relationship.ForeignDBNames), toQueryMarks(sourcePrimaryKeys)), toQueryValues(sourcePrimaryKeys)...)
 
 				association.setErr(relationship.JoinTableHandler.Delete(relationship.JoinTableHandler, newDB, relationship))
 			}
@@ -162,7 +162,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 
 		// association value's foreign keys
 		deletingPrimaryKeys := scope.getColumnAsArray(associationForeignFieldNames, values...)
-		sql := fmt.Sprintf("%v IN (%v)", toQueryCondition(scope, relationship.AssociationForeignDBNames), toQueryMarks(deletingPrimaryKeys))
+		sql := fmt.Sprintf("%v IN (%v)", scope.toQueryCondition(relationship.AssociationForeignDBNames), toQueryMarks(deletingPrimaryKeys))
 		newDB = newDB.Where(sql, toQueryValues(deletingPrimaryKeys)...)
 
 		association.setErr(relationship.JoinTableHandler.Delete(relationship.JoinTableHandler, newDB, relationship))
@@ -176,7 +176,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 			// find with deleting relation's foreign keys
 			primaryKeys := scope.getColumnAsArray(relationship.AssociationForeignFieldNames, values...)
 			newDB = newDB.Where(
-				fmt.Sprintf("%v IN (%v)", toQueryCondition(scope, relationship.ForeignDBNames), toQueryMarks(primaryKeys)),
+				fmt.Sprintf("%v IN (%v)", scope.toQueryCondition(relationship.ForeignDBNames), toQueryMarks(primaryKeys)),
 				toQueryValues(primaryKeys)...,
 			)
 
@@ -193,13 +193,13 @@ func (association *Association) Delete(values ...interface{}) *Association {
 			// find all relations
 			primaryKeys := scope.getColumnAsArray(relationship.AssociationForeignFieldNames, scope.Value)
 			newDB = newDB.Where(
-				fmt.Sprintf("%v IN (%v)", toQueryCondition(scope, relationship.ForeignDBNames), toQueryMarks(primaryKeys)),
+				fmt.Sprintf("%v IN (%v)", scope.toQueryCondition(relationship.ForeignDBNames), toQueryMarks(primaryKeys)),
 				toQueryValues(primaryKeys)...,
 			)
 
 			// only include those deleting relations
 			newDB = newDB.Where(
-				fmt.Sprintf("%v IN (%v)", toQueryCondition(scope, deletingResourcePrimaryDBNames), toQueryMarks(deletingPrimaryKeys)),
+				fmt.Sprintf("%v IN (%v)", scope.toQueryCondition(deletingResourcePrimaryDBNames), toQueryMarks(deletingPrimaryKeys)),
 				toQueryValues(deletingPrimaryKeys)...,
 			)
 
@@ -264,13 +264,13 @@ func (association *Association) Count() int {
 	} else if relationship.Kind == HAS_MANY || relationship.Kind == HAS_ONE {
 		primaryKeys := scope.getColumnAsArray(relationship.AssociationForeignFieldNames, scope.Value)
 		query = query.Where(
-			fmt.Sprintf("%v IN (%v)", toQueryCondition(scope, relationship.ForeignDBNames), toQueryMarks(primaryKeys)),
+			fmt.Sprintf("%v IN (%v)", scope.toQueryCondition(relationship.ForeignDBNames), toQueryMarks(primaryKeys)),
 			toQueryValues(primaryKeys)...,
 		)
 	} else if relationship.Kind == BELONGS_TO {
 		primaryKeys := scope.getColumnAsArray(relationship.ForeignFieldNames, scope.Value)
 		query = query.Where(
-			fmt.Sprintf("%v IN (%v)", toQueryCondition(scope, relationship.AssociationForeignDBNames), toQueryMarks(primaryKeys)),
+			fmt.Sprintf("%v IN (%v)", scope.toQueryCondition(relationship.AssociationForeignDBNames), toQueryMarks(primaryKeys)),
 			toQueryValues(primaryKeys)...,
 		)
 	}

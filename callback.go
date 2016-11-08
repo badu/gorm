@@ -180,7 +180,7 @@ func (c *Callback) registerGORMDefaultCallbacks() {
 		},
 	)
 	//finally, we call reorder
-	c.reorder()
+	c.processors.reorder(c)
 }
 
 // reorder all registered processors, and reset CURD callbacks
