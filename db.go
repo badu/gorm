@@ -581,8 +581,8 @@ func (orm *DBCon) AddError(err error) error {
 			} else {
 				orm.log(err)
 			}
-			gormErrors := GormErrors{errors: orm.GetErrors()}
-			gormErrors.Add(err)
+			gormErrors := GormErrors(orm.GetErrors())
+			gormErrors = gormErrors.Add(err)
 			if len(gormErrors.GetErrors()) > 1 {
 				err = gormErrors
 			}

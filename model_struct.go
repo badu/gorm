@@ -113,14 +113,14 @@ func (modelStruct *ModelStruct) sliceRelationships(scope *Scope, field *StructFi
 				// if no association foreign keys defined with tag
 				if associationForeignKeys.len() == 0 {
 					for _, field := range modelStruct.PrimaryFields {
-						foreignKeys.add( associationType+field.GetName())
+						foreignKeys.add(associationType + field.GetName())
 						associationForeignKeys.add(field.GetName())
 					}
 				} else {
 					// generate foreign keys from defined association foreign keys
 					for _, scopeFieldName := range associationForeignKeys {
 						if foreignField := modelStruct.fieldByName(scopeFieldName); foreignField != nil {
-							foreignKeys.add(associationType+foreignField.GetName())
+							foreignKeys.add(associationType + foreignField.GetName())
 							associationForeignKeys.add(foreignField.GetName())
 						}
 					}
@@ -214,14 +214,14 @@ func (modelStruct *ModelStruct) structRelationships(scope *Scope, field *StructF
 		// if no association foreign keys defined with tag
 		if associationForeignKeys.len() == 0 {
 			for _, primaryField := range modelStruct.PrimaryFields {
-				foreignKeys.add(associationType+primaryField.GetName())
+				foreignKeys.add(associationType + primaryField.GetName())
 				associationForeignKeys.add(primaryField.GetName())
 			}
 		} else {
 			// generate foreign keys form association foreign keys
 			for _, associationForeignKey := range tagAssociationForeignKeys {
 				if foreignField := modelStruct.fieldByName(associationForeignKey); foreignField != nil {
-					foreignKeys.add(associationType+foreignField.GetName())
+					foreignKeys.add(associationType + foreignField.GetName())
 					associationForeignKeys.add(foreignField.GetName())
 				}
 			}
@@ -272,14 +272,14 @@ func (modelStruct *ModelStruct) structRelationships(scope *Scope, field *StructF
 			// generate foreign keys & association foreign keys
 			if associationForeignKeys.len() == 0 {
 				for _, primaryField := range toScope.PrimaryFields() {
-					foreignKeys.add(field.GetName()+primaryField.GetName())
+					foreignKeys.add(field.GetName() + primaryField.GetName())
 					associationForeignKeys.add(primaryField.GetName())
 				}
 			} else {
 				// generate foreign keys with association foreign keys
 				for _, associationForeignKey := range associationForeignKeys {
 					if foreignField := toFields.fieldByName(associationForeignKey); foreignField != nil {
-						foreignKeys.add(field.GetName()+foreignField.GetName())
+						foreignKeys.add(field.GetName() + foreignField.GetName())
 						associationForeignKeys.add(foreignField.GetName())
 					}
 				}

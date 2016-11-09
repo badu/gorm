@@ -5,8 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"strings"
 	"strconv"
+	"strings"
+	"time"
 )
 
 func NewStructField(fieldStruct reflect.StructField) (*StructField, error) {
@@ -39,8 +40,42 @@ func NewStructField(fieldStruct reflect.StructField) (*StructField, error) {
 	} else {
 		result.DBName = NamesMap.ToDBName(fieldStruct.Name)
 	}
+	//keeping the underlying type for later usage
+	result.UnderlyingType = fieldStruct.Type
+	for result.UnderlyingType.Kind() == reflect.Ptr {
+		//dereference it, it's a pointer
+		result.UnderlyingType = result.UnderlyingType.Elem()
+	}
 
 	return result, err
+}
+
+func (field *StructField) checkInterfaces() interface{} {
+	newValue := reflect.New(field.UnderlyingType)
+	fieldValue := newValue.Interface()
+	_, isScanner := fieldValue.(sql.Scanner)
+	_, isTime := fieldValue.(*time.Time)
+
+	if isScanner {
+		// is scanner
+		field.IsScanner, field.IsNormal = true, true
+		if field.UnderlyingType.Kind() == reflect.Struct {
+			for i := 0; i < field.UnderlyingType.NumField(); i++ {
+				tag := field.UnderlyingType.Field(i).Tag
+				for _, str := range []string{tag.Get("sql"), tag.Get("gorm")} {
+					err := field.tagSettings.loadFromTags(str)
+					if err != nil {
+
+					}
+				}
+			}
+		}
+
+	} else if isTime {
+		// is time
+		field.IsNormal = true
+	}
+	return fieldValue
 }
 
 func (structField *StructField) clone() *StructField {
@@ -207,7 +242,7 @@ func (field *StructField) makeSlice() interface{} {
 }
 
 // ParseFieldStructForDialect parse field struct for dialect
-func (field *StructField) ParseFieldStructForDialect()(fieldValue reflect.Value, sqlType string, size int, additionalType string) {
+func (field *StructField) ParseFieldStructForDialect() (fieldValue reflect.Value, sqlType string, size int, additionalType string) {
 	// Get redirected field type
 	var reflectType = field.Struct.Type
 	for reflectType.Kind() == reflect.Ptr {

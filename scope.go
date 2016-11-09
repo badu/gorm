@@ -270,12 +270,12 @@ func (scope *Scope) SelectAttrs() []string {
 	if scope.selectAttrs == nil {
 		attrs := []string{}
 		for _, value := range scope.Search.selects {
-			//TODO : @Badu - use switch
-			if str, ok := value.(string); ok {
-				attrs = append(attrs, str)
-			} else if strs, ok := value.([]string); ok {
+			switch strs := value.(type) {
+			case string:
+				attrs = append(attrs, strs)
+			case []string:
 				attrs = append(attrs, strs...)
-			} else if strs, ok := value.([]interface{}); ok {
+			case []interface{}:
 				for _, str := range strs {
 					attrs = append(attrs, fmt.Sprintf("%v", str))
 				}
@@ -296,15 +296,12 @@ func (scope *Scope) TableName() string {
 	if scope.Search != nil && len(scope.Search.tableName) > 0 {
 		return scope.Search.tableName
 	}
-
-	if tabler, ok := scope.Value.(tabler); ok {
+	switch tabler := scope.Value.(type) {
+	case tabler:
 		return tabler.TableName()
-	}
-
-	if tabler, ok := scope.Value.(dbTabler); ok {
+	case dbTabler:
 		return tabler.TableName(scope.db)
 	}
-
 	return scope.GetModelStruct().TableName(scope.db.Model(scope.Value))
 }
 
@@ -468,31 +465,13 @@ func (scope *Scope) GetModelStruct() *ModelStruct {
 				if field.HasSetting(PRIMARY_KEY) {
 					modelStruct.PrimaryFields.add(field)
 				}
-				indirectType := fieldStruct.Type
-				for indirectType.Kind() == reflect.Ptr {
-					//dereference it, it's a pointer
-					indirectType = indirectType.Elem()
-				}
-
-				fieldValue := reflect.New(indirectType).Interface()
+				fieldValue := field.checkInterfaces()
 
 				_, isScanner := fieldValue.(sql.Scanner)
 				_, isTime := fieldValue.(*time.Time)
 
-				if isScanner {
-					// is scanner
-					field.IsScanner, field.IsNormal = true, true
-					if indirectType.Kind() == reflect.Struct {
-						for i := 0; i < indirectType.NumField(); i++ {
-							for _, str := range []string{indirectType.Field(i).Tag.Get("sql"), indirectType.Field(i).Tag.Get("gorm")} {
-								err = field.tagSettings.loadFromTags(str)
-							}
-						}
-					}
+				if isScanner || isTime{
 
-				} else if isTime {
-					// is time
-					field.IsNormal = true
 				} else if field.HasSetting(EMBEDDED) || fieldStruct.Anonymous {
 					// is embedded struct
 					for _, subField := range scope.New(fieldValue).GetStructFields() {
@@ -509,7 +488,7 @@ func (scope *Scope) GetModelStruct() *ModelStruct {
 					continue
 				} else {
 					// build relationships
-					switch indirectType.Kind() {
+					switch field.UnderlyingType.Kind() {
 					case reflect.Slice:
 						//TODO : @Badu - find a better way than defer : repeat the for loop?
 						defer modelStruct.sliceRelationships(scope, field, reflectType)
@@ -1095,11 +1074,11 @@ func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
 
 		if fromField != nil {
 			if relationship := fromField.Relationship; relationship != nil {
-				//TODO : @Badu - use switch
-				if relationship.Kind == MANY_TO_MANY {
+				switch relationship.Kind {
+				case MANY_TO_MANY:
 					joinTableHandler := relationship.JoinTableHandler
 					scope.Err(joinTableHandler.JoinWith(joinTableHandler, toScope.db, scope.Value).Find(value).Error)
-				} else if relationship.Kind == BELONGS_TO {
+				case BELONGS_TO:
 					query := toScope.db
 					for idx, foreignKey := range relationship.ForeignDBNames {
 						if field, ok := scope.FieldByName(foreignKey); ok {
@@ -1107,7 +1086,7 @@ func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
 						}
 					}
 					scope.Err(query.Find(value).Error)
-				} else if relationship.Kind == HAS_MANY || relationship.Kind == HAS_ONE {
+				case HAS_MANY, HAS_ONE:
 					query := toScope.db
 					for idx, foreignKey := range relationship.ForeignDBNames {
 						if field, ok := scope.FieldByName(relationship.AssociationForeignDBNames[idx]); ok {

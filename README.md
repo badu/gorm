@@ -14,7 +14,7 @@
         buf.WriteString("string")
         buf.Write([]byte("bytes"))
         return buf.String()`
-. Also, organize fmt.Sprintf to be called once
+
 
 # Comments and thoughts
 - Generated SQL let's the SQL engine cast : SELECT * FROM aTable WHERE id = '1' (id being int). I think it's a bad practice and it should be fixed
@@ -37,6 +37,12 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
 - Removed MSSQL support - out of my concerns with this project
 
 # Changes log
+
+## 09.11.2016
+- [x] Collector - a helper to avoid multiple calls on fmt.Sprintf : stores values and string
+- [x] replaced some statements with switch
+- [x] GetModelStruct refactoring
+- [x] GromErrors change and fix (from original gorm commits)
 
 ## 08.11.2016
 - [x] adopted skip association tag from https://github.com/slockij/gorm (`gorm:"save_associations:false"`)

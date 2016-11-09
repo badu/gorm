@@ -9,35 +9,38 @@ type (
 		GetErrors() []error
 	}
 	// Errors contains all happened errors
-	GormErrors struct {
-		errors []error
-	}
+	GormErrors []error
+
 )
 // GetErrors get all happened errors
 func (errs GormErrors) GetErrors() []error {
-	return errs.errors
+	return errs
 }
 
 // Add add an error
-func (errs *GormErrors) Add(err error) {
-	if errors, ok := err.(errorsInterface); ok {
-		for _, err := range errors.GetErrors() {
-			errs.Add(err)
-		}
-	} else {
-		for _, e := range errs.errors {
-			if err == e {
-				return
+func (errs GormErrors) Add(newErrors ...error) GormErrors {
+	for _, err := range newErrors {
+		if errors, ok := err.(GormErrors); ok {
+			errs = errs.Add(errors...)
+		} else {
+			ok = true
+			for _, e := range errs {
+				if err == e {
+					ok = false
+				}
+			}
+			if ok {
+				errs = append(errs, err)
 			}
 		}
-		errs.errors = append(errs.errors, err)
 	}
+	return errs
 }
 
 // Error format happened errors
 func (errs GormErrors) Error() string {
 	var errors = []string{}
-	for _, e := range errs.errors {
+	for _, e := range errs {
 		errors = append(errors, e.Error())
 	}
 	return strings.Join(errors, "; ")

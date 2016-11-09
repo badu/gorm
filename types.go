@@ -17,8 +17,7 @@ const (
 	HAS_MANY     uint8 = 2
 	HAS_ONE      uint8 = 3
 	//Attention : relationship.Kind <= HAS_ONE in callback_functions.go saveAfterAssociationsCallback()
-	BELONGS_TO   uint8 = 4
-
+	BELONGS_TO uint8 = 4
 
 	//Callback Kind constants
 	CREATE_CALLBACK    uint8 = 1
@@ -49,14 +48,18 @@ type (
 		HasDefaultValue bool
 		IsForeignKey    bool
 		IsBlank         bool
+		//TODO : @Badu - load this from sliceRelationships and structRelationships
+		IsSlice         bool
+		IsStruct        bool
 
 		DBName string
 		Names  []string
 
 		tagSettings TagSettings
 
-		Struct reflect.StructField
-		Value  reflect.Value
+		Struct         reflect.StructField
+		Value          reflect.Value
+		UnderlyingType reflect.Type
 
 		Relationship *Relationship
 	}
@@ -173,7 +176,6 @@ type (
 		conditions []interface{}
 	}
 
-
 	// Model base model definition, including fields `ID`, `CreatedAt`, `UpdatedAt`, `DeletedAt`, which could be embedded in your models
 	//    type User struct {
 	//      gorm.Model
@@ -217,8 +219,6 @@ type (
 		processor *ScopedFunc // callback handler
 		parent    *Callback
 	}
-
-
 
 	// DefaultForeignKeyNamer contains the default foreign key name generator method
 	DefaultForeignKeyNamer struct {
