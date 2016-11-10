@@ -25,6 +25,7 @@ func (s *ModelStruct) fieldByName(column string) *StructField {
 func (modelStruct *ModelStruct) processRelations(scope *Scope) {
 	for _, field := range modelStruct.StructFields {
 		if field.HasRelations {
+			//ATTN : order matters, since it can be both slice and struct
 			if field.IsSlice {
 				modelStruct.sliceRelationships(scope, field)
 			} else if field.IsStruct {
@@ -38,30 +39,12 @@ func (modelStruct *ModelStruct) sliceRelationships(scope *Scope, field *StructFi
 	var (
 		relationship           = &Relationship{}
 		toScope                = scope.New(reflect.New(field.Struct.Type).Interface())
-		foreignKeys            StrSlice
-		associationForeignKeys StrSlice
-		elemType               = field.Struct.Type
+		elemType               = field.getTrueType()
+		foreignKeys            = field.getForeignKeys()
+		associationForeignKeys = field.getAssocForeignKeys()
 	)
 
-	if foreignKey := field.GetSetting(FOREIGNKEY); foreignKey != "" {
-		foreignKeys.commaLoad(foreignKey)
-	}
-
-	if foreignKey := field.GetSetting(ASSOCIATIONFOREIGNKEY); foreignKey != "" {
-		associationForeignKeys.commaLoad(foreignKey)
-	}
-
-	for elemType.Kind() == reflect.Slice || elemType.Kind() == reflect.Ptr {
-		elemType = elemType.Elem()
-	}
-	/**
-	trueType := field.UnderlyingType
-	for trueType.Kind() == reflect.Slice || trueType.Kind() == reflect.Ptr {
-		trueType = trueType.Elem()
-	}
-	**/
 	if elemType.Kind() == reflect.Struct {
-		//fmt.Printf("%q IS STRUCT %t (%t) but %q IS!\n", trueType.Name(), (trueType.Kind() == reflect.Struct), field.IsStruct, elemType.Name())
 		if many2many := field.GetSetting(MANY2MANY); many2many != "" {
 			relationship.Kind = MANY_TO_MANY
 
@@ -195,17 +178,9 @@ func (modelStruct *ModelStruct) structRelationships(scope *Scope, field *StructF
 		relationship              = &Relationship{}
 		toScope                   = scope.New(reflect.New(field.Struct.Type).Interface())
 		toFields                  = toScope.GetModelStruct()
-		tagForeignKeys            StrSlice
-		tagAssociationForeignKeys StrSlice
+		tagForeignKeys            = field.getForeignKeys()
+		tagAssociationForeignKeys = field.getAssocForeignKeys()
 	)
-
-	if foreignKey := field.GetSetting(FOREIGNKEY); foreignKey != "" {
-		tagForeignKeys.commaLoad(foreignKey)
-	}
-
-	if foreignKey := field.GetSetting(ASSOCIATIONFOREIGNKEY); foreignKey != "" {
-		tagAssociationForeignKeys.commaLoad(foreignKey)
-	}
 
 	if polymorphic := field.GetSetting(POLYMORPHIC); polymorphic != "" {
 		// Cat has one toy, tag polymorphic is Owner, then associationType is Owner

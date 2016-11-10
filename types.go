@@ -52,6 +52,7 @@ type (
 		IsSlice         bool
 		IsStruct        bool
 		HasRelations    bool
+		isEmbedOrAnon   bool
 
 		DBName string
 		Names  []string

@@ -467,7 +467,7 @@ func (scope *Scope) GetModelStruct() *ModelStruct {
 				}
 				fieldValue := field.checkInterfaces()
 				if !field.IsScanner && !field.IsTime {
-					if field.HasSetting(EMBEDDED) || fieldStruct.Anonymous {
+					if field.isEmbedOrAnon {
 						// is embedded struct
 						for _, subField := range scope.New(fieldValue).GetStructFields() {
 							subField = subField.clone()
@@ -482,12 +482,11 @@ func (scope *Scope) GetModelStruct() *ModelStruct {
 						}
 						continue
 					} else {
-						//ATTN : order matters, since it can be both slice and struct
 						if field.IsSlice {
-							//marker for later processing
+							//marker for later processing of relationships
 							field.HasRelations = true
 						} else if field.IsStruct {
-							//marker for later processing
+							//marker for later processing of relationships
 							field.HasRelations = true
 						} else {
 							field.IsNormal = true

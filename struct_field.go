@@ -34,6 +34,10 @@ func NewStructField(fieldStruct reflect.StructField) (*StructField, error) {
 		result.HasDefaultValue = true
 	}
 
+	if result.HasSetting(EMBEDDED) || fieldStruct.Anonymous{
+		result.isEmbedOrAnon = true
+	}
+
 	// Even it is ignored, also possible to decode db value into the field
 	if value := result.tagSettings.get(COLUMN); value != "" {
 		result.DBName = value
@@ -46,32 +50,31 @@ func NewStructField(fieldStruct reflect.StructField) (*StructField, error) {
 	for result.UnderlyingType.Kind() == reflect.Ptr {
 		//dereference it, it's a pointer
 		result.UnderlyingType = result.UnderlyingType.Elem()
-		//fmt.Printf("POINTER TO %q\n", result.UnderlyingType.Name())
 	}
 
 	if result.UnderlyingType.Kind() == reflect.Slice {
-		//TODO : @Badu - it is not working as expected
-		//dereference it, it's a slice
-		//result.UnderlyingType = result.UnderlyingType.Elem()
+		//mark it as slice
 		result.IsSlice = true
-		//fmt.Printf("SLICE %q\n", result.UnderlyingType.Elem().Name())
-		trueType:=result.UnderlyingType
-		for trueType.Kind() == reflect.Slice || trueType.Kind() == reflect.Ptr{
-			//dereference it, it's a slice
-			trueType= trueType.Elem()
-			//fmt.Printf("POINTER TO %q\n", result.UnderlyingType.Name())
-		}
-		//it's a slice of structs - signal it
-		if trueType.Kind() == reflect.Struct {
+		//it's a slice of structs
+		if result.getTrueType().Kind() == reflect.Struct {
+			//mark it as struct
 			result.IsStruct = true
 		}
-		fmt.Printf("trueType %q : %q\n", trueType.Name(), trueType.Kind())
 	} else if result.UnderlyingType.Kind() == reflect.Struct {
+		//mark it as struct
 		result.IsStruct = true
-		//fmt.Printf("STRUCT %q\n", result.UnderlyingType.Name())
 	}
 
 	return result, err
+}
+
+func (field *StructField) getTrueType() reflect.Type{
+	trueType := field.UnderlyingType
+	for trueType.Kind() == reflect.Slice || trueType.Kind() == reflect.Ptr {
+		//dereference it
+		trueType = trueType.Elem()
+	}
+	return trueType
 }
 
 func (field *StructField) checkInterfaces() interface{} {
@@ -303,6 +306,21 @@ func (field *StructField) ParseFieldStructForDialect() (fieldValue reflect.Value
 	return fieldValue, field.GetSetting(TYPE), size, strings.TrimSpace(additionalType)
 }
 
+func (structField *StructField) getForeignKeys() StrSlice {
+	var result StrSlice
+	if foreignKey := structField.GetSetting(FOREIGNKEY); foreignKey != "" {
+		result.commaLoad(foreignKey)
+	}
+	return result
+}
+
+func (structField *StructField) getAssocForeignKeys() StrSlice {
+	var result StrSlice
+	if foreignKey := structField.GetSetting(ASSOCIATIONFOREIGNKEY); foreignKey != "" {
+		result.commaLoad(foreignKey)
+	}
+	return result
+}
 /**
 reflect.StructField{
 	// Name is the field name.
