@@ -45,12 +45,13 @@ type (
 		IsNormal        bool
 		IsIgnored       bool
 		IsScanner       bool
+		IsTime          bool
 		HasDefaultValue bool
 		IsForeignKey    bool
 		IsBlank         bool
-		//TODO : @Badu - load this from sliceRelationships and structRelationships
 		IsSlice         bool
 		IsStruct        bool
+		HasRelations    bool
 
 		DBName string
 		Names  []string

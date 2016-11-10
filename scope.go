@@ -466,37 +466,32 @@ func (scope *Scope) GetModelStruct() *ModelStruct {
 					modelStruct.PrimaryFields.add(field)
 				}
 				fieldValue := field.checkInterfaces()
-
-				_, isScanner := fieldValue.(sql.Scanner)
-				_, isTime := fieldValue.(*time.Time)
-
-				if isScanner || isTime{
-
-				} else if field.HasSetting(EMBEDDED) || fieldStruct.Anonymous {
-					// is embedded struct
-					for _, subField := range scope.New(fieldValue).GetStructFields() {
-						subField = subField.clone()
-						subField.Names = append([]string{fieldStruct.Name}, subField.Names...)
-						if prefix := field.GetSetting(EMBEDDED_PREFIX); prefix != "" {
-							subField.DBName = prefix + subField.DBName
+				if !field.IsScanner && !field.IsTime {
+					if field.HasSetting(EMBEDDED) || fieldStruct.Anonymous {
+						// is embedded struct
+						for _, subField := range scope.New(fieldValue).GetStructFields() {
+							subField = subField.clone()
+							subField.Names = append([]string{fieldStruct.Name}, subField.Names...)
+							if prefix := field.GetSetting(EMBEDDED_PREFIX); prefix != "" {
+								subField.DBName = prefix + subField.DBName
+							}
+							if subField.IsPrimaryKey {
+								modelStruct.PrimaryFields.add(subField)
+							}
+							modelStruct.StructFields.add(subField)
 						}
-						if subField.IsPrimaryKey {
-							modelStruct.PrimaryFields.add(subField)
+						continue
+					} else {
+						//ATTN : order matters, since it can be both slice and struct
+						if field.IsSlice {
+							//marker for later processing
+							field.HasRelations = true
+						} else if field.IsStruct {
+							//marker for later processing
+							field.HasRelations = true
+						} else {
+							field.IsNormal = true
 						}
-						modelStruct.StructFields.add(subField)
-					}
-					continue
-				} else {
-					// build relationships
-					switch field.UnderlyingType.Kind() {
-					case reflect.Slice:
-						//TODO : @Badu - find a better way than defer : repeat the for loop?
-						defer modelStruct.sliceRelationships(scope, field, reflectType)
-					case reflect.Struct:
-						//TODO : @Badu - find a better way than defer : repeat the for loop?
-						defer modelStruct.structRelationships(scope, field, reflectType)
-					default:
-						field.IsNormal = true
 					}
 				}
 			}
@@ -512,8 +507,12 @@ func (scope *Scope) GetModelStruct() *ModelStruct {
 			modelStruct.PrimaryFields.add(field)
 		}
 	}
+
 	//set cached ModelStruc
 	modelStructsMap.Set(reflectType, &modelStruct)
+	// ATTN : first we add it to cache map, otherwise will infinite cycle
+	// build relationships
+	modelStruct.processRelations(scope)
 
 	return &modelStruct
 }

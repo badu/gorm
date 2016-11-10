@@ -28,6 +28,9 @@ const (
 	TYPE                    uint8 = 18
 	UNIQUE                  uint8 = 19
 	SAVE_ASSOCIATIONS       uint8 = 20
+
+	TAG_SQL  string = "sql"
+	TAG_GORM string = "gorm"
 )
 
 var (

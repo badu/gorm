@@ -22,7 +22,19 @@ func (s *ModelStruct) fieldByName(column string) *StructField {
 	return nil
 }
 
-func (modelStruct *ModelStruct) sliceRelationships(scope *Scope, field *StructField, reflectType reflect.Type) {
+func (modelStruct *ModelStruct) processRelations(scope *Scope) {
+	for _, field := range modelStruct.StructFields {
+		if field.HasRelations {
+			if field.IsSlice {
+				modelStruct.sliceRelationships(scope, field)
+			} else if field.IsStruct {
+				modelStruct.structRelationships(scope, field)
+			}
+		}
+	}
+}
+
+func (modelStruct *ModelStruct) sliceRelationships(scope *Scope, field *StructField) {
 	var (
 		relationship           = &Relationship{}
 		toScope                = scope.New(reflect.New(field.Struct.Type).Interface())
@@ -42,8 +54,14 @@ func (modelStruct *ModelStruct) sliceRelationships(scope *Scope, field *StructFi
 	for elemType.Kind() == reflect.Slice || elemType.Kind() == reflect.Ptr {
 		elemType = elemType.Elem()
 	}
-
+	/**
+	trueType := field.UnderlyingType
+	for trueType.Kind() == reflect.Slice || trueType.Kind() == reflect.Ptr {
+		trueType = trueType.Elem()
+	}
+	**/
 	if elemType.Kind() == reflect.Struct {
+		//fmt.Printf("%q IS STRUCT %t (%t) but %q IS!\n", trueType.Name(), (trueType.Kind() == reflect.Struct), field.IsStruct, elemType.Name())
 		if many2many := field.GetSetting(MANY2MANY); many2many != "" {
 			relationship.Kind = MANY_TO_MANY
 
@@ -59,7 +77,7 @@ func (modelStruct *ModelStruct) sliceRelationships(scope *Scope, field *StructFi
 					// source foreign keys (db names)
 					relationship.ForeignFieldNames.add(foreignField.DBName)
 					// join table foreign keys for source
-					joinTableDBName := NamesMap.ToDBName(reflectType.Name()) + "_" + foreignField.DBName
+					joinTableDBName := NamesMap.ToDBName(modelStruct.ModelType.Name()) + "_" + foreignField.DBName
 					relationship.ForeignDBNames.add(joinTableDBName)
 				}
 			}
@@ -82,12 +100,12 @@ func (modelStruct *ModelStruct) sliceRelationships(scope *Scope, field *StructFi
 			}
 
 			joinTableHandler := JoinTableHandler{}
-			joinTableHandler.Setup(relationship, many2many, reflectType, elemType)
+			joinTableHandler.Setup(relationship, many2many, modelStruct.ModelType, elemType)
 			relationship.JoinTableHandler = &joinTableHandler
 			field.Relationship = relationship
 		} else {
 			// User has many comments, associationType is User, comment use UserID as foreign key
-			var associationType = reflectType.Name()
+			var associationType = modelStruct.ModelType.Name()
 			var toFields = toScope.GetModelStruct()
 			relationship.Kind = HAS_MANY
 
@@ -169,11 +187,11 @@ func (modelStruct *ModelStruct) sliceRelationships(scope *Scope, field *StructFi
 	}
 }
 
-func (modelStruct *ModelStruct) structRelationships(scope *Scope, field *StructField, reflectType reflect.Type) {
+func (modelStruct *ModelStruct) structRelationships(scope *Scope, field *StructField) {
 	var (
 		// user has one profile, associationType is User, profile use UserID as foreign key
 		// user belongs to profile, associationType is Profile, user use ProfileID as foreign key
-		associationType           = reflectType.Name()
+		associationType           = modelStruct.ModelType.Name()
 		relationship              = &Relationship{}
 		toScope                   = scope.New(reflect.New(field.Struct.Type).Interface())
 		toFields                  = toScope.GetModelStruct()

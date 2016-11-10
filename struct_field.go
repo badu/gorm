@@ -42,9 +42,33 @@ func NewStructField(fieldStruct reflect.StructField) (*StructField, error) {
 	}
 	//keeping the underlying type for later usage
 	result.UnderlyingType = fieldStruct.Type
+
 	for result.UnderlyingType.Kind() == reflect.Ptr {
 		//dereference it, it's a pointer
 		result.UnderlyingType = result.UnderlyingType.Elem()
+		//fmt.Printf("POINTER TO %q\n", result.UnderlyingType.Name())
+	}
+
+	if result.UnderlyingType.Kind() == reflect.Slice {
+		//TODO : @Badu - it is not working as expected
+		//dereference it, it's a slice
+		//result.UnderlyingType = result.UnderlyingType.Elem()
+		result.IsSlice = true
+		//fmt.Printf("SLICE %q\n", result.UnderlyingType.Elem().Name())
+		trueType:=result.UnderlyingType
+		for trueType.Kind() == reflect.Slice || trueType.Kind() == reflect.Ptr{
+			//dereference it, it's a slice
+			trueType= trueType.Elem()
+			//fmt.Printf("POINTER TO %q\n", result.UnderlyingType.Name())
+		}
+		//it's a slice of structs - signal it
+		if trueType.Kind() == reflect.Struct {
+			result.IsStruct = true
+		}
+		fmt.Printf("trueType %q : %q\n", trueType.Name(), trueType.Kind())
+	} else if result.UnderlyingType.Kind() == reflect.Struct {
+		result.IsStruct = true
+		//fmt.Printf("STRUCT %q\n", result.UnderlyingType.Name())
 	}
 
 	return result, err
@@ -55,17 +79,16 @@ func (field *StructField) checkInterfaces() interface{} {
 	fieldValue := newValue.Interface()
 	_, isScanner := fieldValue.(sql.Scanner)
 	_, isTime := fieldValue.(*time.Time)
-
 	if isScanner {
 		// is scanner
 		field.IsScanner, field.IsNormal = true, true
 		if field.UnderlyingType.Kind() == reflect.Struct {
 			for i := 0; i < field.UnderlyingType.NumField(); i++ {
 				tag := field.UnderlyingType.Field(i).Tag
-				for _, str := range []string{tag.Get("sql"), tag.Get("gorm")} {
+				for _, str := range []string{tag.Get(TAG_SQL), tag.Get(TAG_GORM)} {
 					err := field.tagSettings.loadFromTags(str)
 					if err != nil {
-
+						fmt.Printf("ERROR processing Scanner tags : %v\n", err)
 					}
 				}
 			}
@@ -73,6 +96,7 @@ func (field *StructField) checkInterfaces() interface{} {
 
 	} else if isTime {
 		// is time
+		field.IsTime = true
 		field.IsNormal = true
 	}
 	return fieldValue
@@ -120,10 +144,10 @@ func (structField *StructField) cloneWithValue(value reflect.Value) *StructField
 }
 
 //Function collects information from tags named `sql:""` and `gorm:""`
-//TODO : @Badu - seems expensive to be called everytime
 func (structField *StructField) parseTagSettings() error {
 	structField.tagSettings = TagSettings{Uint8Map: make(map[uint8]string)}
-	for _, str := range []string{structField.Struct.Tag.Get("sql"), structField.Struct.Tag.Get("gorm")} {
+	tag := structField.Struct.Tag
+	for _, str := range []string{tag.Get(TAG_SQL), tag.Get(TAG_GORM)} {
 		err := structField.tagSettings.loadFromTags(str)
 		if err != nil {
 			return err

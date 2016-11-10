@@ -38,6 +38,11 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
 
 # Changes log
 
+## 10.11.2016
+- [x] StructField has field UnderlyingType (should keep reflect.Type so we won't use reflection everywhere)
+- [x] finally got rid of defer inside loop of Scope's GetModelStruct method (ModelStruct's processRelations method has a loop in which calls relationship processors)
+- [x] introduced a HasRelations and IsTime in StructField
+
 ## 09.11.2016
 - [x] Collector - a helper to avoid multiple calls on fmt.Sprintf : stores values and string
 - [x] replaced some statements with switch
