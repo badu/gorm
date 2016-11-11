@@ -99,8 +99,7 @@ func (field *StructField) checkInterfaces() interface{} {
 
 	} else if isTime {
 		// is time
-		field.IsTime = true
-		field.IsNormal = true
+		field.IsTime, field.IsNormal = true, true
 	}
 	return fieldValue
 }

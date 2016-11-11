@@ -2,7 +2,6 @@ package gorm
 
 import (
 	"database/sql"
-	"errors"
 	"log"
 	"os"
 	"reflect"
@@ -112,7 +111,7 @@ type (
 		Error error
 
 		callback *Callback
-		db       sqlCommon
+		sqli     sqlInterf
 
 		search       *search
 		RowsAffected int64
@@ -122,17 +121,15 @@ type (
 
 		singularTable bool
 		source        string
-
-		joinTableHandlers map[string]JoinTableHandler
 	}
-
+	//declared to allow existing code to run, dbcon.Open(...) db = &gorm.DB{*dbcon}
 	DB struct {
 		DBCon
 	}
 
 	// Scope contain current operation's information when you perform any operation on the database
 	Scope struct {
-		db *DBCon
+		con *DBCon
 
 		Search *search
 		Value  interface{}
@@ -153,7 +150,7 @@ type (
 	//TODO : @Badu - pointer to DBCon is just to expose errors
 	//since they are related (Scope has a search inside)
 	search struct {
-		db               *DBCon
+		con              *DBCon
 		whereConditions  []map[string]interface{}
 		orConditions     []map[string]interface{}
 		notConditions    []map[string]interface{}
@@ -265,8 +262,8 @@ type (
 	dbTabler interface {
 		TableName(*DBCon) string
 	}
-	//interface
-	sqlCommon interface {
+	//SQL interface
+	sqlInterf interface {
 		Exec(query string, args ...interface{}) (sql.Result, error)
 		Prepare(query string) (*sql.Stmt, error)
 		Query(query string, args ...interface{}) (*sql.Rows, error)
@@ -284,9 +281,11 @@ type (
 	// JoinTableHandlerInterface is an interface for how to handle many2many relations
 	JoinTableHandlerInterface interface {
 		// initialize join table handler
-		Setup(relationship *Relationship, tableName string, source reflect.Type, destination reflect.Type)
+		Setup(relationship *Relationship, source reflect.Type, destination reflect.Type)
 		// Table return join table's table name
 		Table(db *DBCon) string
+		// Sets table name
+		SetTable(name string)
 		// Add create relationship in join table for source and destination
 		Add(handler JoinTableHandlerInterface, db *DBCon, source interface{}, destination interface{}) error
 		// Delete delete relationship in join table for sources
@@ -338,7 +337,7 @@ var (
 	dialectsMap = map[string]Dialect{}
 
 	// DefaultTableNameHandler default table name handler
-	DefaultTableNameHandler = func(db *DBCon, defaultTableName string) string {
+	DefaultTableNameHandler = func(con *DBCon, defaultTableName string) string {
 		return defaultTableName
 	}
 
@@ -357,19 +356,4 @@ var (
 	defaultLogger = Logger{log.New(os.Stdout, "\r\n", 0)}
 
 	sqlRegexp = regexp.MustCompile(`(\$\d+)|\?`)
-
-	// ErrRecordNotFound record not found error, happens when haven't find any matched data when looking up with a struct
-	ErrRecordNotFound = errors.New("record not found")
-
-	// ErrInvalidSQL invalid SQL error, happens when you passed invalid SQL
-	ErrInvalidSQL = errors.New("invalid SQL")
-
-	// ErrInvalidTransaction invalid transaction when you are trying to `Commit` or `Rollback`
-	ErrInvalidTransaction = errors.New("no valid transaction")
-
-	// ErrCantStartTransaction can't start transaction when you are trying to start one with `Begin`
-	ErrCantStartTransaction = errors.New("can't start transaction")
-
-	// ErrUnaddressable unaddressable value
-	ErrUnaddressable = errors.New("using unaddressable value")
 )

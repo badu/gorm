@@ -163,7 +163,7 @@ func Open(dialectName string, args ...interface{}) (*DBCon, error) {
 		return nil, err
 	}
 	var source string
-	var dbSQL sqlCommon
+	var dbSQL sqlInterf
 
 	switch value := args[0].(type) {
 	case string:
@@ -175,7 +175,7 @@ func Open(dialectName string, args ...interface{}) (*DBCon, error) {
 			source = args[1].(string)
 		}
 		dbSQL, err = sql.Open(driverName, source)
-	case sqlCommon:
+	case sqlInterf:
 		source = reflect.Indirect(reflect.ValueOf(value)).FieldByName("dsn").String()
 		dbSQL = value
 	}
@@ -196,7 +196,7 @@ func Open(dialectName string, args ...interface{}) (*DBCon, error) {
 		callback: &Callback{},
 		source:   source,
 		values:   map[string]interface{}{},
-		db:       dbSQL,
+		sqli:       dbSQL,
 	}
 	//register all default callbacks
 	db.callback.registerGORMDefaultCallbacks()

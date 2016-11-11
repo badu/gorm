@@ -1,6 +1,7 @@
 # Todo
+- [ ] Debug SQL string even when it fails
 - [ ] All create, migrate and alter functions should be moved from the scope inside a separate object 
-(since we're not automigrating often) 
+(since we're automigrating just at startup) 
 - [ ] Documentation for tests and build examples
 - [ ] Stringer implementation on all structs for debugging
 - [ ] Extract strings from code (make constants)
@@ -33,6 +34,16 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
 - Removed MSSQL support - out of my concerns with this project
 
 # Changes log
+
+## 11.11.2016
+- [x] removed joinTableHandlers property from DBCon (was probably leftover of work in progress)
+- [x] simplified Setup(relationship *Relationship, source reflect.Type, destination reflect.Type) of JoinTableHandlerInterface
+- [x] added SetTable(name string) to JoinTableHandlerInterface
+- [x] renamed property "db" of DBCon to "sqli"
+- [x] renamed interface sqlCommon to sqlInterf
+- [x] renamed property "db" of Scope to "con"
+- [x] renamed property "db" of search struct to "con"
+- [x] search struct has collectAttrs() method which loads the cached selectAttrs of the Scope
 
 ## 10.11.2016
 - [x] StructField has field UnderlyingType (should keep reflect.Type so we won't use reflection everywhere)

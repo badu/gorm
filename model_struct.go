@@ -82,8 +82,8 @@ func (modelStruct *ModelStruct) sliceRelationships(scope *Scope, field *StructFi
 				}
 			}
 
-			joinTableHandler := JoinTableHandler{}
-			joinTableHandler.Setup(relationship, many2many, modelStruct.ModelType, elemType)
+			joinTableHandler := JoinTableHandler{TableName: many2many}
+			joinTableHandler.Setup(relationship, modelStruct.ModelType, elemType)
 			relationship.JoinTableHandler = &joinTableHandler
 			field.Relationship = relationship
 		} else {

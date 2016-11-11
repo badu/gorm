@@ -18,8 +18,10 @@ func (s *JoinTableHandler) DestinationForeignKeys() []JoinTableForeignKey {
 }
 
 // Setup initialize a default join table handler
-func (s *JoinTableHandler) Setup(relationship *Relationship, tableName string, source reflect.Type, destination reflect.Type) {
-	s.TableName = tableName
+func (s *JoinTableHandler) Setup(
+	relationship *Relationship,
+	source reflect.Type,
+	destination reflect.Type) {
 
 	s.Source = JoinTableSource{ModelType: source}
 	for idx, dbName := range relationship.ForeignFieldNames {
@@ -97,6 +99,10 @@ func (s JoinTableHandler) Add(handler JoinTableHandlerInterface, db *DBCon, sour
 	)
 
 	return db.Exec(sql, values...).Error
+}
+
+func (s *JoinTableHandler) SetTable(name string) {
+	s.TableName = name
 }
 
 // Delete delete relationship in join table for sources

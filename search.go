@@ -112,11 +112,28 @@ func (s *search) getInterfaceAsSQL(value interface{}) (str string) {
 	case string, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
 		str = fmt.Sprintf("%v", value)
 	default:
-		s.db.AddError(ErrInvalidSQL)
+		s.con.AddError(ErrInvalidSQL)
 	}
 
 	if str == "-1" {
 		return ""
 	}
 	return
+}
+
+func (s *search) collectAttrs() *[]string {
+	attrs := []string{}
+	for _, value := range s.selects {
+		switch strs := value.(type) {
+		case string:
+			attrs = append(attrs, strs)
+		case []string:
+			attrs = append(attrs, strs...)
+		case []interface{}:
+			for _, str := range strs {
+				attrs = append(attrs, fmt.Sprintf("%v", str))
+			}
+		}
+	}
+	return &attrs
 }

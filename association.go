@@ -9,7 +9,7 @@ import (
 // Find find out all related associations
 func (association *Association) Find(value interface{}) *Association {
 	association.scope.related(value, association.column)
-	return association.setErr(association.scope.db.Error)
+	return association.setErr(association.scope.con.Error)
 }
 
 // Append append new associations for many2many, has_many, replace current association for has_one, belongs_to
