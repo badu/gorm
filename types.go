@@ -11,13 +11,6 @@ import (
 
 const (
 	upper strCase = true
-
-	//Callback Kind constants
-	CREATE_CALLBACK    uint8 = 1
-	UPDATE_CALLBACK    uint8 = 2
-	DELETE_CALLBACK    uint8 = 3
-	QUERY_CALLBACK     uint8 = 4
-	ROW_QUERY_CALLBACK uint8 = 5
 )
 
 type (
