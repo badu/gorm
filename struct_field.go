@@ -10,6 +10,22 @@ import (
 	"time"
 )
 
+const (
+	//bit flags
+	IS_PRIMARYKEY     uint64 = 0
+	IS_NORMAL         uint64 = 1
+	IS_IGNORED        uint64 = 2
+	IS_SCANNER        uint64 = 3
+	IS_TIME           uint64 = 4
+	HAS_DEFAULT_VALUE uint64 = 5
+	IS_FOREIGNKEY     uint64 = 6
+	IS_BLANK          uint64 = 7
+	IS_SLICE          uint64 = 8
+	IS_STRUCT         uint64 = 9
+	HAS_RELATIONS     uint64 = 10
+	IS_EMBED_OR_ANON  uint64 = 11
+)
+
 func NewStructField(fieldStruct reflect.StructField) (*StructField, error) {
 	result := &StructField{
 		Struct: fieldStruct,
@@ -19,23 +35,28 @@ func NewStructField(fieldStruct reflect.StructField) (*StructField, error) {
 	err := result.parseTagSettings()
 
 	if result.tagSettings.has(IGNORED) {
-		result.IsIgnored = true
+		//result.IsIgnored = true
+		result.setFlag(IS_IGNORED)
 	}
 
 	if result.tagSettings.has(PRIMARY_KEY) {
-		result.IsPrimaryKey = true
+		//result.IsPrimaryKey = true
+		result.setFlag(IS_PRIMARYKEY)
 	}
 
 	if result.tagSettings.has(DEFAULT) {
-		result.HasDefaultValue = true
+		//result.HasDefaultValue = true
+		result.setFlag(HAS_DEFAULT_VALUE)
 	}
 
-	if result.tagSettings.has(AUTO_INCREMENT) && !result.IsPrimaryKey {
-		result.HasDefaultValue = true
+	if result.tagSettings.has(AUTO_INCREMENT) && !result.IsPrimaryKey() {
+		//result.HasDefaultValue = true
+		result.setFlag(HAS_DEFAULT_VALUE)
 	}
 
-	if result.HasSetting(EMBEDDED) || fieldStruct.Anonymous{
-		result.isEmbedOrAnon = true
+	if result.HasSetting(EMBEDDED) || fieldStruct.Anonymous {
+		//result.isEmbedOrAnon = true
+		result.setFlag(IS_EMBED_OR_ANON)
 	}
 
 	// Even it is ignored, also possible to decode db value into the field
@@ -54,108 +75,81 @@ func NewStructField(fieldStruct reflect.StructField) (*StructField, error) {
 
 	if result.UnderlyingType.Kind() == reflect.Slice {
 		//mark it as slice
-		result.IsSlice = true
+		//result.IsSlice = true
+		result.setFlag(IS_SLICE)
 		//it's a slice of structs
 		if result.getTrueType().Kind() == reflect.Struct {
 			//mark it as struct
-			result.IsStruct = true
+			//result.IsStruct = true
+			result.setFlag(IS_STRUCT)
 		}
 	} else if result.UnderlyingType.Kind() == reflect.Struct {
 		//mark it as struct
-		result.IsStruct = true
+		//result.IsStruct = true
+		result.setFlag(IS_STRUCT)
 	}
 
 	return result, err
 }
 
-func (field *StructField) getTrueType() reflect.Type{
-	trueType := field.UnderlyingType
-	for trueType.Kind() == reflect.Slice || trueType.Kind() == reflect.Ptr {
-		//dereference it
-		trueType = trueType.Elem()
-	}
-	return trueType
+func (field *StructField) IsPrimaryKey() bool {
+	return field.flags&(1<<IS_PRIMARYKEY) != 0
 }
 
-func (field *StructField) checkInterfaces() interface{} {
-	newValue := reflect.New(field.UnderlyingType)
-	fieldValue := newValue.Interface()
-	_, isScanner := fieldValue.(sql.Scanner)
-	_, isTime := fieldValue.(*time.Time)
-	if isScanner {
-		// is scanner
-		field.IsScanner, field.IsNormal = true, true
-		if field.UnderlyingType.Kind() == reflect.Struct {
-			for i := 0; i < field.UnderlyingType.NumField(); i++ {
-				tag := field.UnderlyingType.Field(i).Tag
-				for _, str := range []string{tag.Get(TAG_SQL), tag.Get(TAG_GORM)} {
-					err := field.tagSettings.loadFromTags(str)
-					if err != nil {
-						fmt.Printf("ERROR processing Scanner tags : %v\n", err)
-					}
-				}
-			}
-		}
-
-	} else if isTime {
-		// is time
-		field.IsTime, field.IsNormal = true, true
-	}
-	return fieldValue
+func (field *StructField) IsNormal() bool {
+	return field.flags&(1<<IS_NORMAL) != 0
 }
 
-func (structField *StructField) clone() *StructField {
-	clone := &StructField{
-		IsPrimaryKey:    structField.IsPrimaryKey,
-		IsNormal:        structField.IsNormal,
-		IsIgnored:       structField.IsIgnored,
-		IsScanner:       structField.IsScanner,
-		HasDefaultValue: structField.HasDefaultValue,
-		IsForeignKey:    structField.IsForeignKey,
-
-		DBName:       structField.DBName,
-		Names:        structField.Names,
-		tagSettings:  structField.tagSettings.clone(),
-		Struct:       structField.Struct,
-		Relationship: structField.Relationship,
-	}
-
-	return clone
+func (field *StructField) SetIsNormal() {
+	field.flags = field.flags | (1 << IS_NORMAL)
 }
 
-func (structField *StructField) cloneWithValue(value reflect.Value) *StructField {
-	clone := &StructField{
-		IsPrimaryKey:    structField.IsPrimaryKey,
-		IsNormal:        structField.IsNormal,
-		IsIgnored:       structField.IsIgnored,
-		IsScanner:       structField.IsScanner,
-		HasDefaultValue: structField.HasDefaultValue,
-		IsForeignKey:    structField.IsForeignKey,
-
-		DBName:       structField.DBName,
-		Names:        structField.Names,
-		tagSettings:  structField.tagSettings.clone(),
-		Struct:       structField.Struct,
-		Relationship: structField.Relationship,
-	}
-
-	clone.Value = value
-	//check if the value is blank
-	clone.setIsBlank()
-	return clone
+func (field *StructField) IsIgnored() bool {
+	return field.flags&(1<<IS_IGNORED) != 0
 }
 
-//Function collects information from tags named `sql:""` and `gorm:""`
-func (structField *StructField) parseTagSettings() error {
-	structField.tagSettings = TagSettings{Uint8Map: make(map[uint8]string)}
-	tag := structField.Struct.Tag
-	for _, str := range []string{tag.Get(TAG_SQL), tag.Get(TAG_GORM)} {
-		err := structField.tagSettings.loadFromTags(str)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+func (field *StructField) IsScanner() bool {
+	return field.flags&(1<<IS_SCANNER) != 0
+}
+
+func (field *StructField) IsTime() bool {
+	return field.flags&(1<<IS_TIME) != 0
+}
+
+func (field *StructField) HasDefaultValue() bool {
+	return field.flags&(1<<HAS_DEFAULT_VALUE) != 0
+}
+
+func (field *StructField) IsForeignKey() bool {
+	return field.flags&(1<<IS_FOREIGNKEY) != 0
+}
+
+func (field *StructField) SetIsForeignKey() {
+	field.flags = field.flags | (1 << IS_FOREIGNKEY)
+}
+
+func (field *StructField) IsBlank() bool {
+	return field.flags&(1<<IS_BLANK) != 0
+}
+
+func (field *StructField) IsSlice() bool {
+	return field.flags&(1<<IS_SLICE) != 0
+}
+
+func (field *StructField) IsStruct() bool {
+	return field.flags&(1<<IS_STRUCT) != 0
+}
+
+func (field *StructField) HasRelations() bool {
+	return field.flags&(1<<HAS_RELATIONS) != 0
+}
+
+func (field *StructField) SetHasRelations() {
+	field.flags = field.flags | (1 << HAS_RELATIONS)
+}
+
+func (field *StructField) IsEmbedOrAnon() bool {
+	return field.flags&(1<<IS_EMBED_OR_ANON) != 0
 }
 
 // Set set a value to the field
@@ -214,61 +208,40 @@ func (field *StructField) Set(value interface{}) error {
 	return err
 }
 
-//TODO : @Badu - seems expensive to be called everytime. Maybe a good solution would be to
-//change isBlank = true by default and modify the code to change it to false only when we have a value
-//to make this less expensive
-func (structField *StructField) setIsBlank() {
-	structField.IsBlank = reflect.DeepEqual(structField.Value.Interface(), reflect.Zero(structField.Value.Type()).Interface())
+func (field *StructField) GetName() string {
+	return field.Struct.Name
 }
 
-func (structField *StructField) GetName() string {
-	return structField.Struct.Name
-}
-
-//TODO : implement it
-func (structField *StructField) GetNames() []string {
-	return nil
-}
-
-//TODO : @Badu - might need removal since seems unused
-//seems unused
-func (structField *StructField) GetTag() reflect.StructTag {
-	return structField.Struct.Tag
+func (field *StructField) GetTagSetting() TagSettings {
+	return field.tagSettings
 }
 
 //checks if has such a key (for code readability)
-func (structField *StructField) HasSetting(named uint8) bool {
-	return structField.tagSettings.has(named)
+func (field *StructField) HasSetting(named uint8) bool {
+	return field.tagSettings.has(named)
 }
 
 //gets a key (for code readability)
-func (structField *StructField) GetSetting(named uint8) string {
-	return structField.tagSettings.get(named)
+func (field *StructField) GetSetting(named uint8) string {
+	return field.tagSettings.get(named)
 }
 
 //sets a key (for code readability)
-func (structField *StructField) SetSetting(named uint8, value string) {
-	structField.tagSettings.set(named, value)
+func (field *StructField) SetSetting(named uint8, value string) {
+	field.tagSettings.set(named, value)
 }
 
 //deletes a key (for code readability)
-func (structField *StructField) UnsetSetting(named uint8) {
-	structField.tagSettings.unset(named)
-}
-
-func (field *StructField) makeSlice() interface{} {
-	elemType := field.Struct.Type
-	if elemType.Kind() == reflect.Slice {
-		elemType = elemType.Elem()
-	}
-	sliceType := reflect.SliceOf(elemType)
-	slice := reflect.New(sliceType)
-	slice.Elem().Set(reflect.MakeSlice(sliceType, 0, 0))
-	return slice.Interface()
+func (field *StructField) UnsetSetting(named uint8) {
+	field.tagSettings.unset(named)
 }
 
 // ParseFieldStructForDialect parse field struct for dialect
-func (field *StructField) ParseFieldStructForDialect() (fieldValue reflect.Value, sqlType string, size int, additionalType string) {
+func (field *StructField) ParseFieldStructForDialect() (
+	fieldValue reflect.Value,
+	sqlType string, size int,
+	additionalType string) {
+
 	// Get redirected field type
 	var reflectType = field.Struct.Type
 	for reflectType.Kind() == reflect.Ptr {
@@ -305,21 +278,6 @@ func (field *StructField) ParseFieldStructForDialect() (fieldValue reflect.Value
 	return fieldValue, field.GetSetting(TYPE), size, strings.TrimSpace(additionalType)
 }
 
-func (structField *StructField) getForeignKeys() StrSlice {
-	var result StrSlice
-	if foreignKey := structField.GetSetting(FOREIGNKEY); foreignKey != "" {
-		result.commaLoad(foreignKey)
-	}
-	return result
-}
-
-func (structField *StructField) getAssocForeignKeys() StrSlice {
-	var result StrSlice
-	if foreignKey := structField.GetSetting(ASSOCIATIONFOREIGNKEY); foreignKey != "" {
-		result.commaLoad(foreignKey)
-	}
-	return result
-}
 /**
 reflect.StructField{
 	// Name is the field name.
@@ -339,13 +297,146 @@ reflect.StructField{
 
 //implementation of Stringer
 //TODO : fully implement it
-func (structField StructField) String() string {
-	result := fmt.Sprintf("%q:%q", "FieldName", structField.Struct.Name)
-	if structField.Struct.PkgPath != "" {
-		result += fmt.Sprintf(",%q:%q", "PkgPath", structField.Struct.PkgPath)
+func (field StructField) String() string {
+	result := fmt.Sprintf("%q:%q", "FieldName", field.Struct.Name)
+	if field.Struct.PkgPath != "" {
+		result += fmt.Sprintf(",%q:%q", "PkgPath", field.Struct.PkgPath)
 	}
-	if structField.tagSettings.len() > 0 {
-		result += fmt.Sprintf(",%q:%s", "Tags", structField.tagSettings)
+	if field.tagSettings.len() > 0 {
+		result += fmt.Sprintf(",%q:%s", "Tags", field.tagSettings)
 	}
 	return fmt.Sprint(result)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Private methods
+////////////////////////////////////////////////////////////////////////////////
+func (field StructField) hasFlag(value uint) bool {
+	return field.flags&(1<<value) != 0
+}
+
+func (field *StructField) setFlag(value uint64) {
+	field.flags = field.flags | (1 << value)
+}
+
+func (field *StructField) unsetFlag(value uint64) {
+	field.flags = field.flags & ^(1 << value)
+}
+
+func (field *StructField) getTrueType() reflect.Type {
+	trueType := field.UnderlyingType
+	for trueType.Kind() == reflect.Slice || trueType.Kind() == reflect.Ptr {
+		//dereference it
+		trueType = trueType.Elem()
+	}
+	return trueType
+}
+
+func (field *StructField) checkInterfaces() interface{} {
+	newValue := reflect.New(field.UnderlyingType)
+	fieldValue := newValue.Interface()
+	_, isScanner := fieldValue.(sql.Scanner)
+	_, isTime := fieldValue.(*time.Time)
+	if isScanner {
+		// is scanner
+		field.setFlag(IS_NORMAL)
+		field.setFlag(IS_SCANNER)
+		if field.UnderlyingType.Kind() == reflect.Struct {
+			for i := 0; i < field.UnderlyingType.NumField(); i++ {
+				tag := field.UnderlyingType.Field(i).Tag
+				for _, str := range []string{tag.Get(TAG_SQL), tag.Get(TAG_GORM)} {
+					err := field.tagSettings.loadFromTags(str)
+					if err != nil {
+						fmt.Printf("ERROR processing Scanner tags : %v\n", err)
+					}
+				}
+			}
+		}
+
+	} else if isTime {
+		// is time
+		field.setFlag(IS_NORMAL)
+		field.setFlag(IS_TIME)
+	}
+	return fieldValue
+}
+
+func (field *StructField) clone() *StructField {
+	clone := &StructField{
+		flags:        field.flags,
+		DBName:       field.DBName,
+		Names:        field.Names,
+		tagSettings:  field.tagSettings.clone(),
+		Struct:       field.Struct,
+		Relationship: field.Relationship,
+	}
+
+	return clone
+}
+
+func (field *StructField) cloneWithValue(value reflect.Value) *StructField {
+	clone := &StructField{
+		flags:        field.flags,
+		DBName:       field.DBName,
+		Names:        field.Names,
+		tagSettings:  field.tagSettings.clone(),
+		Struct:       field.Struct,
+		Relationship: field.Relationship,
+	}
+
+	clone.Value = value
+	//check if the value is blank
+	clone.setIsBlank()
+	return clone
+}
+
+//Function collects information from tags named `sql:""` and `gorm:""`
+func (field *StructField) parseTagSettings() error {
+	field.tagSettings = TagSettings{Uint8Map: make(map[uint8]string)}
+	tag := field.Struct.Tag
+	for _, str := range []string{tag.Get(TAG_SQL), tag.Get(TAG_GORM)} {
+		err := field.tagSettings.loadFromTags(str)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+//TODO : @Badu - seems expensive to be called everytime. Maybe a good solution would be to
+//change isBlank = true by default and modify the code to change it to false only when we have a value
+//to make this less expensive
+func (field *StructField) setIsBlank() {
+	if reflect.DeepEqual(field.Value.Interface(), reflect.Zero(field.Value.Type()).Interface()) {
+		field.setFlag(IS_BLANK)
+	} else {
+		field.unsetFlag(IS_BLANK)
+	}
+}
+
+func (field *StructField) makeSlice() interface{} {
+	elemType := field.Struct.Type
+	if elemType.Kind() == reflect.Slice {
+		elemType = elemType.Elem()
+	}
+	sliceType := reflect.SliceOf(elemType)
+	slice := reflect.New(sliceType)
+	slice.Elem().Set(reflect.MakeSlice(sliceType, 0, 0))
+	return slice.Interface()
+}
+
+func (field *StructField) getForeignKeys() StrSlice {
+	var result StrSlice
+	if foreignKey := field.GetSetting(FOREIGNKEY); foreignKey != "" {
+		result.commaLoad(foreignKey)
+	}
+	return result
+}
+
+func (field *StructField) getAssocForeignKeys() StrSlice {
+	var result StrSlice
+	if foreignKey := field.GetSetting(ASSOCIATIONFOREIGNKEY); foreignKey != "" {
+		result.commaLoad(foreignKey)
+	}
+	return result
 }

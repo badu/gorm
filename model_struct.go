@@ -24,11 +24,11 @@ func (s *ModelStruct) fieldByName(column string) *StructField {
 
 func (modelStruct *ModelStruct) processRelations(scope *Scope) {
 	for _, field := range modelStruct.StructFields {
-		if field.HasRelations {
+		if field.HasRelations() {
 			//ATTN : order matters, since it can be both slice and struct
-			if field.IsSlice {
+			if field.IsSlice() {
 				modelStruct.sliceRelationships(scope, field)
-			} else if field.IsStruct {
+			} else if field.IsStruct() {
 				modelStruct.structRelationships(scope, field)
 			}
 		}
@@ -105,7 +105,7 @@ func (modelStruct *ModelStruct) sliceRelationships(scope *Scope, field *StructFi
 					} else {
 						relationship.PolymorphicValue = scope.TableName()
 					}
-					polymorphicType.IsForeignKey = true
+					polymorphicType.SetIsForeignKey()
 				}
 			}
 
@@ -150,7 +150,7 @@ func (modelStruct *ModelStruct) sliceRelationships(scope *Scope, field *StructFi
 				if foreignField := toFields.fieldByName(foreignKey); foreignField != nil {
 					if associationField := modelStruct.fieldByName(associationForeignKeys[idx]); associationField != nil {
 						// source foreign keys
-						foreignField.IsForeignKey = true
+						foreignField.SetIsForeignKey()
 						relationship.AssociationForeignFieldNames.add(associationField.GetName())
 						relationship.AssociationForeignDBNames.add(associationField.DBName)
 
@@ -166,7 +166,7 @@ func (modelStruct *ModelStruct) sliceRelationships(scope *Scope, field *StructFi
 			}
 		}
 	} else {
-		field.IsNormal = true
+		field.SetIsNormal()
 	}
 }
 
@@ -195,7 +195,7 @@ func (modelStruct *ModelStruct) structRelationships(scope *Scope, field *StructF
 			} else {
 				relationship.PolymorphicValue = scope.TableName()
 			}
-			polymorphicType.IsForeignKey = true
+			polymorphicType.SetIsForeignKey()
 		}
 	}
 
@@ -242,7 +242,7 @@ func (modelStruct *ModelStruct) structRelationships(scope *Scope, field *StructF
 	for idx, foreignKey := range foreignKeys {
 		if foreignField := toFields.fieldByName(foreignKey); foreignField != nil {
 			if scopeField := modelStruct.fieldByName(associationForeignKeys[idx]); scopeField != nil {
-				foreignField.IsForeignKey = true
+				foreignField.SetIsForeignKey()
 				// source foreign keys
 				relationship.AssociationForeignFieldNames.add(scopeField.GetName())
 				relationship.AssociationForeignDBNames.add(scopeField.DBName)
@@ -300,7 +300,7 @@ func (modelStruct *ModelStruct) structRelationships(scope *Scope, field *StructF
 		for idx, foreignKey := range foreignKeys {
 			if foreignField := modelStruct.fieldByName(foreignKey); foreignField != nil {
 				if associationField := toFields.fieldByName(associationForeignKeys[idx]); associationField != nil {
-					foreignField.IsForeignKey = true
+					foreignField.SetIsForeignKey()
 
 					// association foreign keys
 					relationship.AssociationForeignFieldNames.add(associationField.GetName())

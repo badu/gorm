@@ -113,7 +113,7 @@ func (scope *Scope) Fields() StructFields {
 				fields.add(clonedField)
 			} else {
 				clonedField := structField.clone()
-				clonedField.IsBlank = true
+				clonedField.setFlag(IS_BLANK)
 				fields.add(clonedField)
 			}
 		}
@@ -147,7 +147,7 @@ func (scope *Scope) FieldByName(name string) (*StructField, bool) {
 func (scope *Scope) PrimaryFields() StructFields {
 	var fields StructFields
 	for _, field := range scope.Fields() {
-		if field.IsPrimaryKey {
+		if field.IsPrimaryKey() {
 			fields.add(field)
 		}
 	}
@@ -181,7 +181,7 @@ func (scope *Scope) PrimaryKey() string {
 // PrimaryKeyZero check main primary field's value is blank or not
 func (scope *Scope) PrimaryKeyZero() bool {
 	field := scope.PrimaryField()
-	return field == nil || field.IsBlank
+	return field == nil || field.IsBlank()
 }
 
 // PrimaryKeyValue get the primary key's value
@@ -195,7 +195,7 @@ func (scope *Scope) PrimaryKeyValue() interface{} {
 // HasColumn to check if has column
 func (scope *Scope) HasColumn(column string) bool {
 	for _, field := range scope.GetStructFields() {
-		if field.IsNormal && (field.GetName() == column || field.DBName == column) {
+		if field.IsNormal() && (field.GetName() == column || field.DBName == column) {
 			return true
 		}
 	}
@@ -448,13 +448,13 @@ func (scope *Scope) GetModelStruct() *ModelStruct {
 				//TODO : @Badu - catch this error - we might fail processing tags
 			}
 			// is ignored field
-			if !field.IsIgnored {
+			if !field.IsIgnored() {
 				if field.HasSetting(PRIMARY_KEY) {
 					modelStruct.PrimaryFields.add(field)
 				}
 				fieldValue := field.checkInterfaces()
-				if !field.IsScanner && !field.IsTime {
-					if field.isEmbedOrAnon {
+				if !field.IsScanner() && !field.IsTime() {
+					if field.IsEmbedOrAnon() {
 						// is embedded struct
 						for _, subField := range scope.New(fieldValue).GetStructFields() {
 							subField = subField.clone()
@@ -462,21 +462,21 @@ func (scope *Scope) GetModelStruct() *ModelStruct {
 							if prefix := field.GetSetting(EMBEDDED_PREFIX); prefix != "" {
 								subField.DBName = prefix + subField.DBName
 							}
-							if subField.IsPrimaryKey {
+							if subField.IsPrimaryKey() {
 								modelStruct.PrimaryFields.add(subField)
 							}
 							modelStruct.StructFields.add(subField)
 						}
 						continue
 					} else {
-						if field.IsSlice {
+						if field.IsSlice() {
 							//marker for later processing of relationships
-							field.HasRelations = true
-						} else if field.IsStruct {
+							field.SetHasRelations()
+						} else if field.IsStruct() {
 							//marker for later processing of relationships
-							field.HasRelations = true
+							field.SetHasRelations()
 						} else {
-							field.IsNormal = true
+							field.SetIsNormal()
 						}
 					}
 				}
@@ -489,7 +489,7 @@ func (scope *Scope) GetModelStruct() *ModelStruct {
 	if modelStruct.PrimaryFields.len() == 0 {
 		//TODO : @Badu - a boiler plate string. Get rid of it!
 		if field := modelStruct.fieldByName("id"); field != nil {
-			field.IsPrimaryKey = true
+			field.setFlag(IS_PRIMARYKEY)
 			modelStruct.PrimaryFields.add(field)
 		}
 	}
@@ -581,7 +581,7 @@ func (scope *Scope) scan(rows *sql.Rows, columns []string, fields StructFields) 
 
 				selectedColumnsMap[column] = fieldIndex
 				//TODO :@Badu - why if it's normal we break last ? shouldn't be first?
-				if field.IsNormal {
+				if field.IsNormal() {
 					break
 				}
 			}
@@ -630,7 +630,7 @@ func (scope *Scope) buildWhereCondition(clause map[string]interface{}) string {
 		var sqls []string
 		newScope := scope.New(value)
 		for _, field := range newScope.Fields() {
-			if !field.IsIgnored && !field.IsBlank {
+			if !field.IsIgnored() && !field.IsBlank() {
 				sqls = append(sqls, fmt.Sprintf("(%v.%v = %v)", newScope.QuotedTableName(), scope.Quote(field.DBName), scope.AddToVars(field.Value.Interface())))
 			}
 		}
@@ -703,7 +703,7 @@ func (scope *Scope) buildNotCondition(clause map[string]interface{}) string {
 		var sqls []string
 		var newScope = scope.New(value)
 		for _, field := range newScope.Fields() {
-			if !field.IsBlank {
+			if !field.IsBlank() {
 				sqls = append(sqls, fmt.Sprintf("(%v.%v <> %v)", newScope.QuotedTableName(), scope.Quote(field.DBName), scope.AddToVars(field.Value.Interface())))
 			}
 		}
@@ -936,7 +936,7 @@ func (scope *Scope) updatedAttrsWithValues(value interface{}) (results map[strin
 				results[field.DBName] = value
 			} else {
 				err := field.Set(value)
-				if field.IsNormal {
+				if field.IsNormal() {
 					hasUpdate = true
 					if err == ErrUnaddressable {
 						results[field.DBName] = value
@@ -1120,7 +1120,7 @@ func (scope *Scope) createJoinTable(field *StructField) {
 			for idx, fieldName := range relationship.ForeignFieldNames {
 				if field, ok := scope.FieldByName(fieldName); ok {
 					foreignKeyStruct := field.clone()
-					foreignKeyStruct.IsPrimaryKey = false
+					foreignKeyStruct.unsetFlag(IS_PRIMARYKEY)
 					//TODO : @Badu - document that you cannot use IS_JOINTABLE_FOREIGNKEY in conjunction with AUTO_INCREMENT
 					foreignKeyStruct.SetSetting(IS_JOINTABLE_FOREIGNKEY, "true")
 					foreignKeyStruct.UnsetSetting(AUTO_INCREMENT)
@@ -1132,7 +1132,7 @@ func (scope *Scope) createJoinTable(field *StructField) {
 			for idx, fieldName := range relationship.AssociationForeignFieldNames {
 				if field, ok := toScope.FieldByName(fieldName); ok {
 					foreignKeyStruct := field.clone()
-					foreignKeyStruct.IsPrimaryKey = false
+					foreignKeyStruct.unsetFlag(IS_PRIMARYKEY)
 					//TODO : @Badu - document that you cannot use IS_JOINTABLE_FOREIGNKEY in conjunction with AUTO_INCREMENT
 					foreignKeyStruct.SetSetting(IS_JOINTABLE_FOREIGNKEY, "true")
 					foreignKeyStruct.UnsetSetting(AUTO_INCREMENT)
@@ -1152,7 +1152,7 @@ func (scope *Scope) createTable() *Scope {
 	var primaryKeys []string
 	var primaryKeyInColumnType = false
 	for _, field := range scope.GetModelStruct().StructFields {
-		if field.IsNormal {
+		if field.IsNormal() {
 			sqlTag := scope.Dialect().DataTypeOf(field)
 
 			// Check if the primary key constraint was specified as
@@ -1165,7 +1165,7 @@ func (scope *Scope) createTable() *Scope {
 			tags = append(tags, scope.Quote(field.DBName)+" "+sqlTag)
 		}
 
-		if field.IsPrimaryKey {
+		if field.IsPrimaryKey() {
 			primaryKeys = append(primaryKeys, scope.Quote(field.DBName))
 		}
 		scope.createJoinTable(field)
@@ -1236,7 +1236,7 @@ func (scope *Scope) autoMigrate() *Scope {
 	} else {
 		for _, field := range scope.GetModelStruct().StructFields {
 			if !scope.Dialect().HasColumn(tableName, field.DBName) {
-				if field.IsNormal {
+				if field.IsNormal() {
 					sqlTag := scope.Dialect().DataTypeOf(field)
 					scope.Raw(fmt.Sprintf("ALTER TABLE %v ADD %v %v;", quotedTableName, scope.Quote(field.DBName), sqlTag)).Exec()
 				}
@@ -1380,7 +1380,7 @@ func (scope *Scope) toQueryCondition(columns StrSlice) string {
 }
 
 func (scope *Scope) saveFieldAsAssociation(field *StructField) (bool, *Relationship) {
-	if scope.changeableField(field) && !field.IsBlank && !field.IsIgnored {
+	if scope.changeableField(field) && !field.IsBlank() && !field.IsIgnored() {
 		if field.HasSetting(SAVE_ASSOCIATIONS) {
 			set := field.GetSetting(SAVE_ASSOCIATIONS)
 			if set == "false" || set == "skip" {
@@ -1632,8 +1632,8 @@ func (scope *Scope) handleManyToManyPreload(field *StructField, conditions []int
 			joinTableFields.add(
 				&StructField{
 					DBName:   sourceKey,
-					IsNormal: true,
 					Value:    reflect.New(foreignKeyType).Elem(),
+					flags :  0 | (1 << IS_NORMAL),
 				})
 		}
 
@@ -1731,11 +1731,11 @@ func (scope *Scope) createCallback() {
 
 		for _, field := range scope.Fields() {
 			if scope.changeableField(field) {
-				if field.IsNormal {
-					if field.IsBlank && field.HasDefaultValue {
+				if field.IsNormal() {
+					if field.IsBlank() && field.HasDefaultValue() {
 						blankColumnsWithDefaultValue.add(scope.Quote(field.DBName))
 						scope.InstanceSet("gorm:blank_columns_with_default_value", blankColumnsWithDefaultValue)
-					} else if !field.IsPrimaryKey || !field.IsBlank {
+					} else if !field.IsPrimaryKey() || !field.IsBlank() {
 						columns.add(scope.Quote(field.DBName))
 						placeholders.add(scope.AddToVars(field.Value.Interface()))
 					}
@@ -1792,7 +1792,7 @@ func (scope *Scope) createCallback() {
 				scope.con.RowsAffected, _ = result.RowsAffected()
 
 				// set primary value to primary field
-				if primaryField != nil && primaryField.IsBlank {
+				if primaryField != nil && primaryField.IsBlank() {
 					if primaryValue, err := result.LastInsertId(); scope.Err(err) == nil {
 						scope.Err(primaryField.Set(primaryValue))
 					}
@@ -1800,7 +1800,7 @@ func (scope *Scope) createCallback() {
 			}
 		} else {
 			if err := scope.SQLDB().QueryRow(scope.SQL, scope.SQLVars...).Scan(primaryField.Value.Addr().Interface()); scope.Err(err) == nil {
-				primaryField.IsBlank = false
+				primaryField.unsetFlag(IS_BLANK)
 				scope.con.RowsAffected = 1
 			}
 		}
@@ -1816,7 +1816,7 @@ func (scope *Scope) forceReloadAfterCreateCallback() {
 		}
 		db := scope.DB().New().Table(scope.TableName()).Select(sSlice.slice())
 		for _, field := range scope.Fields() {
-			if field.IsPrimaryKey && !field.IsBlank {
+			if field.IsPrimaryKey() && !field.IsBlank() {
 				db = db.Where(fmt.Sprintf("%v = ?", field.DBName), field.Value.Interface())
 			}
 		}
@@ -1843,7 +1843,7 @@ func (scope *Scope) saveBeforeAssociationsCallback() {
 		return
 	}
 	for _, field := range scope.Fields() {
-		if scope.changeableField(field) && !field.IsBlank && !field.IsIgnored {
+		if scope.changeableField(field) && !field.IsBlank() && !field.IsIgnored() {
 			if ok, relationship := scope.saveFieldAsAssociation(field); ok && relationship.Kind == BELONGS_TO {
 				fieldValue := field.Value.Addr().Interface()
 				scope.Err(scope.NewDB().Save(fieldValue).Error)
@@ -1866,7 +1866,7 @@ func (scope *Scope) saveAfterAssociationsCallback() {
 		return
 	}
 	for _, field := range scope.Fields() {
-		if scope.changeableField(field) && !field.IsBlank && !field.IsIgnored {
+		if scope.changeableField(field) && !field.IsBlank() && !field.IsIgnored() {
 			//Attention : relationship.Kind <= HAS_ONE
 			if ok, relationship := scope.saveFieldAsAssociation(field); ok && relationship.Kind <= HAS_ONE {
 				value := field.Value
@@ -1964,7 +1964,7 @@ func (scope *Scope) updateCallback() {
 		} else {
 			for _, field := range scope.Fields() {
 				if scope.changeableField(field) {
-					if !field.IsPrimaryKey && field.IsNormal {
+					if !field.IsPrimaryKey() && field.IsNormal() {
 						sqls = append(sqls, fmt.Sprintf("%v = %v", scope.Quote(field.DBName), scope.AddToVars(field.Value.Interface())))
 					} else if relationship := field.Relationship; relationship != nil && relationship.Kind == BELONGS_TO {
 						for _, foreignKey := range relationship.ForeignDBNames {

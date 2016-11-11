@@ -11,12 +11,6 @@ import (
 
 const (
 	upper strCase = true
-	//Relationship Kind constants
-	MANY_TO_MANY uint8 = 1
-	HAS_MANY     uint8 = 2
-	HAS_ONE      uint8 = 3
-	//Attention : relationship.Kind <= HAS_ONE in callback_functions.go saveAfterAssociationsCallback()
-	BELONGS_TO uint8 = 4
 
 	//Callback Kind constants
 	CREATE_CALLBACK    uint8 = 1
@@ -33,26 +27,9 @@ type (
 		Uint8Map
 	}
 	// StructField model field's struct definition
-	//TODO : @Badu - instead of having this bunch of flags - a bitflag seems better
 	//TODO : @Badu - a StructField should support multiple relationships
-	//TODO : @Badu - do NOT attempt to make pointer for Struct property
-	//TODO : @Badu - maybe TagSettings property should be private and have access with a method
-	//since clone strategy is based exactly on that (that you get a copy of
-	//Struct property instead of the pointer to the same value)
 	StructField struct {
-		IsPrimaryKey    bool
-		IsNormal        bool
-		IsIgnored       bool
-		IsScanner       bool
-		IsTime          bool
-		HasDefaultValue bool
-		IsForeignKey    bool
-		IsBlank         bool
-		IsSlice         bool
-		IsStruct        bool
-		HasRelations    bool
-		isEmbedOrAnon   bool
-
+		flags  uint64
 		DBName string
 		Names  []string
 

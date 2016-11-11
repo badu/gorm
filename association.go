@@ -6,6 +6,14 @@ import (
 	"reflect"
 )
 
+const (
+	//Relationship Kind constants
+	MANY_TO_MANY uint8 = 1
+	HAS_MANY     uint8 = 2
+	HAS_ONE      uint8 = 3
+	//Attention : relationship.Kind <= HAS_ONE in callback_functions.go saveAfterAssociationsCallback()
+	BELONGS_TO uint8 = 4
+)
 // Find find out all related associations
 func (association *Association) Find(value interface{}) *Association {
 	association.scope.related(value, association.column)

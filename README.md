@@ -36,6 +36,7 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
 # Changes log
 
 ## 11.11.2016
+- [x] instead of having this bunch of flags in StructField - bitflag
 - [x] removed joinTableHandlers property from DBCon (was probably leftover of work in progress)
 - [x] simplified Setup(relationship *Relationship, source reflect.Type, destination reflect.Type) of JoinTableHandlerInterface
 - [x] added SetTable(name string) to JoinTableHandlerInterface

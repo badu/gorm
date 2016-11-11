@@ -512,7 +512,7 @@ func (con *DBCon) Association(column string) *Association {
 	var err error
 	scope := con.clone(false, false).NewScope(con.Value)
 
-	if primaryField := scope.PrimaryField(); primaryField.IsBlank {
+	if primaryField := scope.PrimaryField(); primaryField.IsBlank() {
 		err = errors.New("primary key can't be nil")
 	} else {
 		if field, ok := scope.FieldByName(column); ok {
