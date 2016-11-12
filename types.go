@@ -22,7 +22,7 @@ type (
 	// StructField model field's struct definition
 	//TODO : @Badu - a StructField should support multiple relationships
 	StructField struct {
-		flags  uint64
+		flags  uint16
 		DBName string
 		Names  []string
 
@@ -62,9 +62,9 @@ type (
 	}
 	//TODO : @Badu - if StructField has IsPrimaryKey field, why having two sets of StructFields
 	//TODO : @Badu - unify them into something called Fields which StructFields type would provide via method
-	//TODO : @Badu - add a map to obtain fields by name easy
 	// ModelStruct model definition
 	ModelStruct struct {
+		fields           fieldsMap
 		PrimaryFields    StructFields
 		StructFields     StructFields
 		ModelType        reflect.Type

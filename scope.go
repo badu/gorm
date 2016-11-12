@@ -13,6 +13,7 @@ import (
 	"github.com/jinzhu/inflection"
 	"go/ast"
 	"reflect"
+	"sync"
 )
 
 // IndirectValue return scope's reflect value's indirect value
@@ -190,16 +191,6 @@ func (scope *Scope) PrimaryKeyValue() interface{} {
 		return field.Value.Interface()
 	}
 	return 0
-}
-
-// HasColumn to check if has column
-func (scope *Scope) HasColumn(column string) bool {
-	for _, field := range scope.GetStructFields() {
-		if field.IsNormal() && (field.GetName() == column || field.DBName == column) {
-			return true
-		}
-	}
-	return false
 }
 
 // SetColumn to set the column's value, column could be field or field's name/dbname
@@ -426,6 +417,8 @@ func (scope *Scope) GetModelStruct() *ModelStruct {
 	}
 
 	modelStruct.ModelType = reflectType
+	modelStruct.fields = fieldsMap{m: make(map[string]*StructField), l: new(sync.RWMutex)}
+
 	//implements tabler?
 	tabler, ok := reflect.New(reflectType).Interface().(tabler)
 	// Set default table name
@@ -450,22 +443,22 @@ func (scope *Scope) GetModelStruct() *ModelStruct {
 			// is ignored field
 			if !field.IsIgnored() {
 				if field.HasSetting(PRIMARY_KEY) {
-					modelStruct.PrimaryFields.add(field)
+					modelStruct.addPK(field)
 				}
 				fieldValue := field.checkInterfaces()
 				if !field.IsScanner() && !field.IsTime() {
 					if field.IsEmbedOrAnon() {
 						// is embedded struct
-						for _, subField := range scope.New(fieldValue).GetStructFields() {
+						for _, subField := range scope.New(fieldValue).GetModelStruct().StructFields {
 							subField = subField.clone()
 							subField.Names = append([]string{fieldStruct.Name}, subField.Names...)
 							if prefix := field.GetSetting(EMBEDDED_PREFIX); prefix != "" {
 								subField.DBName = prefix + subField.DBName
 							}
 							if subField.IsPrimaryKey() {
-								modelStruct.PrimaryFields.add(subField)
+								modelStruct.addPK(subField)
 							}
-							modelStruct.StructFields.add(subField)
+							modelStruct.addField(subField)
 						}
 						continue
 					} else {
@@ -482,7 +475,7 @@ func (scope *Scope) GetModelStruct() *ModelStruct {
 				}
 			}
 
-			modelStruct.StructFields.add(field)
+			modelStruct.addField(field)
 		}
 	}
 
@@ -490,7 +483,7 @@ func (scope *Scope) GetModelStruct() *ModelStruct {
 		//TODO : @Badu - a boiler plate string. Get rid of it!
 		if field := modelStruct.fieldByName("id"); field != nil {
 			field.setFlag(IS_PRIMARYKEY)
-			modelStruct.PrimaryFields.add(field)
+			modelStruct.addPK(field)
 		}
 	}
 
@@ -501,11 +494,6 @@ func (scope *Scope) GetModelStruct() *ModelStruct {
 	modelStruct.processRelations(scope)
 
 	return &modelStruct
-}
-
-// GetStructFields get model's field structs
-func (scope *Scope) GetStructFields() StructFields {
-	return scope.GetModelStruct().StructFields
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -771,7 +759,7 @@ func (scope *Scope) whereSQL() string {
 		primaryConditions, andConditions, orConditions []string
 	)
 
-	if !scope.Search.Unscoped && scope.HasColumn("deleted_at") {
+	if !scope.Search.Unscoped && scope.GetModelStruct().HasColumn("deleted_at") {
 		aStr := fmt.Sprintf("%v.deleted_at IS NULL", quotedTableName)
 		primaryConditions = append(primaryConditions, aStr)
 	}
@@ -1158,6 +1146,7 @@ func (scope *Scope) createTable() *Scope {
 			// Check if the primary key constraint was specified as
 			// part of the column type. If so, we can only support
 			// one column as the primary key.
+			//TODO : @Badu - boiler plate string
 			if strings.Contains(strings.ToLower(sqlTag), "primary key") {
 				primaryKeyInColumnType = true
 			}
@@ -1252,7 +1241,7 @@ func (scope *Scope) autoIndex() *Scope {
 	var indexes = map[string][]string{}
 	var uniqueIndexes = map[string][]string{}
 
-	for _, field := range scope.GetStructFields() {
+	for _, field := range scope.GetModelStruct().StructFields {
 		if name := field.GetSetting(INDEX); name != "" {
 			names := strings.Split(name, ",")
 
@@ -1631,9 +1620,9 @@ func (scope *Scope) handleManyToManyPreload(field *StructField, conditions []int
 		for _, sourceKey := range sourceKeys {
 			joinTableFields.add(
 				&StructField{
-					DBName:   sourceKey,
-					Value:    reflect.New(foreignKeyType).Elem(),
-					flags :  0 | (1 << IS_NORMAL),
+					DBName: sourceKey,
+					Value:  reflect.New(foreignKeyType).Elem(),
+					flags:  0 | (1 << IS_NORMAL),
 				})
 		}
 
@@ -2183,7 +2172,7 @@ func (scope *Scope) deleteCallback() {
 			extraOption = fmt.Sprint(str)
 		}
 
-		if !scope.Search.Unscoped && scope.HasColumn("DeletedAt") {
+		if !scope.Search.Unscoped && scope.GetModelStruct().HasColumn("DeletedAt") {
 			scope.Raw(fmt.Sprintf(
 				"UPDATE %v SET deleted_at=%v%v%v",
 				scope.QuotedTableName(),

@@ -11,19 +11,19 @@ import (
 )
 
 const (
-	//bit flags
-	IS_PRIMARYKEY     uint64 = 0
-	IS_NORMAL         uint64 = 1
-	IS_IGNORED        uint64 = 2
-	IS_SCANNER        uint64 = 3
-	IS_TIME           uint64 = 4
-	HAS_DEFAULT_VALUE uint64 = 5
-	IS_FOREIGNKEY     uint64 = 6
-	IS_BLANK          uint64 = 7
-	IS_SLICE          uint64 = 8
-	IS_STRUCT         uint64 = 9
-	HAS_RELATIONS     uint64 = 10
-	IS_EMBED_OR_ANON  uint64 = 11
+	//bit flags - flags are uint16, which means we can use 16 flags
+	IS_PRIMARYKEY     uint8 = 0
+	IS_NORMAL         uint8 = 1
+	IS_IGNORED        uint8 = 2
+	IS_SCANNER        uint8 = 3
+	IS_TIME           uint8 = 4
+	HAS_DEFAULT_VALUE uint8 = 5
+	IS_FOREIGNKEY     uint8 = 6
+	IS_BLANK          uint8 = 7
+	IS_SLICE          uint8 = 8
+	IS_STRUCT         uint8 = 9
+	HAS_RELATIONS     uint8 = 10
+	IS_EMBED_OR_ANON  uint8 = 11
 )
 
 func NewStructField(fieldStruct reflect.StructField) (*StructField, error) {
@@ -311,15 +311,15 @@ func (field StructField) String() string {
 ////////////////////////////////////////////////////////////////////////////////
 // Private methods
 ////////////////////////////////////////////////////////////////////////////////
-func (field StructField) hasFlag(value uint) bool {
+func (field StructField) hasFlag(value uint8) bool {
 	return field.flags&(1<<value) != 0
 }
 
-func (field *StructField) setFlag(value uint64) {
+func (field *StructField) setFlag(value uint8) {
 	field.flags = field.flags | (1 << value)
 }
 
-func (field *StructField) unsetFlag(value uint64) {
+func (field *StructField) unsetFlag(value uint8) {
 	field.flags = field.flags & ^(1 << value)
 }
 

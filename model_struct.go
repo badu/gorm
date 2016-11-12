@@ -7,19 +7,51 @@ import (
 )
 
 // TableName get model's table name
-func (s *ModelStruct) TableName(db *DBCon) string {
-	return DefaultTableNameHandler(db, s.defaultTableName)
+func (modelStruct *ModelStruct) TableName(db *DBCon) string {
+	return DefaultTableNameHandler(db, modelStruct.defaultTableName)
 }
 
-func (s *ModelStruct) fieldByName(column string) *StructField {
-	//TODO : @Badu - find a easier way to deliver this, instead of iterating over slice
-	//since ModelStructs are cached, it wouldn't be a problem to have a safeMap here too, which delivers the field
-	for _, field := range s.StructFields {
-		if field.GetName() == column || field.DBName == column || field.DBName == NamesMap.ToDBName(column) {
-			return field
+func (modelStruct *ModelStruct) addPK(field *StructField) {
+	//fmt.Printf("Add field %q (%q) to model struct %q\n", field.GetName(), field.DBName, modelStruct.ModelType.Name())
+	modelStruct.fields.Set(field.GetName(), field)
+	modelStruct.fields.Set(field.DBName, field)
+	modelStruct.PrimaryFields.add(field)
+}
+
+func (modelStruct *ModelStruct) addField(field *StructField) {
+	//fmt.Printf("Add field %q (%q) to model struct %q\n", field.GetName(), field.DBName, modelStruct.ModelType.Name())
+	modelStruct.fields.Set(field.GetName(), field)
+	modelStruct.fields.Set(field.DBName, field)
+	modelStruct.StructFields.add(field)
+}
+
+func (modelStruct *ModelStruct) HasColumn(column string) bool {
+	if modelStruct.fields.l == nil {
+		return false
+	}
+	field, ok := modelStruct.fields.Get(column)
+	if ok {
+		if field.hasFlag(IS_NORMAL) {
+			return true
 		}
 	}
-	return nil
+	return false
+}
+
+func (modelStruct *ModelStruct) fieldByName(column string) *StructField {
+	field, ok := modelStruct.fields.Get(column)
+	if !ok {
+		//couldn't find it in "fields" map
+		for _, field := range modelStruct.StructFields {
+			if field.DBName == NamesMap.ToDBName(column) {
+				return field
+			}
+		}
+		//TODO : @Badu - error : oops, field not found!!!
+		//fmt.Printf("Oops column %q not found in %q or in NamesMap %q\n", column, modelStruct.ModelType.Name(), NamesMap.ToDBName(column))
+		return nil
+	}
+	return field
 }
 
 func (modelStruct *ModelStruct) processRelations(scope *Scope) {

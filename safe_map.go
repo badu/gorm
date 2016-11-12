@@ -37,11 +37,13 @@ func (s *safeMap) Set(key string, value string) {
 func (s *safeMap) Get(key string) string {
 	s.l.RLock()
 	defer s.l.RUnlock()
+	//TODO : @Badu - If the requested key doesn't exist, we get the value type's zero value ("")
 	return s.m[key]
 }
 
 // ToDBName convert string to db name
 func (smap *safeMap) ToDBName(name string) string {
+	//attempt to retrieve it from map
 	if v := smap.Get(name); v != "" {
 		return v
 	}
@@ -49,7 +51,7 @@ func (smap *safeMap) ToDBName(name string) string {
 	if name == "" {
 		return ""
 	}
-
+	//building it
 	var (
 		value                        = commonInitialismsReplacer.Replace(name)
 		buf                          = bytes.NewBufferString("")
@@ -82,6 +84,7 @@ func (smap *safeMap) ToDBName(name string) string {
 	buf.WriteByte(value[len(value)-1])
 
 	s := strings.ToLower(buf.String())
+	//store it to the map
 	smap.Set(name, s)
 	return s
 }
