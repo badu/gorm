@@ -8,7 +8,7 @@
 - [ ] Collect errors and their messages in one place
 - [ ] replace slices of strings with Collector
 - [ ] make StructField be able to provide a value
-- [ ] Relationships should be kept by ModelStruct
+- [ ] Relationships should be kept by ModelStruct (to accept many)
 
 # Comments and thoughts
 - Generated SQL let's the SQL engine cast : SELECT * FROM aTable WHERE id = '1' (id being int). I think it's a bad practice and it should be fixed
@@ -46,7 +46,8 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
 - [x] simplified further the GetModelStruct() of Scope to cleanup the fields mess
 - [x] renamed DB() of Scope to Con()
 - [x] renamed NewDB() of Scope to NewCon()
-- [x] make Relationship have some methods so we can move code from ModelStruct (part 1)
+- [x] make Relationship have some methods so we can move code from ModelStruct (part 1 - ModelStruct sliceRelationships() removed)
+- [x] make Relationship have some methods so we can move code from ModelStruct (part 2 - ModelStruct structRelationships() removed)
 
 ## 11.11.2016
 - [x] instead of having this bunch of flags in StructField - bitflag
