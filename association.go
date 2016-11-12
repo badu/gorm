@@ -14,6 +14,7 @@ const (
 	//Attention : relationship.Kind <= HAS_ONE in callback_functions.go saveAfterAssociationsCallback()
 	BELONGS_TO uint8 = 4
 )
+
 // Find find out all related associations
 func (association *Association) Find(value interface{}) *Association {
 	association.scope.related(value, association.column)
@@ -42,7 +43,7 @@ func (association *Association) Replace(values ...interface{}) *Association {
 		relationship = association.field.Relationship
 		scope        = association.scope
 		field        = association.field.Value
-		newDB        = scope.NewDB()
+		newDB        = scope.NewCon()
 	)
 
 	// Append new values
@@ -136,7 +137,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 		relationship = association.field.Relationship
 		scope        = association.scope
 		field        = association.field.Value
-		newDB        = scope.NewDB()
+		newDB        = scope.NewCon()
 	)
 
 	if len(values) == 0 {
@@ -264,7 +265,7 @@ func (association *Association) Count() int {
 		relationship = association.field.Relationship
 		scope        = association.scope
 		fieldValue   = association.field.Value.Interface()
-		query        = scope.DB()
+		query        = scope.Con()
 	)
 
 	if relationship.Kind == MANY_TO_MANY {
@@ -313,7 +314,7 @@ func (association *Association) saveAssociations(values ...interface{}) *Associa
 		// value has to been saved for many2many
 		if relationship.Kind == MANY_TO_MANY {
 			if scope.New(reflectValue.Interface()).PrimaryKeyZero() {
-				association.setErr(scope.NewDB().Save(reflectValue.Interface()).Error)
+				association.setErr(scope.NewCon().Save(reflectValue.Interface()).Error)
 			}
 		}
 
@@ -337,9 +338,9 @@ func (association *Association) saveAssociations(values ...interface{}) *Associa
 		}
 
 		if relationship.Kind == MANY_TO_MANY {
-			association.setErr(relationship.JoinTableHandler.Add(relationship.JoinTableHandler, scope.NewDB(), scope.Value, reflectValue.Interface()))
+			association.setErr(relationship.JoinTableHandler.Add(relationship.JoinTableHandler, scope.NewCon(), scope.Value, reflectValue.Interface()))
 		} else {
-			association.setErr(scope.NewDB().Select(field.GetName()).Save(scope.Value).Error)
+			association.setErr(scope.NewCon().Select(field.GetName()).Save(scope.Value).Error)
 
 			if setFieldBackToValue {
 				reflectValue.Elem().Set(field.Value)

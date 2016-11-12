@@ -8,7 +8,6 @@
 - [ ] Collect errors and their messages in one place
 - [ ] replace slices of strings with Collector
 - [ ] make StructField be able to provide a value
-- [ ] make Relationship have some methods so we can move code from ModelStruct
 - [ ] Relationships should be kept by ModelStruct
 
 # Comments and thoughts
@@ -30,6 +29,8 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
     `dbcon, err := gorm.Open("mysql", dbstr+"?parseTime=true")`
     `db = &gorm.DB{*dbcon}`
 - Removed MSSQL support - out of my concerns with this project
+- renamed DB() of Scope to Con()
+- renamed NewDB() of Scope to NewCon()
 
 # Changes log
 
@@ -43,6 +44,9 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
 - [x] make ModelStruct map it's fields : removed Scope method HasColumn(name)
 - [x] refactored Scope Fields() method - calls a cloneStructFields method of ModelStruct
 - [x] simplified further the GetModelStruct() of Scope to cleanup the fields mess
+- [x] renamed DB() of Scope to Con()
+- [x] renamed NewDB() of Scope to NewCon()
+- [x] make Relationship have some methods so we can move code from ModelStruct (part 1)
 
 ## 11.11.2016
 - [x] instead of having this bunch of flags in StructField - bitflag

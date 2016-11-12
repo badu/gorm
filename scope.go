@@ -23,20 +23,20 @@ func (scope *Scope) IndirectValue() reflect.Value {
 
 // New create a new Scope without search information
 func (scope *Scope) New(value interface{}) *Scope {
-	return &Scope{con: scope.NewDB(), Search: &search{}, Value: value}
+	return &Scope{con: scope.NewCon(), Search: &search{}, Value: value}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // Scope DB
 ////////////////////////////////////////////////////////////////////////////////
 
-// DB return scope's DB connection
-func (scope *Scope) DB() *DBCon {
+// Con return scope's connection
+func (scope *Scope) Con() *DBCon {
 	return scope.con
 }
 
-// NewDB create a new DB without search information
-func (scope *Scope) NewDB() *DBCon {
+// NewCon create a new Con without search information
+func (scope *Scope) NewCon() *DBCon {
 	if scope.con != nil {
 		db := scope.con.clone(true, true)
 		return db
@@ -45,7 +45,7 @@ func (scope *Scope) NewDB() *DBCon {
 }
 
 // SQLDB return *sql.DB
-func (scope *Scope) SQLDB() sqlInterf {
+func (scope *Scope) AsSQLDB() sqlInterf {
 	return scope.con.sqli
 }
 
@@ -94,7 +94,7 @@ func (scope *Scope) SkipLeft() {
 func (scope *Scope) Fields() StructFields {
 	if scope.fields == nil {
 		//TODO : @Badu - find out why do we clone
-		scope.fields = scope.GetModelStruct().cloneStructFields(scope.IndirectValue())
+		scope.fields = scope.GetModelStruct().cloneFieldsToScope(scope.IndirectValue())
 	}
 	return *scope.fields
 }
@@ -298,7 +298,7 @@ func (scope *Scope) Exec() *Scope {
 	defer scope.trace(NowFunc())
 
 	if !scope.HasError() {
-		if result, err := scope.SQLDB().Exec(scope.SQL, scope.SQLVars...); scope.Err(err) == nil {
+		if result, err := scope.AsSQLDB().Exec(scope.SQL, scope.SQLVars...); scope.Err(err) == nil {
 			if count, err := result.RowsAffected(); scope.Err(err) == nil {
 				scope.con.RowsAffected = count
 			}
@@ -340,7 +340,7 @@ func (scope *Scope) InstanceGet(name string) (interface{}, bool) {
 
 // Begin start a transaction
 func (scope *Scope) Begin() *Scope {
-	if db, ok := scope.SQLDB().(sqlDb); ok {
+	if db, ok := scope.AsSQLDB().(sqlDb); ok {
 		//parent db implements Begin() -> call Begin()
 		if tx, err := db.Begin(); err == nil {
 			//TODO : @Badu - maybe the parent should do so, since it's owner of db.db
@@ -387,7 +387,6 @@ func (scope *Scope) GetModelStruct() *ModelStruct {
 		reflectType = reflectType.Elem()
 	}
 
-
 	if reflectType.Kind() != reflect.Struct {
 		//TODO : @Badu - why we are not returning an error?
 		// Scope value need to be a struct
@@ -429,7 +428,7 @@ func (scope *Scope) callMethod(methodName string, reflectValue reflect.Value) {
 			method(scope)
 		case func(*DBCon):
 			//TODO : @Badu - see if we can use ScopedFunc and add DBConFunc - type DBConFunc func(*DBCon)
-			newDB := scope.NewDB()
+			newDB := scope.NewCon()
 			method(newDB)
 			scope.Err(newDB.Error)
 		case func() error:
@@ -437,7 +436,7 @@ func (scope *Scope) callMethod(methodName string, reflectValue reflect.Value) {
 		case func(*Scope) error:
 			scope.Err(method(scope))
 		case func(*DBCon) error:
-			newDB := scope.NewDB()
+			newDB := scope.NewCon()
 			scope.Err(method(newDB))
 			scope.Err(newDB.Error)
 		default:
@@ -856,14 +855,14 @@ func (scope *Scope) row() *sql.Row {
 	defer scope.trace(NowFunc())
 	scope.callCallbacks(scope.con.parent.callback.rowQueries)
 	scope.prepareQuerySQL()
-	return scope.SQLDB().QueryRow(scope.SQL, scope.SQLVars...)
+	return scope.AsSQLDB().QueryRow(scope.SQL, scope.SQLVars...)
 }
 
 func (scope *Scope) rows() (*sql.Rows, error) {
 	defer scope.trace(NowFunc())
 	scope.callCallbacks(scope.con.parent.callback.rowQueries)
 	scope.prepareQuerySQL()
-	return scope.SQLDB().Query(scope.SQL, scope.SQLVars...)
+	return scope.AsSQLDB().Query(scope.SQL, scope.SQLVars...)
 }
 
 func (scope *Scope) initialize() *Scope {
@@ -1043,9 +1042,9 @@ func (scope *Scope) createJoinTable(field *StructField) {
 				}
 			}
 
-			scope.Err(scope.NewDB().Exec(fmt.Sprintf("CREATE TABLE %v (%v, PRIMARY KEY (%v)) %s", scope.Quote(joinTable), strings.Join(sqlTypes, ","), strings.Join(primaryKeys, ","), scope.getTableOptions())).Error)
+			scope.Err(scope.NewCon().Exec(fmt.Sprintf("CREATE TABLE %v (%v, PRIMARY KEY (%v)) %s", scope.Quote(joinTable), strings.Join(sqlTypes, ","), strings.Join(primaryKeys, ","), scope.getTableOptions())).Error)
 		}
-		scope.NewDB().Table(joinTable).AutoMigrate(joinTableHandler)
+		scope.NewCon().Table(joinTable).AutoMigrate(joinTableHandler)
 	}
 }
 
@@ -1180,11 +1179,11 @@ func (scope *Scope) autoIndex() *Scope {
 	}
 
 	for name, columns := range indexes {
-		scope.NewDB().Model(scope.Value).AddIndex(name, columns...)
+		scope.NewCon().Model(scope.Value).AddIndex(name, columns...)
 	}
 
 	for name, columns := range uniqueIndexes {
-		scope.NewDB().Model(scope.Value).AddUniqueIndex(name, columns...)
+		scope.NewCon().Model(scope.Value).AddUniqueIndex(name, columns...)
 	}
 
 	return scope
@@ -1302,7 +1301,7 @@ func (scope *Scope) saveFieldAsAssociation(field *StructField) (bool, *Relations
 ////////////////////////////////////////////////////////////////////////////////
 func (scope *Scope) generatePreloadDBWithConditions(conditions []interface{}) (*DBCon, []interface{}) {
 	var (
-		preloadDB         = scope.NewDB()
+		preloadDB         = scope.NewCon()
 		preloadConditions []interface{}
 	)
 
@@ -1690,7 +1689,7 @@ func (scope *Scope) createCallback() {
 
 		// execute create sql
 		if lastInsertIDReturningSuffix == "" || primaryField == nil {
-			if result, err := scope.SQLDB().Exec(scope.SQL, scope.SQLVars...); scope.Err(err) == nil {
+			if result, err := scope.AsSQLDB().Exec(scope.SQL, scope.SQLVars...); scope.Err(err) == nil {
 				// set rows affected count
 				scope.con.RowsAffected, _ = result.RowsAffected()
 
@@ -1702,7 +1701,7 @@ func (scope *Scope) createCallback() {
 				}
 			}
 		} else {
-			if err := scope.SQLDB().QueryRow(scope.SQL, scope.SQLVars...).Scan(primaryField.Value.Addr().Interface()); scope.Err(err) == nil {
+			if err := scope.AsSQLDB().QueryRow(scope.SQL, scope.SQLVars...).Scan(primaryField.Value.Addr().Interface()); scope.Err(err) == nil {
 				primaryField.unsetFlag(IS_BLANK)
 				scope.con.RowsAffected = 1
 			}
@@ -1717,7 +1716,7 @@ func (scope *Scope) forceReloadAfterCreateCallback() {
 		if !yes {
 			fmt.Errorf("ERROR in forceReloadAfterCreateCallback : blankColumnsWithDefaultValue IS NOT StrSlice!\n")
 		}
-		db := scope.DB().New().Table(scope.TableName()).Select(sSlice.slice())
+		db := scope.Con().New().Table(scope.TableName()).Select(sSlice.slice())
 		for _, field := range scope.Fields() {
 			if field.IsPrimaryKey() && !field.IsBlank() {
 				db = db.Where(fmt.Sprintf("%v = ?", field.DBName), field.Value.Interface())
@@ -1749,7 +1748,7 @@ func (scope *Scope) saveBeforeAssociationsCallback() {
 		if scope.changeableField(field) && !field.IsBlank() && !field.IsIgnored() {
 			if ok, relationship := scope.saveFieldAsAssociation(field); ok && relationship.Kind == BELONGS_TO {
 				fieldValue := field.Value.Addr().Interface()
-				scope.Err(scope.NewDB().Save(fieldValue).Error)
+				scope.Err(scope.NewCon().Save(fieldValue).Error)
 				if relationship.ForeignFieldNames.len() != 0 {
 					// set value's foreign key
 					for idx, fieldName := range relationship.ForeignFieldNames {
@@ -1777,7 +1776,7 @@ func (scope *Scope) saveAfterAssociationsCallback() {
 				switch value.Kind() {
 				case reflect.Slice:
 					for i := 0; i < value.Len(); i++ {
-						newDB := scope.NewDB()
+						newDB := scope.NewCon()
 						elem := value.Index(i).Addr().Interface()
 						newScope := newDB.NewScope(elem)
 
@@ -1815,7 +1814,7 @@ func (scope *Scope) saveAfterAssociationsCallback() {
 					if relationship.PolymorphicType != "" {
 						scope.Err(newScope.SetColumn(relationship.PolymorphicType, relationship.PolymorphicValue))
 					}
-					scope.Err(scope.NewDB().Save(elem).Error)
+					scope.Err(scope.NewCon().Save(elem).Error)
 				}
 			}
 		}
@@ -1955,7 +1954,7 @@ func (scope *Scope) queryCallback() {
 			scope.SQL += addExtraSpaceIfExist(fmt.Sprint(str))
 		}
 
-		if rows, err := scope.SQLDB().Query(scope.SQL, scope.SQLVars...); scope.Err(err) == nil {
+		if rows, err := scope.AsSQLDB().Query(scope.SQL, scope.SQLVars...); scope.Err(err) == nil {
 			defer rows.Close()
 
 			columns, _ := rows.Columns()
