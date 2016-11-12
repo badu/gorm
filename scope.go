@@ -5,15 +5,11 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/jinzhu/inflection"
-	"go/ast"
-	"reflect"
-	"sync"
 )
 
 // IndirectValue return scope's reflect value's indirect value
@@ -95,36 +91,15 @@ func (scope *Scope) SkipLeft() {
 }
 
 // Fields get value's fields from ModelStruct
-//TODO : @Badu - maybe this should be in ModelStruct?
 func (scope *Scope) Fields() StructFields {
 	if scope.fields == nil {
-		var (
-			fields             StructFields
-			indirectScopeValue = scope.IndirectValue()
-			isStruct           = indirectScopeValue.Kind() == reflect.Struct
-		)
-
-		for _, structField := range scope.GetModelStruct().StructFields {
-			if isStruct {
-				fieldValue := indirectScopeValue
-				for _, name := range structField.Names {
-					fieldValue = reflect.Indirect(fieldValue).FieldByName(name)
-				}
-				clonedField := structField.cloneWithValue(fieldValue)
-				fields.add(clonedField)
-			} else {
-				clonedField := structField.clone()
-				clonedField.setFlag(IS_BLANK)
-				fields.add(clonedField)
-			}
-		}
-		//TODO : @Badu - really ???
-		scope.fields = &fields
+		//TODO : @Badu - find out why do we clone
+		scope.fields = scope.GetModelStruct().cloneStructFields(scope.IndirectValue())
 	}
-	//TODO : @Badu - really , really ???
 	return *scope.fields
 }
 
+//TODO : @Badu - after finding out why we clone, might be removed
 // FieldByName find `gorm.StructField` with field name or db name
 func (scope *Scope) FieldByName(name string) (*StructField, bool) {
 	var (
@@ -136,6 +111,7 @@ func (scope *Scope) FieldByName(name string) (*StructField, bool) {
 		if field.GetName() == name || field.DBName == name {
 			return field, true
 		}
+		//TODO : @Badu - isn't that interesting ? see condition above
 		if field.DBName == dbName {
 			mostMatchedField = field
 		}
@@ -143,7 +119,7 @@ func (scope *Scope) FieldByName(name string) (*StructField, bool) {
 	return mostMatchedField, mostMatchedField != nil
 }
 
-// TODO : @Badu - should be StructFields responsability to know it's primary keys once they were added to the slice
+//TODO : @Badu - after finding out why we clone, might be removed
 // PrimaryFields return scope's primary fields
 func (scope *Scope) PrimaryFields() StructFields {
 	var fields StructFields
@@ -155,17 +131,21 @@ func (scope *Scope) PrimaryFields() StructFields {
 	return fields
 }
 
-// TODO : @Badu - should be StructFields responsability to know it's primary key once they were added to the slice
+//TODO : @Badu - after finding out why we clone, might be removed
 // PrimaryField return scope's main primary field, if defined more that one primary fields, will return the one having column name `id` or the first one
 func (scope *Scope) PrimaryField() *StructField {
 	primaryFieldsNo := scope.GetModelStruct().PrimaryFields.len()
+	//TODO : @Badu - isn't that interesting ? We're looking to see if there are primary fields in ModelStruct
 	if primaryFieldsNo > 0 {
 		if primaryFieldsNo > 1 {
+			//TODO : @Badu - isn't that interesting ? if ModelStruct has more than one, take "id"
 			//TODO : @Badu - a boiler plate string. Get rid of it!
 			if field, ok := scope.FieldByName("id"); ok {
 				return field
 			}
 		}
+		//TODO : @Badu - isn't that interesting ? otherwise, we will clone the StructFields of ModelStruct
+		//and return the first one
 		return scope.PrimaryFields()[0]
 	}
 	return nil
@@ -403,11 +383,14 @@ func (scope *Scope) GetModelStruct() *ModelStruct {
 
 	reflectType := reflect.ValueOf(scope.Value).Type()
 	for reflectType.Kind() == reflect.Slice || reflectType.Kind() == reflect.Ptr {
+		//dereference
 		reflectType = reflectType.Elem()
 	}
 
-	// Scope value need to be a struct
+
 	if reflectType.Kind() != reflect.Struct {
+		//TODO : @Badu - why we are not returning an error?
+		// Scope value need to be a struct
 		return &modelStruct
 	}
 
@@ -416,76 +399,7 @@ func (scope *Scope) GetModelStruct() *ModelStruct {
 		return value
 	}
 
-	modelStruct.ModelType = reflectType
-	modelStruct.fields = fieldsMap{m: make(map[string]*StructField), l: new(sync.RWMutex)}
-
-	//implements tabler?
-	tabler, ok := reflect.New(reflectType).Interface().(tabler)
-	// Set default table name
-	if ok {
-		modelStruct.defaultTableName = tabler.TableName()
-	} else {
-		tableName := NamesMap.ToDBName(reflectType.Name())
-		if scope.con == nil || !scope.con.parent.singularTable {
-			tableName = inflection.Plural(tableName)
-		}
-		modelStruct.defaultTableName = tableName
-	}
-
-	// Get all fields
-	for i := 0; i < reflectType.NumField(); i++ {
-		if fieldStruct := reflectType.Field(i); ast.IsExported(fieldStruct.Name) {
-			field, err := NewStructField(fieldStruct)
-			if err != nil {
-				fmt.Printf("ERROR processing tags : %v\n", err)
-				//TODO : @Badu - catch this error - we might fail processing tags
-			}
-			// is ignored field
-			if !field.IsIgnored() {
-				if field.HasSetting(PRIMARY_KEY) {
-					modelStruct.addPK(field)
-				}
-				fieldValue := field.checkInterfaces()
-				if !field.IsScanner() && !field.IsTime() {
-					if field.IsEmbedOrAnon() {
-						// is embedded struct
-						for _, subField := range scope.New(fieldValue).GetModelStruct().StructFields {
-							subField = subField.clone()
-							subField.Names = append([]string{fieldStruct.Name}, subField.Names...)
-							if prefix := field.GetSetting(EMBEDDED_PREFIX); prefix != "" {
-								subField.DBName = prefix + subField.DBName
-							}
-							if subField.IsPrimaryKey() {
-								modelStruct.addPK(subField)
-							}
-							modelStruct.addField(subField)
-						}
-						continue
-					} else {
-						if field.IsSlice() {
-							//marker for later processing of relationships
-							field.SetHasRelations()
-						} else if field.IsStruct() {
-							//marker for later processing of relationships
-							field.SetHasRelations()
-						} else {
-							field.SetIsNormal()
-						}
-					}
-				}
-			}
-
-			modelStruct.addField(field)
-		}
-	}
-
-	if modelStruct.PrimaryFields.len() == 0 {
-		//TODO : @Badu - a boiler plate string. Get rid of it!
-		if field := modelStruct.fieldByName("id"); field != nil {
-			field.setFlag(IS_PRIMARYKEY)
-			modelStruct.addPK(field)
-		}
-	}
+	modelStruct.Create(reflectType, scope)
 
 	//set cached ModelStruc
 	modelStructsMap.Set(reflectType, &modelStruct)

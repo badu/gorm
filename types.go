@@ -111,7 +111,6 @@ type (
 
 		instanceID string
 
-		primaryKeyField *StructField
 		fields          *StructFields
 		//skip left remaining callbacks
 		skipLeft bool
