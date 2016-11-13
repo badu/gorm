@@ -1,11 +1,17 @@
 package gorm
 
 import (
+	"errors"
 	"fmt"
 	"github.com/jinzhu/inflection"
 	"go/ast"
 	"reflect"
 	"sync"
+)
+
+const (
+	proc_tag_err  string = "ModelStruct %q processing tags error : %v"
+	add_field_err string = "ModelStruct %q add field error : %v"
 )
 
 // TableName get model's table name
@@ -14,11 +20,10 @@ func (modelStruct *ModelStruct) TableName(db *DBCon) string {
 }
 
 func (modelStruct *ModelStruct) HasColumn(column string) bool {
-	if modelStruct.fields.l == nil {
-		return false
-	}
-	field, ok := modelStruct.fields.Get(column)
+	//looking for it
+	field, ok := modelStruct.fieldsMap.Get(column)
 	if ok {
+		//TODO : @Badu only if it's normal it's declared ?
 		if field.hasFlag(IS_NORMAL) {
 			return true
 		}
@@ -28,7 +33,10 @@ func (modelStruct *ModelStruct) HasColumn(column string) bool {
 
 func (modelStruct *ModelStruct) Create(reflectType reflect.Type, scope *Scope) {
 	modelStruct.ModelType = reflectType
-	modelStruct.fields = fieldsMap{m: make(map[string]*StructField), l: new(sync.RWMutex)}
+	modelStruct.fieldsMap = fieldsMap{
+		aliases: make(map[string]*StructField),
+		locker:  new(sync.RWMutex),
+	}
 
 	//implements tabler?
 	tabler, ok := reflect.New(reflectType).Interface().(tabler)
@@ -48,28 +56,26 @@ func (modelStruct *ModelStruct) Create(reflectType reflect.Type, scope *Scope) {
 		if fieldStruct := reflectType.Field(i); ast.IsExported(fieldStruct.Name) {
 			field, err := NewStructField(fieldStruct)
 			if err != nil {
-				fmt.Printf("ERROR processing tags : %v\n", err)
-				//TODO : @Badu - catch this error - we might fail processing tags
+				scope.Err(errors.New(fmt.Sprintf(proc_tag_err, modelStruct.ModelType.Name(), err)))
+				return
 			}
 			// is ignored field
 			if !field.IsIgnored() {
-				if field.HasSetting(PRIMARY_KEY) {
-					modelStruct.addPrimaryKey(field)
-				}
 				fieldValue := field.checkInterfaces()
 				if !field.IsScanner() && !field.IsTime() {
 					if field.IsEmbedOrAnon() {
 						// is embedded struct
-						for _, subField := range scope.New(fieldValue).GetModelStruct().StructFields {
+						for _, subField := range scope.New(fieldValue).GetModelStruct().StructFields() {
 							subField = subField.clone()
 							subField.Names = append([]string{fieldStruct.Name}, subField.Names...)
 							if prefix := field.GetSetting(EMBEDDED_PREFIX); prefix != "" {
 								subField.DBName = prefix + subField.DBName
 							}
-							if subField.IsPrimaryKey() {
-								modelStruct.addPrimaryKey(subField)
+							err = modelStruct.fieldsMap.Add(subField)
+							if err != nil {
+								scope.Err(errors.New(fmt.Sprintf(add_field_err, modelStruct.ModelType.Name(), err)))
+								return
 							}
-							modelStruct.addField(subField)
 						}
 						continue
 					} else {
@@ -86,30 +92,50 @@ func (modelStruct *ModelStruct) Create(reflectType reflect.Type, scope *Scope) {
 				}
 			}
 
-			modelStruct.addField(field)
+			err = modelStruct.fieldsMap.Add(field)
+			if err != nil {
+				scope.Err(errors.New(fmt.Sprintf(add_field_err, modelStruct.ModelType.Name(), err)))
+				return
+			}
 		}
 	}
 
-	if modelStruct.PrimaryFields.len() == 0 {
-		//TODO : @Badu - a boiler plate string. Get rid of it!
-		if field, ok := modelStruct.FieldByName("id"); ok {
+	if modelStruct.noOfPrimaryFields() == 0 {
+		//by default we're expecting that the modelstruct has a field named id
+		if field, ok := modelStruct.fieldsMap.Get(DEFAULT_ID_NAME); ok {
 			field.setFlag(IS_PRIMARYKEY)
-			modelStruct.addPrimaryKey(field)
 		}
+		//else - it's not an error : joins don't have primary key named id
 	}
 }
 
+func (modelStruct *ModelStruct) StructFields() StructFields {
+	return modelStruct.fieldsMap.fields
+}
+
+func (modelStruct *ModelStruct) primaryFields() StructFields {
+	if modelStruct.cachedPrimaryFields == nil {
+		modelStruct.cachedPrimaryFields = modelStruct.fieldsMap.PrimaryFields()
+	}
+	return modelStruct.cachedPrimaryFields
+}
+
+func (modelStruct *ModelStruct) noOfPrimaryFields() int {
+	if modelStruct.cachedPrimaryFields == nil {
+		modelStruct.cachedPrimaryFields = modelStruct.fieldsMap.PrimaryFields()
+	}
+	return modelStruct.cachedPrimaryFields.len()
+}
+
 func (modelStruct *ModelStruct) FieldByName(column string) (*StructField, bool) {
-	field, ok := modelStruct.fields.Get(column)
+	field, ok := modelStruct.fieldsMap.Get(column)
 	if !ok {
 		//couldn't find it in "fields" map
-		for _, field := range modelStruct.StructFields {
+		for _, field := range modelStruct.StructFields() {
 			if field.DBName == NamesMap.ToDBName(column) {
 				return field, true
 			}
 		}
-		//TODO : @Badu - error : oops, field not found!!!
-		//fmt.Printf("Oops column %q not found in %q or in NamesMap %q\n", column, modelStruct.ModelType.Name(), NamesMap.ToDBName(column))
 		return nil, false
 	}
 	return field, ok
@@ -117,7 +143,8 @@ func (modelStruct *ModelStruct) FieldByName(column string) (*StructField, bool) 
 
 func (modelStruct *ModelStruct) cloneFieldsToScope(indirectScopeValue reflect.Value) *StructFields {
 	var result StructFields
-	for _, structField := range modelStruct.StructFields {
+	//Badu : can't use copy, we need to clone
+	for _, structField := range modelStruct.StructFields() {
 		if indirectScopeValue.Kind() == reflect.Struct {
 			fieldValue := indirectScopeValue
 			for _, name := range structField.Names {
@@ -134,22 +161,8 @@ func (modelStruct *ModelStruct) cloneFieldsToScope(indirectScopeValue reflect.Va
 	return &result
 }
 
-func (modelStruct *ModelStruct) addPrimaryKey(field *StructField) {
-	//fmt.Printf("Add field %q (%q) to model struct %q\n", field.GetName(), field.DBName, modelStruct.ModelType.Name())
-	modelStruct.fields.Set(field.GetName(), field)
-	modelStruct.fields.Set(field.DBName, field)
-	modelStruct.PrimaryFields.add(field)
-}
-
-func (modelStruct *ModelStruct) addField(field *StructField) {
-	//fmt.Printf("Add field %q (%q) to model struct %q\n", field.GetName(), field.DBName, modelStruct.ModelType.Name())
-	modelStruct.fields.Set(field.GetName(), field)
-	modelStruct.fields.Set(field.DBName, field)
-	modelStruct.StructFields.add(field)
-}
-
 func (modelStruct *ModelStruct) processRelations(scope *Scope) {
-	for _, field := range modelStruct.StructFields {
+	for _, field := range modelStruct.StructFields() {
 		if field.HasRelations() {
 			relationship := &Relationship{}
 			toScope := scope.New(reflect.New(field.Struct.Type).Interface())

@@ -511,8 +511,11 @@ func (con *DBCon) AddForeignKey(field string, dest string, onDelete string, onUp
 func (con *DBCon) Association(column string) *Association {
 	var err error
 	scope := con.clone(false, false).NewScope(con.Value)
-
-	if primaryField := scope.PrimaryField(); primaryField.IsBlank() {
+	primaryField := scope.PrimaryField()
+	if primaryField == nil {
+		err = errors.New("SCOPE : primary field is NIL")
+	}
+	if primaryField.IsBlank() {
 		err = errors.New("primary key can't be nil")
 	} else {
 		if field, ok := scope.FieldByName(column); ok {
@@ -555,7 +558,7 @@ func (con *DBCon) Get(name string) (value interface{}, ok bool) {
 // SetJoinTableHandler set a model's join table handler for a relation
 func (con *DBCon) SetJoinTableHandler(source interface{}, column string, handler JoinTableHandlerInterface) {
 	scope := con.NewScope(source)
-	for _, field := range scope.GetModelStruct().StructFields {
+	for _, field := range scope.GetModelStruct().StructFields() {
 		if field.GetName() == column || field.DBName == column {
 			if many2many := field.GetSetting(MANY2MANY); many2many != "" {
 				src := (&Scope{Value: source}).GetModelStruct().ModelType

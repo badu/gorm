@@ -30,6 +30,7 @@ func (postgres) DataTypeOf(field *StructField) string {
 				sqlType = "integer"
 			}
 		case reflect.Int64, reflect.Uint64:
+			//TODO : @Badu - make field IsAutoincrement FLAG
 			if field.HasSetting(AUTO_INCREMENT) || field.IsPrimaryKey() {
 				field.SetSetting(AUTO_INCREMENT, "AUTO_INCREMENT")
 				sqlType = "bigserial"

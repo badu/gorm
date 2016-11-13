@@ -93,13 +93,11 @@ func (scope *Scope) SkipLeft() {
 // Fields get value's fields from ModelStruct
 func (scope *Scope) Fields() StructFields {
 	if scope.fields == nil {
-		//TODO : @Badu - find out why do we clone
 		scope.fields = scope.GetModelStruct().cloneFieldsToScope(scope.IndirectValue())
 	}
 	return *scope.fields
 }
 
-//TODO : @Badu - after finding out why we clone, might be removed
 // FieldByName find `gorm.StructField` with field name or db name
 func (scope *Scope) FieldByName(name string) (*StructField, bool) {
 	var (
@@ -111,7 +109,6 @@ func (scope *Scope) FieldByName(name string) (*StructField, bool) {
 		if field.GetName() == name || field.DBName == name {
 			return field, true
 		}
-		//TODO : @Badu - isn't that interesting ? see condition above
 		if field.DBName == dbName {
 			mostMatchedField = field
 		}
@@ -119,7 +116,6 @@ func (scope *Scope) FieldByName(name string) (*StructField, bool) {
 	return mostMatchedField, mostMatchedField != nil
 }
 
-//TODO : @Badu - after finding out why we clone, might be removed
 // PrimaryFields return scope's primary fields
 func (scope *Scope) PrimaryFields() StructFields {
 	var fields StructFields
@@ -131,23 +127,20 @@ func (scope *Scope) PrimaryFields() StructFields {
 	return fields
 }
 
-//TODO : @Badu - after finding out why we clone, might be removed
 // PrimaryField return scope's main primary field, if defined more that one primary fields, will return the one having column name `id` or the first one
 func (scope *Scope) PrimaryField() *StructField {
-	primaryFieldsNo := scope.GetModelStruct().PrimaryFields.len()
-	//TODO : @Badu - isn't that interesting ? We're looking to see if there are primary fields in ModelStruct
-	if primaryFieldsNo > 0 {
-		if primaryFieldsNo > 1 {
-			//TODO : @Badu - isn't that interesting ? if ModelStruct has more than one, take "id"
-			//TODO : @Badu - a boiler plate string. Get rid of it!
-			if field, ok := scope.FieldByName("id"); ok {
+	primaryFieldsLen := scope.GetModelStruct().noOfPrimaryFields()
+	if primaryFieldsLen > 0 {
+		if primaryFieldsLen > 1 {
+			if field, ok := scope.FieldByName(DEFAULT_ID_NAME); ok {
 				return field
 			}
 		}
-		//TODO : @Badu - isn't that interesting ? otherwise, we will clone the StructFields of ModelStruct
 		//and return the first one
 		return scope.PrimaryFields()[0]
 	}
+
+	//TODO : @Badu - investigate where this is called and gets the nil
 	return nil
 }
 
@@ -204,7 +197,7 @@ func (scope *Scope) SetColumn(column interface{}, value interface{}) error {
 			return mostMatchedField.Set(value)
 		}
 	}
-	return errors.New("could not convert column to field")
+	return errors.New("SCOPE : could not convert column to field")
 }
 
 // CallMethod call scope value's method, if it is a slice, will call its element's method one by one
@@ -1052,7 +1045,7 @@ func (scope *Scope) createTable() *Scope {
 	var tags []string
 	var primaryKeys []string
 	var primaryKeyInColumnType = false
-	for _, field := range scope.GetModelStruct().StructFields {
+	for _, field := range scope.GetModelStruct().StructFields() {
 		if field.IsNormal() {
 			sqlTag := scope.Dialect().DataTypeOf(field)
 
@@ -1136,7 +1129,7 @@ func (scope *Scope) autoMigrate() *Scope {
 	if !scope.Dialect().HasTable(tableName) {
 		scope.createTable()
 	} else {
-		for _, field := range scope.GetModelStruct().StructFields {
+		for _, field := range scope.GetModelStruct().StructFields() {
 			if !scope.Dialect().HasColumn(tableName, field.DBName) {
 				if field.IsNormal() {
 					sqlTag := scope.Dialect().DataTypeOf(field)
@@ -1154,7 +1147,7 @@ func (scope *Scope) autoIndex() *Scope {
 	var indexes = map[string][]string{}
 	var uniqueIndexes = map[string][]string{}
 
-	for _, field := range scope.GetModelStruct().StructFields {
+	for _, field := range scope.GetModelStruct().StructFields() {
 		if name := field.GetSetting(INDEX); name != "" {
 			names := strings.Split(name, ",")
 
@@ -1283,6 +1276,7 @@ func (scope *Scope) toQueryCondition(columns StrSlice) string {
 
 func (scope *Scope) saveFieldAsAssociation(field *StructField) (bool, *Relationship) {
 	if scope.changeableField(field) && !field.IsBlank() && !field.IsIgnored() {
+		//TODO : @Badu - make field WillSaveAssociations FLAG
 		if field.HasSetting(SAVE_ASSOCIATIONS) {
 			set := field.GetSetting(SAVE_ASSOCIATIONS)
 			if set == "false" || set == "skip" {
@@ -1942,7 +1936,7 @@ func (scope *Scope) queryCallback() {
 			resultType = resultType.Elem()
 		}
 	} else if kind != reflect.Struct {
-		scope.Err(errors.New("unsupported destination, should be slice or struct"))
+		scope.Err(errors.New("SCOPE : unsupported destination, should be slice or struct"))
 		return
 	}
 
@@ -2042,7 +2036,7 @@ func (scope *Scope) preloadCallback() {
 					case MANY_TO_MANY:
 						currentScope.handleManyToManyPreload(field, currentPreloadConditions)
 					default:
-						scope.Err(errors.New("unsupported relation"))
+						scope.Err(errors.New("SCOPE : unsupported relation"))
 					}
 
 					preloadedMap[preloadKey] = true

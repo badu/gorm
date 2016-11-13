@@ -11,6 +11,10 @@ import (
 
 const (
 	upper strCase = true
+
+	TAG_SQL  string = "sql"
+	TAG_GORM string = "gorm"
+	DEFAULT_ID_NAME string = "id"
 )
 
 type (
@@ -60,41 +64,14 @@ type (
 		column string
 		field  *StructField
 	}
-	//TODO : @Badu - if StructField has IsPrimaryKey field, why having two sets of StructFields
-	//TODO : @Badu - unify them into something called Fields which StructFields type would provide via method
+
 	// ModelStruct model definition
 	ModelStruct struct {
-		fields           fieldsMap
-		PrimaryFields    StructFields
-		StructFields     StructFields
-		ModelType        reflect.Type
-		defaultTableName string
-	}
-
-	// DBCon contains information for current db connection
-	DBCon struct {
-		parent  *DBCon
-		dialect Dialect
-		Value   interface{}
-		values  map[string]interface{}
-
-		Error error
-
-		callback *Callback
-		sqli     sqlInterf
-
-		search       *search
-		RowsAffected int64
-
-		logMode int
-		logger  logger
-
-		singularTable bool
-		source        string
-	}
-	//declared to allow existing code to run, dbcon.Open(...) db = &gorm.DB{*dbcon}
-	DB struct {
-		DBCon
+		fieldsMap           fieldsMap
+		//collected from fields.fields, so we won't iterate all the time
+		cachedPrimaryFields StructFields
+		ModelType           reflect.Type
+		defaultTableName    string
 	}
 
 	// Scope contain current operation's information when you perform any operation on the database
@@ -111,11 +88,10 @@ type (
 
 		instanceID string
 
-		fields          *StructFields
+		fields *StructFields
 		//skip left remaining callbacks
 		skipLeft bool
 	}
-
 	//TODO : @Badu - pointer to DBCon is just to expose errors
 	//since they are related (Scope has a search inside)
 	search struct {
@@ -142,6 +118,32 @@ type (
 	searchPreload struct {
 		schema     string
 		conditions []interface{}
+	}
+
+	// DBCon contains information for current db connection
+	DBCon struct {
+		parent  *DBCon
+		dialect Dialect
+		Value   interface{}
+		values  map[string]interface{}
+
+		Error error
+
+		callback *Callback
+		sqli     sqlInterf
+
+		search       *search
+		RowsAffected int64
+
+		logMode int
+		logger  logger
+
+		singularTable bool
+		source        string
+	}
+	//declared to allow existing code to run, dbcon.Open(...) db = &gorm.DB{*dbcon}
+	DB struct {
+		DBCon
 	}
 
 	// Model base model definition, including fields `ID`, `CreatedAt`, `UpdatedAt`, `DeletedAt`, which could be embedded in your models

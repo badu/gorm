@@ -157,7 +157,7 @@ func (field *StructField) Set(value interface{}) error {
 	var err error
 	if !field.Value.IsValid() {
 		//TODO : @Badu - make errors more explicit : which field...
-		return errors.New("field value not valid")
+		return errors.New("StructField : field value not valid")
 	}
 
 	if !field.Value.CanAddr() {

@@ -159,7 +159,7 @@ func Open(dialectName string, args ...interface{}) (*DBCon, error) {
 	var err error
 
 	if len(args) == 0 {
-		err = errors.New("invalid database source")
+		err = errors.New("OPEN ERROR : invalid database source")
 		return nil, err
 	}
 	var source string
@@ -196,7 +196,7 @@ func Open(dialectName string, args ...interface{}) (*DBCon, error) {
 		callback: &Callback{},
 		source:   source,
 		values:   map[string]interface{}{},
-		sqli:       dbSQL,
+		sqli:     dbSQL,
 	}
 	//register all default callbacks
 	db.callback.registerGORMDefaultCallbacks()

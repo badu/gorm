@@ -34,6 +34,12 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
 
 # Changes log
 
+## 13.11.2016
+- [x] ModelStruct - removed properties PrimaryFields and StructFields - they are kept in fieldsMap struct
+- [x] ModelStruct - fieldsMap struct has method PrimaryFields() which are cached into cachedPrimaryFields
+- [x] extracted string "id" into a const (Scope and ModelStruct)
+- [x] ModelStruct - method for number of primary fields
+
 ## 12.11.2016
 - [x] switched bitflag from uint64 to uint16 (we really don't need more than 16 at the time)
 - [x] make ModelStruct map it's fields : fieldsMap struct
@@ -43,7 +49,7 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
 - [x] make ModelStruct map it's fields : ModelStruct has HasColumn(name) method 
 - [x] make ModelStruct map it's fields : removed Scope method HasColumn(name)
 - [x] refactored Scope Fields() method - calls a cloneStructFields method of ModelStruct
-- [x] simplified further the GetModelStruct() of Scope to cleanup the fields mess
+- [x] simplified further the GetModelStruct() of Scope to cleanup the fields
 - [x] renamed DB() of Scope to Con()
 - [x] renamed NewDB() of Scope to NewCon()
 - [x] make Relationship have some methods so we can move code from ModelStruct (part 1 - ModelStruct sliceRelationships() removed)

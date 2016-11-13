@@ -28,9 +28,6 @@ const (
 	TYPE                    uint8 = 18
 	UNIQUE                  uint8 = 19
 	SAVE_ASSOCIATIONS       uint8 = 20
-
-	TAG_SQL  string = "sql"
-	TAG_GORM string = "gorm"
 )
 
 var (
@@ -89,7 +86,7 @@ func (ts *TagSettings) loadFromTags(str string) error {
 						ts.set(uint8Key, k)
 					}
 				} else {
-					return errors.New(fmt.Sprintf("COULDN'T FIND KEY FOR %q ON %q", k, str))
+					return errors.New(fmt.Sprintf("TagSetting : COULDN'T FIND KEY FOR %q ON %q", k, str))
 				}
 			}
 		}
@@ -119,6 +116,7 @@ func (t *TagSettings) set(named uint8, value string) {
 
 //checks if has such a key (for code readability)
 func (t *TagSettings) has(named uint8) bool {
+	//test for a key without retrieving the value
 	_, ok := t.Uint8Map[named]
 	return ok
 }

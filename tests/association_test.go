@@ -844,7 +844,7 @@ func TestRelated(t *testing.T) {
 
 func TestForeignKey(t *testing.T) {
 	t.Log("36) TestForeignKey")
-	for _, structField := range TestDB.NewScope(&User{}).GetModelStruct().StructFields {
+	for _, structField := range TestDB.NewScope(&User{}).GetModelStruct().StructFields() {
 		for _, foreignKey := range []string{"BillingAddressID", "ShippingAddressId", "CompanyID"} {
 			if structField.GetName() == foreignKey && !structField.IsForeignKey() {
 				t.Errorf(fmt.Sprintf("%v should be foreign key", foreignKey))
@@ -852,7 +852,7 @@ func TestForeignKey(t *testing.T) {
 		}
 	}
 
-	for _, structField := range TestDB.NewScope(&Email{}).GetModelStruct().StructFields {
+	for _, structField := range TestDB.NewScope(&Email{}).GetModelStruct().StructFields() {
 		for _, foreignKey := range []string{"UserId"} {
 			if structField.GetName() == foreignKey && !structField.IsForeignKey() {
 				t.Errorf(fmt.Sprintf("%v should be foreign key", foreignKey))
@@ -860,7 +860,7 @@ func TestForeignKey(t *testing.T) {
 		}
 	}
 
-	for _, structField := range TestDB.NewScope(&Post{}).GetModelStruct().StructFields {
+	for _, structField := range TestDB.NewScope(&Post{}).GetModelStruct().StructFields() {
 		for _, foreignKey := range []string{"CategoryId", "MainCategoryId"} {
 			if structField.GetName() == foreignKey && !structField.IsForeignKey() {
 				t.Errorf(fmt.Sprintf("%v should be foreign key", foreignKey))
@@ -868,7 +868,7 @@ func TestForeignKey(t *testing.T) {
 		}
 	}
 
-	for _, structField := range TestDB.NewScope(&Comment{}).GetModelStruct().StructFields {
+	for _, structField := range TestDB.NewScope(&Comment{}).GetModelStruct().StructFields() {
 		for _, foreignKey := range []string{"PostId"} {
 			if structField.GetName() == foreignKey && !structField.IsForeignKey() {
 				t.Errorf(fmt.Sprintf("%v should be foreign key", foreignKey))

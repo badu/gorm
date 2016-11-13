@@ -360,7 +360,7 @@ func (association *Association) saveAssociations(values ...interface{}) *Associa
 				saveAssociation(indirectReflectValue.Index(i))
 			}
 		} else {
-			association.setErr(errors.New("invalid value type"))
+			association.setErr(errors.New("ASSOCIATION : invalid value type"))
 		}
 	}
 	return association

@@ -16,7 +16,7 @@ func (relationship *Relationship) ManyToMany(field *StructField, modelStruct *Mo
 	relationship.Kind = MANY_TO_MANY
 	// if no foreign keys defined with tag
 	if foreignKeys.len() == 0 {
-		for _, field := range modelStruct.PrimaryFields {
+		for _, field := range modelStruct.primaryFields() {
 			foreignKeys.add(field.DBName)
 		}
 	}
@@ -86,7 +86,7 @@ func (relationship *Relationship) HasMany(field *StructField, modelStruct *Model
 	if foreignKeys.len() == 0 {
 		// if no association foreign keys defined with tag
 		if associationForeignKeys.len() == 0 {
-			for _, field := range modelStruct.PrimaryFields {
+			for _, field := range modelStruct.primaryFields() {
 				foreignKeys.add(associationType + field.GetName())
 				associationForeignKeys.add(field.GetName())
 			}
@@ -114,7 +114,7 @@ func (relationship *Relationship) HasMany(field *StructField, modelStruct *Model
 				associationForeignKeys = StrSlice{fromScope.PrimaryKey()}
 			}
 		} else if foreignKeys.len() != associationForeignKeys.len() {
-			fromScope.Err(errors.New("invalid foreign keys, should have same length"))
+			fromScope.Err(errors.New("RELATIONSHIP : invalid foreign keys, should have same length"))
 			return
 		}
 	}
@@ -171,7 +171,7 @@ func (relationship *Relationship) HasOne(field *StructField, fromModelStruct, to
 	if foreignKeys.len() == 0 {
 		// if no association foreign keys defined with tag
 		if associationForeignKeys.len() == 0 {
-			for _, primaryField := range fromModelStruct.PrimaryFields {
+			for _, primaryField := range fromModelStruct.primaryFields() {
 				foreignKeys.add(associationType + primaryField.GetName())
 				associationForeignKeys.add(primaryField.GetName())
 			}
@@ -200,7 +200,7 @@ func (relationship *Relationship) HasOne(field *StructField, fromModelStruct, to
 				associationForeignKeys = StrSlice{fromScope.PrimaryKey()}
 			}
 		} else if foreignKeys.len() != associationForeignKeys.len() {
-			fromScope.Err(errors.New("invalid foreign keys, should have same length"))
+			fromScope.Err(errors.New("RELATIONSHIP : invalid foreign keys, should have same length"))
 			return
 		}
 	}
@@ -263,7 +263,7 @@ func (relationship *Relationship) BelongTo(field *StructField, fromModelStruct, 
 					associationForeignKeys = StrSlice{toScope.PrimaryKey()}
 				}
 			} else if foreignKeys.len() != associationForeignKeys.len() {
-				fromScope.Err(errors.New("invalid foreign keys, should have same length"))
+				fromScope.Err(errors.New("RELATIONSHIP : invalid foreign keys, should have same length"))
 				return
 			}
 		}
