@@ -28,6 +28,8 @@ const (
 	TYPE                    uint8 = 18
 	UNIQUE                  uint8 = 19
 	SAVE_ASSOCIATIONS       uint8 = 20
+
+	key_not_found_err string = "TagSetting : COULDN'T FIND KEY FOR %q ON %q"
 )
 
 var (
@@ -86,7 +88,7 @@ func (ts *TagSettings) loadFromTags(str string) error {
 						ts.set(uint8Key, k)
 					}
 				} else {
-					return errors.New(fmt.Sprintf("TagSetting : COULDN'T FIND KEY FOR %q ON %q", k, str))
+					return errors.New(fmt.Sprintf(key_not_found_err, k, str))
 				}
 			}
 		}

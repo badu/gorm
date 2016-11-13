@@ -52,7 +52,7 @@ func (relationship *Relationship) ManyToMany(field *StructField,
 	var foreignKeys, associationForeignKeys StrSlice
 
 	relationship.Kind = MANY_TO_MANY
-	elemType := field.getTrueType()
+	elemType := field.Type
 	elemName := NamesMap.ToDBName(elemType.Name())
 	modelType := fromModel.ModelType
 	modelName := NamesMap.ToDBName(modelType.Name())

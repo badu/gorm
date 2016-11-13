@@ -12,8 +12,8 @@ import (
 const (
 	upper strCase = true
 
-	TAG_SQL  string = "sql"
-	TAG_GORM string = "gorm"
+	TAG_SQL         string = "sql"
+	TAG_GORM        string = "gorm"
 	DEFAULT_ID_NAME string = "id"
 )
 
@@ -32,9 +32,9 @@ type (
 
 		tagSettings TagSettings
 
-		Struct         reflect.StructField
-		Value          reflect.Value
-		UnderlyingType reflect.Type
+		Struct reflect.StructField
+		Value  reflect.Value
+		Type   reflect.Type
 
 		Relationship *Relationship
 	}
@@ -67,7 +67,7 @@ type (
 
 	// ModelStruct model definition
 	ModelStruct struct {
-		fieldsMap           fieldsMap
+		fieldsMap fieldsMap
 		//collected from fields.fields, so we won't iterate all the time
 		cachedPrimaryFields StructFields
 		ModelType           reflect.Type

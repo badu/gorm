@@ -43,6 +43,7 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
 - [x] renamed PrimaryFields to PKs, PrimaryField to PK
 - [x] polished relationship.go methods
 - [x] added errors on relationship.go when fields not found, but they break the tests (TODO : investigate why)
+- [x] got rid of checkInterfaces() method of ModelStruct (simplification)
 
 ## 12.11.2016
 - [x] switched bitflag from uint64 to uint16 (we really don't need more than 16 at the time)

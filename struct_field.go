@@ -65,28 +65,61 @@ func NewStructField(fieldStruct reflect.StructField) (*StructField, error) {
 	} else {
 		result.DBName = NamesMap.ToDBName(fieldStruct.Name)
 	}
-	//keeping the underlying type for later usage
-	result.UnderlyingType = fieldStruct.Type
 
-	for result.UnderlyingType.Kind() == reflect.Ptr {
-		//dereference it, it's a pointer
-		result.UnderlyingType = result.UnderlyingType.Elem()
+	//keeping the type for later usage
+	result.Type = fieldStruct.Type
+	for result.Type.Kind() == reflect.Slice || result.Type.Kind() == reflect.Ptr {
+		//dereference it
+		result.Type = result.Type.Elem()
 	}
 
-	if result.UnderlyingType.Kind() == reflect.Slice {
+	UnderlyingType := fieldStruct.Type
+	for UnderlyingType.Kind() == reflect.Ptr {
+		//dereference it, it's a pointer
+		UnderlyingType = UnderlyingType.Elem()
+	}
+
+	//ATTN : order matters, since it can be both slice and struct
+	if UnderlyingType.Kind() == reflect.Slice {
 		//mark it as slice
 		//result.IsSlice = true
 		result.setFlag(IS_SLICE)
 		//it's a slice of structs
-		if result.getTrueType().Kind() == reflect.Struct {
+		if result.Type.Kind() == reflect.Struct {
 			//mark it as struct
 			//result.IsStruct = true
 			result.setFlag(IS_STRUCT)
 		}
-	} else if result.UnderlyingType.Kind() == reflect.Struct {
+	} else if UnderlyingType.Kind() == reflect.Struct {
 		//mark it as struct
 		//result.IsStruct = true
 		result.setFlag(IS_STRUCT)
+	}
+
+	result.Value = reflect.New(UnderlyingType)
+	if !result.IsIgnored() {
+		_, isScanner := result.Value.Interface().(sql.Scanner)
+		_, isTime := result.Value.Interface().(*time.Time)
+		if isScanner {
+			// is scanner
+			result.setFlag(IS_NORMAL)
+			result.setFlag(IS_SCANNER)
+			if result.IsStruct() && !result.IsSlice() {
+				for i := 0; i < UnderlyingType.NumField(); i++ {
+					tag := UnderlyingType.Field(i).Tag
+					for _, str := range []string{tag.Get(TAG_SQL), tag.Get(TAG_GORM)} {
+						err := result.tagSettings.loadFromTags(str)
+						if err != nil {
+							return nil, err
+						}
+					}
+				}
+			}
+		} else if isTime {
+			// is time
+			result.setFlag(IS_NORMAL)
+			result.setFlag(IS_TIME)
+		}
 	}
 
 	return result, err
@@ -160,11 +193,34 @@ func (field *StructField) UnsetIsAutoIncrement() {
 	field.unsetFlag(IS_AUTOINCREMENT)
 }
 
+// Set set a value to the field
 func (field *StructField) SetIsAutoIncrement() {
 	field.setFlag(IS_AUTOINCREMENT)
 }
 
-// Set set a value to the field
+func (field *StructField) GetName() string {
+	return field.Struct.Name
+}
+
+//checks if has such a key (for code readability)
+func (field *StructField) GetTagSetting() TagSettings {
+	return field.tagSettings
+}
+
+//gets a key (for code readability)
+func (field *StructField) HasSetting(named uint8) bool {
+	return field.tagSettings.has(named)
+}
+
+func (field *StructField) GetSetting(named uint8) string {
+	return field.tagSettings.get(named)
+}
+
+func (field *StructField) SetJoinTableFK(value string) {
+	field.tagSettings.set(IS_JOINTABLE_FOREIGNKEY, value)
+}
+
+// ParseFieldStructForDialect parse field struct for dialect
 func (field *StructField) Set(value interface{}) error {
 	var err error
 	if !field.Value.IsValid() {
@@ -220,32 +276,29 @@ func (field *StructField) Set(value interface{}) error {
 	return err
 }
 
-func (field *StructField) GetName() string {
-	return field.Struct.Name
-}
+/**
+reflect.StructField{
+	// Name is the field name.
+	Name string
+	// PkgPath is the package path that qualifies a lower case (unexported)
+	// field name. It is empty for upper case (exported) field names.
+	// See https://golang.org/ref/spec#Uniqueness_of_identifiers
+	PkgPath string
 
-func (field *StructField) GetTagSetting() TagSettings {
-	return field.tagSettings
+	Type      Type      // field type
+	Tag       StructTag // field tag string
+	Offset    uintptr   // offset within struct, in bytes
+	Index     []int     // index sequence for Type.FieldByIndex
+	Anonymous bool      // is an embedded field
 }
+*/
 
-//checks if has such a key (for code readability)
-func (field *StructField) HasSetting(named uint8) bool {
-	return field.tagSettings.has(named)
-}
-
-//gets a key (for code readability)
-func (field *StructField) GetSetting(named uint8) string {
-	return field.tagSettings.get(named)
-}
-
-func (field *StructField) SetJoinTableFK(value string) {
-	field.tagSettings.set(IS_JOINTABLE_FOREIGNKEY, value)
-}
-
-// ParseFieldStructForDialect parse field struct for dialect
+//implementation of Stringer
+//TODO : fully implement it
 func (field *StructField) ParseFieldStructForDialect() (
 	fieldValue reflect.Value,
-	sqlType string, size int,
+	sqlType string,
+	size int,
 	additionalType string) {
 
 	// Get redirected field type
@@ -284,25 +337,9 @@ func (field *StructField) ParseFieldStructForDialect() (
 	return fieldValue, field.GetSetting(TYPE), size, strings.TrimSpace(additionalType)
 }
 
-/**
-reflect.StructField{
-	// Name is the field name.
-	Name string
-	// PkgPath is the package path that qualifies a lower case (unexported)
-	// field name. It is empty for upper case (exported) field names.
-	// See https://golang.org/ref/spec#Uniqueness_of_identifiers
-	PkgPath string
-
-	Type      Type      // field type
-	Tag       StructTag // field tag string
-	Offset    uintptr   // offset within struct, in bytes
-	Index     []int     // index sequence for Type.FieldByIndex
-	Anonymous bool      // is an embedded field
-}
-*/
-
-//implementation of Stringer
-//TODO : fully implement it
+////////////////////////////////////////////////////////////////////////////////
+// Private methods
+////////////////////////////////////////////////////////////////////////////////
 func (field StructField) String() string {
 	result := fmt.Sprintf("%q:%q", "FieldName", field.Struct.Name)
 	if field.Struct.PkgPath != "" {
@@ -314,9 +351,6 @@ func (field StructField) String() string {
 	return fmt.Sprint(result)
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// Private methods
-////////////////////////////////////////////////////////////////////////////////
 func (field StructField) hasFlag(value uint16) bool {
 	return field.flags&(1<<value) != 0
 }
@@ -329,44 +363,6 @@ func (field *StructField) unsetFlag(value uint16) {
 	field.flags = field.flags & ^(1 << value)
 }
 
-func (field *StructField) getTrueType() reflect.Type {
-	trueType := field.UnderlyingType
-	for trueType.Kind() == reflect.Slice || trueType.Kind() == reflect.Ptr {
-		//dereference it
-		trueType = trueType.Elem()
-	}
-	return trueType
-}
-
-func (field *StructField) checkInterfaces() interface{} {
-	newValue := reflect.New(field.UnderlyingType)
-	fieldValue := newValue.Interface()
-	_, isScanner := fieldValue.(sql.Scanner)
-	_, isTime := fieldValue.(*time.Time)
-	if isScanner {
-		// is scanner
-		field.setFlag(IS_NORMAL)
-		field.setFlag(IS_SCANNER)
-		if field.UnderlyingType.Kind() == reflect.Struct {
-			for i := 0; i < field.UnderlyingType.NumField(); i++ {
-				tag := field.UnderlyingType.Field(i).Tag
-				for _, str := range []string{tag.Get(TAG_SQL), tag.Get(TAG_GORM)} {
-					err := field.tagSettings.loadFromTags(str)
-					if err != nil {
-						fmt.Printf("ERROR processing Scanner tags : %v\n", err)
-					}
-				}
-			}
-		}
-
-	} else if isTime {
-		// is time
-		field.setFlag(IS_NORMAL)
-		field.setFlag(IS_TIME)
-	}
-	return fieldValue
-}
-
 func (field *StructField) clone() *StructField {
 	clone := &StructField{
 		flags:        field.flags,
@@ -375,6 +371,7 @@ func (field *StructField) clone() *StructField {
 		tagSettings:  field.tagSettings.clone(),
 		Struct:       field.Struct,
 		Relationship: field.Relationship,
+		Type:         field.Type,
 	}
 
 	return clone
@@ -389,6 +386,7 @@ func (field *StructField) cloneWithValue(value reflect.Value) *StructField {
 		Struct:       field.Struct,
 		Relationship: field.Relationship,
 		Value:        value,
+		Type:         field.Type,
 	}
 	//check if the value is blank
 	clone.setIsBlank()

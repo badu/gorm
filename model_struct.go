@@ -80,7 +80,8 @@ func (modelStruct *ModelStruct) Create(reflectType reflect.Type, scope *Scope) {
 			}
 			// is ignored field
 			if !field.IsIgnored() {
-				fieldValue := field.checkInterfaces()
+				//field Value is created with the new struct field
+				fieldValue := field.Value.Interface()
 				if !field.IsScanner() && !field.IsTime() {
 					if field.IsEmbedOrAnon() {
 						// is embedded struct
@@ -170,8 +171,7 @@ func (modelStruct *ModelStruct) processRelations(scope *Scope) {
 			toModelStruct := toScope.GetModelStruct()
 			//ATTN : order matters, since it can be both slice and struct
 			if field.IsSlice() {
-				elemType := field.getTrueType()
-				if elemType.Kind() == reflect.Struct {
+				if field.Type.Kind() == reflect.Struct {
 					if field.HasSetting(MANY2MANY) {
 						relationship.ManyToMany(field, modelStruct, scope, toScope)
 					} else {
