@@ -39,6 +39,7 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
 - [x] ModelStruct - fieldsMap struct has method PrimaryFields() which are cached into cachedPrimaryFields
 - [x] extracted string "id" into a const (Scope and ModelStruct)
 - [x] ModelStruct - method for number of primary fields
+- [x] Added flag for IS_AUTOINCREMENT (and logic for it)
 
 ## 12.11.2016
 - [x] switched bitflag from uint64 to uint16 (we really don't need more than 16 at the time)

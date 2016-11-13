@@ -12,18 +12,19 @@ import (
 
 const (
 	//bit flags - flags are uint16, which means we can use 16 flags
-	IS_PRIMARYKEY     uint8 = 0
-	IS_NORMAL         uint8 = 1
-	IS_IGNORED        uint8 = 2
-	IS_SCANNER        uint8 = 3
-	IS_TIME           uint8 = 4
-	HAS_DEFAULT_VALUE uint8 = 5
-	IS_FOREIGNKEY     uint8 = 6
-	IS_BLANK          uint8 = 7
-	IS_SLICE          uint8 = 8
-	IS_STRUCT         uint8 = 9
-	HAS_RELATIONS     uint8 = 10
-	IS_EMBED_OR_ANON  uint8 = 11
+	IS_PRIMARYKEY     uint16 = 0
+	IS_NORMAL         uint16 = 1
+	IS_IGNORED        uint16 = 2
+	IS_SCANNER        uint16 = 3
+	IS_TIME           uint16 = 4
+	HAS_DEFAULT_VALUE uint16 = 5
+	IS_FOREIGNKEY     uint16 = 6
+	IS_BLANK          uint16 = 7
+	IS_SLICE          uint16 = 8
+	IS_STRUCT         uint16 = 9
+	HAS_RELATIONS     uint16 = 10
+	IS_EMBED_OR_ANON  uint16 = 11
+	IS_AUTOINCREMENT  uint16 = 12
 )
 
 func NewStructField(fieldStruct reflect.StructField) (*StructField, error) {
@@ -35,23 +36,22 @@ func NewStructField(fieldStruct reflect.StructField) (*StructField, error) {
 	err := result.parseTagSettings()
 
 	if result.tagSettings.has(IGNORED) {
-		//result.IsIgnored = true
 		result.setFlag(IS_IGNORED)
 	}
 
 	if result.tagSettings.has(PRIMARY_KEY) {
-		//result.IsPrimaryKey = true
 		result.setFlag(IS_PRIMARYKEY)
 	}
 
 	if result.tagSettings.has(DEFAULT) {
-		//result.HasDefaultValue = true
 		result.setFlag(HAS_DEFAULT_VALUE)
 	}
 
-	if result.tagSettings.has(AUTO_INCREMENT) && !result.IsPrimaryKey() {
-		//result.HasDefaultValue = true
-		result.setFlag(HAS_DEFAULT_VALUE)
+	if result.tagSettings.has(AUTO_INCREMENT) {
+		result.setFlag(IS_AUTOINCREMENT)
+		if !result.IsPrimaryKey() {
+			result.setFlag(HAS_DEFAULT_VALUE)
+		}
 	}
 
 	if result.HasSetting(EMBEDDED) || fieldStruct.Anonymous {
@@ -152,6 +152,18 @@ func (field *StructField) IsEmbedOrAnon() bool {
 	return field.flags&(1<<IS_EMBED_OR_ANON) != 0
 }
 
+func (field *StructField) IsAutoIncrement() bool {
+	return field.flags&(1<<IS_AUTOINCREMENT) != 0
+}
+
+func (field *StructField) UnsetIsAutoIncrement() {
+	field.unsetFlag(IS_AUTOINCREMENT)
+}
+
+func (field *StructField) SetIsAutoIncrement() {
+	field.setFlag(IS_AUTOINCREMENT)
+}
+
 // Set set a value to the field
 func (field *StructField) Set(value interface{}) error {
 	var err error
@@ -226,14 +238,8 @@ func (field *StructField) GetSetting(named uint8) string {
 	return field.tagSettings.get(named)
 }
 
-//sets a key (for code readability)
-func (field *StructField) SetSetting(named uint8, value string) {
-	field.tagSettings.set(named, value)
-}
-
-//deletes a key (for code readability)
-func (field *StructField) UnsetSetting(named uint8) {
-	field.tagSettings.unset(named)
+func (field *StructField) SetJoinTableFK(value string) {
+	field.tagSettings.set(IS_JOINTABLE_FOREIGNKEY, value)
 }
 
 // ParseFieldStructForDialect parse field struct for dialect
@@ -311,15 +317,15 @@ func (field StructField) String() string {
 ////////////////////////////////////////////////////////////////////////////////
 // Private methods
 ////////////////////////////////////////////////////////////////////////////////
-func (field StructField) hasFlag(value uint8) bool {
+func (field StructField) hasFlag(value uint16) bool {
 	return field.flags&(1<<value) != 0
 }
 
-func (field *StructField) setFlag(value uint8) {
+func (field *StructField) setFlag(value uint16) {
 	field.flags = field.flags | (1 << value)
 }
 
-func (field *StructField) unsetFlag(value uint8) {
+func (field *StructField) unsetFlag(value uint16) {
 	field.flags = field.flags & ^(1 << value)
 }
 
@@ -382,9 +388,8 @@ func (field *StructField) cloneWithValue(value reflect.Value) *StructField {
 		tagSettings:  field.tagSettings.clone(),
 		Struct:       field.Struct,
 		Relationship: field.Relationship,
+		Value:        value,
 	}
-
-	clone.Value = value
 	//check if the value is blank
 	clone.setIsBlank()
 	return clone

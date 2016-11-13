@@ -43,9 +43,9 @@ func (mysql) DataTypeOf(field *StructField) string {
 	// MySQL allows only one auto increment column per table, and it must
 	// be a KEY column.
 	//TODO : @Badu : document that if it has auto_increment but it's not an index, we ignore auto_increment
-	if field.HasSetting(AUTO_INCREMENT) {
+	if field.IsAutoIncrement() {
 		if !field.HasSetting(INDEX) && !field.IsPrimaryKey() {
-			field.UnsetSetting(AUTO_INCREMENT)
+			field.UnsetIsAutoIncrement()
 		}
 	}
 
@@ -54,29 +54,29 @@ func (mysql) DataTypeOf(field *StructField) string {
 		case reflect.Bool:
 			sqlType = MYSQL_BOOLEAN_TYPE
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32:
-			if field.HasSetting(AUTO_INCREMENT) || field.IsPrimaryKey() {
-				field.SetSetting(AUTO_INCREMENT, "AUTO_INCREMENT")
+			if field.IsAutoIncrement() || field.IsPrimaryKey() {
+				field.SetIsAutoIncrement()
 				sqlType = fmt.Sprintf("%s %s", MYSQL_INT_TYPE, MYSQL_AUTO_INCREMENT)
 			} else {
 				sqlType = MYSQL_INT_TYPE
 			}
 		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uintptr:
-			if field.HasSetting(AUTO_INCREMENT) || field.IsPrimaryKey() {
-				field.SetSetting(AUTO_INCREMENT, "AUTO_INCREMENT")
+			if field.IsAutoIncrement() || field.IsPrimaryKey() {
+				field.SetIsAutoIncrement()
 				sqlType = fmt.Sprintf("%s %s %s", MYSQL_INT_TYPE, MYSQL_UNSIGNED, MYSQL_AUTO_INCREMENT)
 			} else {
 				sqlType = fmt.Sprintf("%s %s", MYSQL_INT_TYPE, MYSQL_UNSIGNED)
 			}
 		case reflect.Int64:
-			if field.HasSetting(AUTO_INCREMENT) || field.IsPrimaryKey() {
-				field.SetSetting(AUTO_INCREMENT, "AUTO_INCREMENT")
+			if field.IsAutoIncrement() || field.IsPrimaryKey() {
+				field.SetIsAutoIncrement()
 				sqlType = fmt.Sprintf("%s %s", MYSQL_BIGINT, MYSQL_AUTO_INCREMENT)
 			} else {
 				sqlType = MYSQL_BIGINT
 			}
 		case reflect.Uint64:
-			if field.HasSetting(AUTO_INCREMENT) || field.IsPrimaryKey() {
-				field.SetSetting(AUTO_INCREMENT, "AUTO_INCREMENT")
+			if field.IsAutoIncrement() || field.IsPrimaryKey() {
+				field.SetIsAutoIncrement()
 				sqlType = fmt.Sprintf("%s %s %s", MYSQL_BIGINT, MYSQL_UNSIGNED, MYSQL_AUTO_INCREMENT)
 			} else {
 				sqlType = fmt.Sprintf("%s %s", MYSQL_BIGINT, MYSQL_UNSIGNED)

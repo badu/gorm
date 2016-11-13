@@ -23,16 +23,15 @@ func (postgres) DataTypeOf(field *StructField) string {
 		case reflect.Bool:
 			sqlType = "boolean"
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uintptr:
-			if field.HasSetting(AUTO_INCREMENT) || field.IsPrimaryKey() {
-				field.SetSetting(AUTO_INCREMENT, "AUTO_INCREMENT")
+			if field.IsAutoIncrement() || field.IsPrimaryKey() {
+				field.SetIsAutoIncrement()
 				sqlType = "serial"
 			} else {
 				sqlType = "integer"
 			}
 		case reflect.Int64, reflect.Uint64:
-			//TODO : @Badu - make field IsAutoincrement FLAG
-			if field.HasSetting(AUTO_INCREMENT) || field.IsPrimaryKey() {
-				field.SetSetting(AUTO_INCREMENT, "AUTO_INCREMENT")
+			if field.IsAutoIncrement() || field.IsPrimaryKey() {
+				field.SetIsAutoIncrement()
 				sqlType = "bigserial"
 			} else {
 				sqlType = "bigint"

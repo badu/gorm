@@ -1016,8 +1016,8 @@ func (scope *Scope) createJoinTable(field *StructField) {
 					foreignKeyStruct := field.clone()
 					foreignKeyStruct.unsetFlag(IS_PRIMARYKEY)
 					//TODO : @Badu - document that you cannot use IS_JOINTABLE_FOREIGNKEY in conjunction with AUTO_INCREMENT
-					foreignKeyStruct.SetSetting(IS_JOINTABLE_FOREIGNKEY, "true")
-					foreignKeyStruct.UnsetSetting(AUTO_INCREMENT)
+					foreignKeyStruct.SetJoinTableFK("true")
+					foreignKeyStruct.UnsetIsAutoIncrement()
 					sqlTypes = append(sqlTypes, scope.Quote(relationship.ForeignDBNames[idx])+" "+scope.Dialect().DataTypeOf(foreignKeyStruct))
 					primaryKeys = append(primaryKeys, scope.Quote(relationship.ForeignDBNames[idx]))
 				}
@@ -1028,8 +1028,8 @@ func (scope *Scope) createJoinTable(field *StructField) {
 					foreignKeyStruct := field.clone()
 					foreignKeyStruct.unsetFlag(IS_PRIMARYKEY)
 					//TODO : @Badu - document that you cannot use IS_JOINTABLE_FOREIGNKEY in conjunction with AUTO_INCREMENT
-					foreignKeyStruct.SetSetting(IS_JOINTABLE_FOREIGNKEY, "true")
-					foreignKeyStruct.UnsetSetting(AUTO_INCREMENT)
+					foreignKeyStruct.SetJoinTableFK("true")
+					foreignKeyStruct.UnsetIsAutoIncrement()
 					sqlTypes = append(sqlTypes, scope.Quote(relationship.AssociationForeignDBNames[idx])+" "+scope.Dialect().DataTypeOf(foreignKeyStruct))
 					primaryKeys = append(primaryKeys, scope.Quote(relationship.AssociationForeignDBNames[idx]))
 				}
