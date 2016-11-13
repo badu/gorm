@@ -1008,7 +1008,7 @@ func (scope *Scope) createJoinTable(field *StructField) {
 		joinTableHandler := relationship.JoinTableHandler
 		joinTable := joinTableHandler.Table(scope.con)
 		if !scope.Dialect().HasTable(joinTable) {
-			toScope := &Scope{Value: reflect.New(field.Struct.Type).Interface()}
+			toScope := &Scope{Value: field.Interface()}
 
 			var sqlTypes, primaryKeys []string
 			for idx, fieldName := range relationship.ForeignFieldNames {
@@ -1499,7 +1499,7 @@ func (scope *Scope) handleManyToManyPreload(field *StructField, conditions []int
 	preloadDB, preloadConditions := scope.generatePreloadDBWithConditions(conditions)
 
 	// generate query with join table
-	newScope := scope.New(reflect.New(fieldType).Interface())
+	newScope := scope.New(field.Interface())
 	preloadDB = preloadDB.Table(newScope.TableName()).Model(newScope.Value).Select("*")
 	preloadDB = joinTableHandler.JoinWith(joinTableHandler, preloadDB, scope.Value)
 

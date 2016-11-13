@@ -125,6 +125,10 @@ func NewStructField(fieldStruct reflect.StructField) (*StructField, error) {
 	return result, err
 }
 
+func (field *StructField) Interface() interface{} {
+	return reflect.New(field.Type).Interface()
+}
+
 func (field *StructField) IsPrimaryKey() bool {
 	return field.flags&(1<<IS_PRIMARYKEY) != 0
 }
@@ -293,8 +297,6 @@ reflect.StructField{
 }
 */
 
-//implementation of Stringer
-//TODO : fully implement it
 func (field *StructField) ParseFieldStructForDialect() (
 	fieldValue reflect.Value,
 	sqlType string,
@@ -337,9 +339,8 @@ func (field *StructField) ParseFieldStructForDialect() (
 	return fieldValue, field.GetSetting(TYPE), size, strings.TrimSpace(additionalType)
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// Private methods
-////////////////////////////////////////////////////////////////////////////////
+//implementation of Stringer
+//TODO : fully implement it
 func (field StructField) String() string {
 	result := fmt.Sprintf("%q:%q", "FieldName", field.Struct.Name)
 	if field.Struct.PkgPath != "" {
@@ -351,6 +352,9 @@ func (field StructField) String() string {
 	return fmt.Sprint(result)
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// Private methods
+////////////////////////////////////////////////////////////////////////////////
 func (field StructField) hasFlag(value uint16) bool {
 	return field.flags&(1<<value) != 0
 }

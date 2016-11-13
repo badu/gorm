@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"reflect"
 	"strings"
 	"time"
 )
@@ -562,7 +561,7 @@ func (con *DBCon) SetJoinTableHandler(source interface{}, column string, handler
 		if field.GetName() == column || field.DBName == column {
 			if field.HasSetting(MANY2MANY) {
 				src := (&Scope{Value: source}).GetModelStruct().ModelType
-				destination := (&Scope{Value: reflect.New(field.Struct.Type).Interface()}).GetModelStruct().ModelType
+				destination := (&Scope{Value: field.Interface()}).GetModelStruct().ModelType
 				handler.SetTable(field.GetSetting(MANY2MANY))
 				handler.Setup(field.Relationship, src, destination)
 				field.Relationship.JoinTableHandler = handler

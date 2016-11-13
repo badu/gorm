@@ -7,7 +7,6 @@
 - [ ] Extract strings from code (make constants)
 - [ ] Collect errors and their messages in one place
 - [ ] replace slices of strings with Collector
-- [ ] make StructField be able to provide a value
 - [ ] Relationships should be kept by ModelStruct (to accept many)
 
 # Comments and thoughts
@@ -44,6 +43,9 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
 - [x] polished relationship.go methods
 - [x] added errors on relationship.go when fields not found, but they break the tests (TODO : investigate why)
 - [x] got rid of checkInterfaces() method of ModelStruct (simplification)
+- [x] make StructField be able to provide a value's interface (Interface() method)
+- [x] make ModelStruct be able to provide a value's interface (Interface() method)
+- [x] cleanup reflect.New(blah... blah) - replaced with Interface() call (WIP)
 
 ## 12.11.2016
 - [x] switched bitflag from uint64 to uint16 (we really don't need more than 16 at the time)

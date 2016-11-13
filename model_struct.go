@@ -24,6 +24,10 @@ func (modelStruct *ModelStruct) StructFields() StructFields {
 	return modelStruct.fieldsMap.fields
 }
 
+func (modelStruct *ModelStruct) Interface() interface{} {
+	return reflect.New(modelStruct.ModelType).Interface()
+}
+
 func (modelStruct *ModelStruct) HasColumn(column string) bool {
 	//looking for it
 	field, ok := modelStruct.fieldsMap.Get(column)
@@ -167,7 +171,7 @@ func (modelStruct *ModelStruct) processRelations(scope *Scope) {
 	for _, field := range modelStruct.StructFields() {
 		if field.HasRelations() {
 			relationship := &Relationship{}
-			toScope := scope.New(reflect.New(field.Struct.Type).Interface())
+			toScope := scope.New(field.Interface())
 			toModelStruct := toScope.GetModelStruct()
 			//ATTN : order matters, since it can be both slice and struct
 			if field.IsSlice() {

@@ -168,6 +168,6 @@ func (s JoinTableHandler) JoinWith(handler JoinTableHandlerInterface, db *DBCon,
 			Where(condString, toQueryValues(foreignFieldValues)...)
 	}
 
-	db.Error = errors.New("JOINTABLEHANDLER : wrong source type for join table handler")
+	db.Error = errors.New("JOwrong source type for join table handler")
 	return db
 }

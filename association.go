@@ -72,7 +72,7 @@ func (association *Association) Replace(values ...interface{}) *Association {
 			var associationForeignFieldNames, associationForeignDBNames StrSlice
 			if relationship.Kind == MANY_TO_MANY {
 				// if many to many relations, get association fields name from association foreign keys
-				associationScope := scope.New(reflect.New(field.Type()).Interface())
+				associationScope := scope.New(field.Interface())
 				for idx, dbName := range relationship.AssociationForeignFieldNames {
 					if field, ok := associationScope.FieldByName(dbName); ok {
 						associationForeignFieldNames.add(field.GetName())
@@ -81,7 +81,7 @@ func (association *Association) Replace(values ...interface{}) *Association {
 				}
 			} else {
 				// If has one/many relations, use primary keys
-				for _, field := range scope.New(reflect.New(field.Type()).Interface()).PKs() {
+				for _, field := range scope.New(field.Interface()).PKs() {
 					associationForeignFieldNames.add(field.GetName())
 					associationForeignDBNames.add(field.DBName)
 				}
@@ -120,7 +120,7 @@ func (association *Association) Replace(values ...interface{}) *Association {
 				}
 			}
 
-			fieldValue := reflect.New(association.field.Value.Type()).Interface()
+			fieldValue := association.field.Interface()
 			association.setErr(newDB.Model(fieldValue).UpdateColumn(foreignKeyMap).Error)
 		}
 	}
@@ -145,7 +145,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 	}
 
 	var deletingResourcePrimaryFieldNames, deletingResourcePrimaryDBNames StrSlice
-	for _, field := range scope.New(reflect.New(field.Type()).Interface()).PKs() {
+	for _, field := range scope.New(field.Interface()).PKs() {
 		deletingResourcePrimaryFieldNames.add(field.GetName())
 		deletingResourcePrimaryDBNames.add(field.DBName)
 	}
@@ -161,7 +161,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 		}
 
 		// get association's foreign fields name
-		var associationScope = scope.New(reflect.New(field.Type()).Interface())
+		var associationScope = scope.New(field.Interface())
 		var associationForeignFieldNames StrSlice
 		for _, associationDBName := range relationship.AssociationForeignFieldNames {
 			if field, ok := associationScope.FieldByName(associationDBName); ok {
@@ -190,7 +190,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 			)
 
 			// set foreign key to be null if there are some records affected
-			modelValue := reflect.New(scope.GetModelStruct().ModelType).Interface()
+			modelValue := scope.GetModelStruct().Interface()
 			if results := newDB.Model(modelValue).UpdateColumn(foreignKeyMap); results.Error == nil {
 				if results.RowsAffected > 0 {
 					scope.updatedAttrsWithValues(foreignKeyMap)
@@ -213,7 +213,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 			)
 
 			// set matched relation's foreign key to be null
-			fieldValue := reflect.New(association.field.Value.Type()).Interface()
+			fieldValue := association.field.Interface()
 			association.setErr(newDB.Model(fieldValue).UpdateColumn(foreignKeyMap).Error)
 		}
 	}
@@ -302,7 +302,7 @@ func (association *Association) saveAssociations(values ...interface{}) *Associa
 		field        = association.field
 		relationship = field.Relationship
 	)
-
+	//TODO : @Badu - function
 	saveAssociation := func(reflectValue reflect.Value) {
 		// value has to been pointer
 		if reflectValue.Kind() != reflect.Ptr {
