@@ -117,7 +117,7 @@ func (scope *Scope) FieldByName(name string) (*StructField, bool) {
 }
 
 // PrimaryFields return scope's primary fields
-func (scope *Scope) PrimaryFields() StructFields {
+func (scope *Scope) PKs() StructFields {
 	var fields StructFields
 	for _, field := range scope.Fields() {
 		if field.IsPrimaryKey() {
@@ -128,8 +128,8 @@ func (scope *Scope) PrimaryFields() StructFields {
 }
 
 // PrimaryField return scope's main primary field, if defined more that one primary fields, will return the one having column name `id` or the first one
-func (scope *Scope) PrimaryField() *StructField {
-	primaryFieldsLen := scope.GetModelStruct().noOfPrimaryFields()
+func (scope *Scope) PK() *StructField {
+	primaryFieldsLen := scope.GetModelStruct().noOfPKs()
 	if primaryFieldsLen > 0 {
 		if primaryFieldsLen > 1 {
 			if field, ok := scope.FieldByName(DEFAULT_ID_NAME); ok {
@@ -137,7 +137,7 @@ func (scope *Scope) PrimaryField() *StructField {
 			}
 		}
 		//and return the first one
-		return scope.PrimaryFields()[0]
+		return scope.PKs()[0]
 	}
 
 	//TODO : @Badu - investigate where this is called and gets the nil
@@ -145,8 +145,8 @@ func (scope *Scope) PrimaryField() *StructField {
 }
 
 // PrimaryKey get main primary field's db name
-func (scope *Scope) PrimaryKey() string {
-	if field := scope.PrimaryField(); field != nil {
+func (scope *Scope) PKName() string {
+	if field := scope.PK(); field != nil {
 		return field.DBName
 	}
 	return ""
@@ -154,13 +154,13 @@ func (scope *Scope) PrimaryKey() string {
 
 // PrimaryKeyZero check main primary field's value is blank or not
 func (scope *Scope) PrimaryKeyZero() bool {
-	field := scope.PrimaryField()
+	field := scope.PK()
 	return field == nil || field.IsBlank()
 }
 
 // PrimaryKeyValue get the primary key's value
 func (scope *Scope) PrimaryKeyValue() interface{} {
-	if field := scope.PrimaryField(); field != nil && field.Value.IsValid() {
+	if field := scope.PK(); field != nil && field.Value.IsValid() {
 		return field.Value.Interface()
 	}
 	return 0
@@ -492,7 +492,7 @@ func (scope *Scope) scan(rows *sql.Rows, columns []string, fields StructFields) 
 }
 
 func (scope *Scope) primaryCondition(value interface{}) string {
-	return fmt.Sprintf("(%v.%v = %v)", scope.QuotedTableName(), scope.Quote(scope.PrimaryKey()), value)
+	return fmt.Sprintf("(%v.%v = %v)", scope.QuotedTableName(), scope.Quote(scope.PKName()), value)
 }
 
 func (scope *Scope) buildWhereCondition(clause map[string]interface{}) string {
@@ -508,7 +508,7 @@ func (scope *Scope) buildWhereCondition(clause map[string]interface{}) string {
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, sql.NullInt64:
 		return scope.primaryCondition(scope.AddToVars(value))
 	case []int, []int8, []int16, []int32, []int64, []uint, []uint8, []uint16, []uint32, []uint64, []string, []interface{}:
-		str = fmt.Sprintf("(%v.%v IN (?))", scope.QuotedTableName(), scope.Quote(scope.PrimaryKey()))
+		str = fmt.Sprintf("(%v.%v IN (?))", scope.QuotedTableName(), scope.Quote(scope.PKName()))
 		clause["args"] = []interface{}{value}
 	case map[string]interface{}:
 		var sqls []string
@@ -560,7 +560,7 @@ func (scope *Scope) buildWhereCondition(clause map[string]interface{}) string {
 func (scope *Scope) buildNotCondition(clause map[string]interface{}) string {
 	var str string
 	var notEqualSQL string
-	var primaryKey = scope.PrimaryKey()
+	var primaryKey = scope.PKName()
 
 	switch value := clause["query"].(type) {
 	case string:
@@ -671,7 +671,7 @@ func (scope *Scope) whereSQL() string {
 	}
 
 	if !scope.PrimaryKeyZero() {
-		for _, field := range scope.PrimaryFields() {
+		for _, field := range scope.PKs() {
 			aStr := fmt.Sprintf("%v.%v = %v", quotedTableName, scope.Quote(field.DBName), scope.AddToVars(field.Value.Interface()))
 			primaryConditions = append(primaryConditions, aStr)
 		}
@@ -979,7 +979,7 @@ func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
 					scope.Err(query.Find(value).Error)
 				}
 			} else {
-				aStr := fmt.Sprintf("%v = ?", scope.Quote(toScope.PrimaryKey()))
+				aStr := fmt.Sprintf("%v = ?", scope.Quote(toScope.PKName()))
 				scope.Err(toScope.con.Where(aStr, fromField.Value.Interface()).Find(value).Error)
 			}
 			return scope
@@ -1649,7 +1649,7 @@ func (scope *Scope) createCallback() {
 		var (
 			returningColumn = "*"
 			quotedTableName = scope.QuotedTableName()
-			primaryField    = scope.PrimaryField()
+			primaryField    = scope.PK()
 			extraOption     string
 		)
 
@@ -1917,7 +1917,7 @@ func (scope *Scope) queryCallback() {
 	)
 
 	if orderBy, ok := scope.Get("gorm:order_by_primary_key"); ok {
-		if primaryField := scope.PrimaryField(); primaryField != nil {
+		if primaryField := scope.PK(); primaryField != nil {
 			scope.Search.Order(fmt.Sprintf("%v.%v %v", scope.QuotedTableName(), scope.Quote(primaryField.DBName), orderBy))
 		}
 	}

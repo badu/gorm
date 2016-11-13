@@ -40,6 +40,9 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
 - [x] extracted string "id" into a const (Scope and ModelStruct)
 - [x] ModelStruct - method for number of primary fields
 - [x] Added flag for IS_AUTOINCREMENT (and logic for it)
+- [x] renamed PrimaryFields to PKs, PrimaryField to PK
+- [x] polished relationship.go methods
+- [x] added errors on relationship.go when fields not found, but they break the tests (TODO : investigate why)
 
 ## 12.11.2016
 - [x] switched bitflag from uint64 to uint16 (we really don't need more than 16 at the time)

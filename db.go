@@ -511,7 +511,7 @@ func (con *DBCon) AddForeignKey(field string, dest string, onDelete string, onUp
 func (con *DBCon) Association(column string) *Association {
 	var err error
 	scope := con.clone(false, false).NewScope(con.Value)
-	primaryField := scope.PrimaryField()
+	primaryField := scope.PK()
 	if primaryField == nil {
 		err = errors.New("SCOPE : primary field is NIL")
 	}
@@ -560,10 +560,10 @@ func (con *DBCon) SetJoinTableHandler(source interface{}, column string, handler
 	scope := con.NewScope(source)
 	for _, field := range scope.GetModelStruct().StructFields() {
 		if field.GetName() == column || field.DBName == column {
-			if many2many := field.GetSetting(MANY2MANY); many2many != "" {
+			if field.HasSetting(MANY2MANY) {
 				src := (&Scope{Value: source}).GetModelStruct().ModelType
 				destination := (&Scope{Value: reflect.New(field.Struct.Type).Interface()}).GetModelStruct().ModelType
-				handler.SetTable(many2many)
+				handler.SetTable(field.GetSetting(MANY2MANY))
 				handler.Setup(field.Relationship, src, destination)
 				field.Relationship.JoinTableHandler = handler
 				if table := handler.Table(con); scope.Dialect().HasTable(table) {
@@ -611,7 +611,7 @@ func (con *DBCon) GetErrors() []error {
 //clone - blank param is for copying values and search as well
 func (con *DBCon) clone(withoutValues bool, withoutSearch bool) *DBCon {
 	clone := DBCon{
-		sqli:      con.sqli,
+		sqli:    con.sqli,
 		parent:  con.parent,
 		logger:  con.logger,
 		logMode: con.logMode,

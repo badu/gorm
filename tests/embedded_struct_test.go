@@ -33,7 +33,7 @@ func TestSaveAndQueryEmbeddedStruct(t *testing.T) {
 		t.Errorf("embedded struct's value should be scanned correctly")
 	}
 
-	if TestDB.NewScope(&HNPost{}).PrimaryField() == nil {
+	if TestDB.NewScope(&HNPost{}).PK() == nil {
 		t.Errorf("primary key with embedded struct should works")
 	}
 

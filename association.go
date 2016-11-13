@@ -81,7 +81,7 @@ func (association *Association) Replace(values ...interface{}) *Association {
 				}
 			} else {
 				// If has one/many relations, use primary keys
-				for _, field := range scope.New(reflect.New(field.Type()).Interface()).PrimaryFields() {
+				for _, field := range scope.New(reflect.New(field.Type()).Interface()).PKs() {
 					associationForeignFieldNames.add(field.GetName())
 					associationForeignDBNames.add(field.DBName)
 				}
@@ -145,7 +145,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 	}
 
 	var deletingResourcePrimaryFieldNames, deletingResourcePrimaryDBNames StrSlice
-	for _, field := range scope.New(reflect.New(field.Type()).Interface()).PrimaryFields() {
+	for _, field := range scope.New(reflect.New(field.Type()).Interface()).PKs() {
 		deletingResourcePrimaryFieldNames.add(field.GetName())
 		deletingResourcePrimaryDBNames.add(field.DBName)
 	}

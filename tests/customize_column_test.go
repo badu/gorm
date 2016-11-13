@@ -17,8 +17,8 @@ func TestCustomizeColumn(t *testing.T) {
 	}
 
 	col = "mapped_id"
-	if scope.PrimaryKey() != col {
-		t.Errorf("CustomizeColumn should have primary key %s, but got %q", col, scope.PrimaryKey())
+	if scope.PKName() != col {
+		t.Errorf("CustomizeColumn should have primary key %s, but got %q", col, scope.PKName())
 	}
 
 	expected := "foo"

@@ -10,13 +10,18 @@ import (
 )
 
 const (
-	proc_tag_err  string = "ModelStruct %q processing tags error : %v"
-	add_field_err string = "ModelStruct %q add field error : %v"
+	proc_tag_err            string = "ModelStruct %q processing tags error : %v"
+	add_field_err           string = "ModelStruct %q add field error : %v"
+	no_belong_or_hasone_err string = "%q (%q [%q]) is HAS ONE / BELONG TO missing"
 )
 
 // TableName get model's table name
 func (modelStruct *ModelStruct) TableName(db *DBCon) string {
 	return DefaultTableNameHandler(db, modelStruct.defaultTableName)
+}
+
+func (modelStruct *ModelStruct) StructFields() StructFields {
+	return modelStruct.fieldsMap.fields
 }
 
 func (modelStruct *ModelStruct) HasColumn(column string) bool {
@@ -29,6 +34,20 @@ func (modelStruct *ModelStruct) HasColumn(column string) bool {
 		}
 	}
 	return false
+}
+
+func (modelStruct *ModelStruct) FieldByName(column string) (*StructField, bool) {
+	field, ok := modelStruct.fieldsMap.Get(column)
+	if !ok {
+		//couldn't find it in "fields" map
+		for _, field := range modelStruct.StructFields() {
+			if field.DBName == NamesMap.ToDBName(column) {
+				return field, true
+			}
+		}
+		return nil, false
+	}
+	return field, ok
 }
 
 func (modelStruct *ModelStruct) Create(reflectType reflect.Type, scope *Scope) {
@@ -100,7 +119,7 @@ func (modelStruct *ModelStruct) Create(reflectType reflect.Type, scope *Scope) {
 		}
 	}
 
-	if modelStruct.noOfPrimaryFields() == 0 {
+	if modelStruct.noOfPKs() == 0 {
 		//by default we're expecting that the modelstruct has a field named id
 		if field, ok := modelStruct.fieldsMap.Get(DEFAULT_ID_NAME); ok {
 			field.setFlag(IS_PRIMARYKEY)
@@ -109,42 +128,24 @@ func (modelStruct *ModelStruct) Create(reflectType reflect.Type, scope *Scope) {
 	}
 }
 
-func (modelStruct *ModelStruct) StructFields() StructFields {
-	return modelStruct.fieldsMap.fields
-}
-
-func (modelStruct *ModelStruct) primaryFields() StructFields {
+func (modelStruct *ModelStruct) PKs() StructFields {
 	if modelStruct.cachedPrimaryFields == nil {
 		modelStruct.cachedPrimaryFields = modelStruct.fieldsMap.PrimaryFields()
 	}
 	return modelStruct.cachedPrimaryFields
 }
 
-func (modelStruct *ModelStruct) noOfPrimaryFields() int {
+func (modelStruct *ModelStruct) noOfPKs() int {
 	if modelStruct.cachedPrimaryFields == nil {
 		modelStruct.cachedPrimaryFields = modelStruct.fieldsMap.PrimaryFields()
 	}
 	return modelStruct.cachedPrimaryFields.len()
 }
 
-func (modelStruct *ModelStruct) FieldByName(column string) (*StructField, bool) {
-	field, ok := modelStruct.fieldsMap.Get(column)
-	if !ok {
-		//couldn't find it in "fields" map
-		for _, field := range modelStruct.StructFields() {
-			if field.DBName == NamesMap.ToDBName(column) {
-				return field, true
-			}
-		}
-		return nil, false
-	}
-	return field, ok
-}
-
 func (modelStruct *ModelStruct) cloneFieldsToScope(indirectScopeValue reflect.Value) *StructFields {
 	var result StructFields
 	//Badu : can't use copy, we need to clone
-	for _, structField := range modelStruct.StructFields() {
+	for _, structField := range modelStruct.fieldsMap.fields {
 		if indirectScopeValue.Kind() == reflect.Struct {
 			fieldValue := indirectScopeValue
 			for _, name := range structField.Names {
@@ -166,22 +167,26 @@ func (modelStruct *ModelStruct) processRelations(scope *Scope) {
 		if field.HasRelations() {
 			relationship := &Relationship{}
 			toScope := scope.New(reflect.New(field.Struct.Type).Interface())
+			toModelStruct := toScope.GetModelStruct()
 			//ATTN : order matters, since it can be both slice and struct
 			if field.IsSlice() {
 				elemType := field.getTrueType()
 				if elemType.Kind() == reflect.Struct {
 					if field.HasSetting(MANY2MANY) {
-						relationship.ManyToMany(field, modelStruct, toScope)
+						relationship.ManyToMany(field, modelStruct, scope, toScope)
 					} else {
-						relationship.HasMany(field, modelStruct, scope, toScope)
+						relationship.HasMany(field, modelStruct, toModelStruct, scope, toScope)
 					}
 				} else {
 					field.SetIsNormal()
 				}
 			} else if field.IsStruct() {
-				toModelStruct := toScope.GetModelStruct()
-				relationship.HasOne(field, modelStruct, toModelStruct, scope)
-				relationship.BelongTo(field, modelStruct, toModelStruct, scope, toScope)
+				if !relationship.HasOne(field, modelStruct, toModelStruct, scope, toScope) {
+					if !relationship.BelongTo(field, modelStruct, toModelStruct, scope, toScope) {
+						errMsg := fmt.Sprintf(no_belong_or_hasone_err, modelStruct.ModelType.Name(), field.DBName, field.GetName())
+						scope.Err(errors.New(errMsg))
+					}
+				}
 			}
 		}
 	}
