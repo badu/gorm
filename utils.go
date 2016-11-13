@@ -195,7 +195,7 @@ func Open(dialectName string, args ...interface{}) (*DBCon, error) {
 		logger:   defaultLogger,
 		callback: &Callback{},
 		source:   source,
-		values:   map[string]interface{}{},
+		settings:   map[string]interface{}{},
 		sqli:     dbSQL,
 	}
 	//register all default callbacks

@@ -314,6 +314,7 @@ func (scope *Scope) Get(name string) (interface{}, bool) {
 // InstanceID get InstanceID for scope
 func (scope *Scope) InstanceID() string {
 	if scope.instanceID == "" {
+		//TODO : @Badu - aren't there all sort of better ways???
 		scope.instanceID = fmt.Sprintf("%v%v", &scope, &scope.con)
 	}
 	return scope.instanceID
@@ -416,11 +417,9 @@ func (scope *Scope) callMethod(methodName string, reflectValue reflect.Value) {
 		switch method := methodValue.Interface().(type) {
 		case func():
 			method()
-			//TODO : @Badu - see if we can use ScopedFunc
 		case func(*Scope):
 			method(scope)
 		case func(*DBCon):
-			//TODO : @Badu - see if we can use ScopedFunc and add DBConFunc - type DBConFunc func(*DBCon)
 			newDB := scope.NewCon()
 			method(newDB)
 			scope.Err(newDB.Error)
@@ -1008,7 +1007,7 @@ func (scope *Scope) createJoinTable(field *StructField) {
 		joinTableHandler := relationship.JoinTableHandler
 		joinTable := joinTableHandler.Table(scope.con)
 		if !scope.Dialect().HasTable(joinTable) {
-			toScope := &Scope{Value: field.Interface()}
+			toScope := &Scope{Value: reflect.New(field.Struct.Type).Interface()}
 
 			var sqlTypes, primaryKeys []string
 			for idx, fieldName := range relationship.ForeignFieldNames {
@@ -1499,7 +1498,7 @@ func (scope *Scope) handleManyToManyPreload(field *StructField, conditions []int
 	preloadDB, preloadConditions := scope.generatePreloadDBWithConditions(conditions)
 
 	// generate query with join table
-	newScope := scope.New(field.Interface())
+	newScope := scope.New(reflect.New(fieldType).Interface())
 	preloadDB = preloadDB.Table(newScope.TableName()).Model(newScope.Value).Select("*")
 	preloadDB = joinTableHandler.JoinWith(joinTableHandler, preloadDB, scope.Value)
 

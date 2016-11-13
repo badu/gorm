@@ -544,13 +544,13 @@ func (con *DBCon) Set(name string, value interface{}) *DBCon {
 
 // InstantSet instant set setting, will affect current db
 func (con *DBCon) InstantSet(name string, value interface{}) *DBCon {
-	con.values[name] = value
+	con.settings[name] = value
 	return con
 }
 
 // Get get setting by name
 func (con *DBCon) Get(name string) (value interface{}, ok bool) {
-	value, ok = con.values[name]
+	value, ok = con.settings[name]
 	return
 }
 
@@ -608,19 +608,19 @@ func (con *DBCon) GetErrors() []error {
 // Private Methods For *gorm.DBCon
 ////////////////////////////////////////////////////////////////////////////////
 //clone - blank param is for copying values and search as well
-func (con *DBCon) clone(withoutValues bool, withoutSearch bool) *DBCon {
+func (con *DBCon) clone(withoutSettings bool, withoutSearch bool) *DBCon {
 	clone := DBCon{
 		sqli:    con.sqli,
 		parent:  con.parent,
 		logger:  con.logger,
 		logMode: con.logMode,
-		values:  map[string]interface{}{},
+		settings:  map[string]interface{}{},
 		Value:   con.Value,
 		Error:   con.Error,
 	}
-	if !withoutValues {
-		for key, value := range con.values {
-			clone.values[key] = value
+	if !withoutSettings {
+		for key, value := range con.settings {
+			clone.settings[key] = value
 		}
 	}
 	if !withoutSearch {

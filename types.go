@@ -122,21 +122,21 @@ type (
 
 	// DBCon contains information for current db connection
 	DBCon struct {
-		parent  *DBCon
-		dialect Dialect
-		Value   interface{}
-		values  map[string]interface{}
+		parent        *DBCon
+		dialect       Dialect
+		Value         interface{}
+		settings      map[string]interface{}
 
-		Error error
+		Error         error
 
-		callback *Callback
-		sqli     sqlInterf
+		callback      *Callback
+		sqli          sqlInterf
 
-		search       *search
-		RowsAffected int64
+		search        *search
+		RowsAffected  int64
 
-		logMode int
-		logger  logger
+		logMode       int
+		logger        logger
 
 		singularTable bool
 		source        string
@@ -157,8 +157,10 @@ type (
 		DeletedAt *time.Time `sql:"index"`
 	}
 
+	//used for callbacks
 	ScopedFuncs []*ScopedFunc
 	ScopedFunc  func(*Scope)
+
 	//easier to read and can apply methods
 	CallbackProcessors []*CallbackProcessor
 	// Callback is a struct that contains all CURD callbacks

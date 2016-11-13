@@ -822,24 +822,30 @@ func DialectHasTzSupport() bool {
 }
 
 func OpenTestConnection() (db *gorm.DBCon, err error) {
-	switch os.Getenv("GORM_DIALECT") {
+
+	osDialect := os.Getenv("GORM_DIALECT")
+	osDBAddress := os.Getenv("GORM_DBADDRESS")
+
+	osDialect = "mysql"
+	osDBAddress = "127.0.0.1:3306"
+
+	switch osDialect {
 	case "mysql":
 		// CREATE USER 'gorm'@'localhost' IDENTIFIED BY 'gorm';
 		// CREATE DATABASE gorm;
 		// GRANT ALL ON * TO 'gorm'@'localhost';
 		fmt.Println("testing mysql...")
-		dbhost := os.Getenv("GORM_DBADDRESS")
-		if dbhost != "" {
-			dbhost = fmt.Sprintf("tcp(%v)", dbhost)
+
+		if osDBAddress != "" {
+			osDBAddress = fmt.Sprintf("tcp(%v)", osDBAddress)
 		}
-		db, err = gorm.Open("mysql", fmt.Sprintf("gorm:gorm@%v/gorm?charset=utf8&parseTime=True", dbhost))
+		db, err = gorm.Open("mysql", fmt.Sprintf("root:@%v/gorm?charset=utf8&parseTime=True", osDBAddress))
 	case "postgres":
 		fmt.Println("testing postgres...")
-		dbhost := os.Getenv("GORM_DBHOST")
-		if dbhost != "" {
-			dbhost = fmt.Sprintf("host=%v ", dbhost)
+		if osDBAddress != "" {
+			osDBAddress = fmt.Sprintf("host=%v ", osDBAddress)
 		}
-		db, err = gorm.Open("postgres", fmt.Sprintf("%vuser=gorm password=gorm DB.name=gorm sslmode=disable", dbhost))
+		db, err = gorm.Open("postgres", fmt.Sprintf("%vuser=gorm password=gorm DB.name=gorm sslmode=disable", osDBAddress))
 	case "foundation":
 		fmt.Println("testing foundation...")
 		db, err = gorm.Open("foundation", "dbname=gorm port=15432 sslmode=disable")
