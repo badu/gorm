@@ -466,7 +466,7 @@ func (scope *Scope) scan(rows *sql.Rows, columns []string, fields StructFields) 
 				if field.Value.Kind() == reflect.Ptr {
 					values[index] = field.Value.Addr().Interface()
 				} else {
-					reflectValue := reflect.New(reflect.PtrTo(field.Struct.Type))
+					reflectValue := field.PtrToValue()
 					reflectValue.Elem().Set(field.Value.Addr())
 					values[index] = reflectValue.Interface()
 					resetFields[index] = field
@@ -1007,7 +1007,7 @@ func (scope *Scope) createJoinTable(field *StructField) {
 		joinTableHandler := relationship.JoinTableHandler
 		joinTable := joinTableHandler.Table(scope.con)
 		if !scope.Dialect().HasTable(joinTable) {
-			toScope := &Scope{Value: reflect.New(field.Struct.Type).Interface()}
+			toScope := &Scope{Value: field.Interface()}
 
 			var sqlTypes, primaryKeys []string
 			for idx, fieldName := range relationship.ForeignFieldNames {
@@ -1188,26 +1188,40 @@ func (scope *Scope) getColumnAsArray(columns StrSlice, values ...interface{}) []
 		for indirectValue.Kind() == reflect.Ptr {
 			indirectValue = indirectValue.Elem()
 		}
-
 		switch indirectValue.Kind() {
 		case reflect.Slice:
 			for i := 0; i < indirectValue.Len(); i++ {
 				var result []interface{}
-				reflectValue := indirectValue.Index(i)
-				for reflectValue.Kind() == reflect.Ptr {
-					reflectValue = reflectValue.Elem()
+				var object = indirectValue.Index(i)
+				for object.Kind() == reflect.Ptr {
+					object = object.Elem()
 				}
+				var hasValue = false
 				for _, column := range columns {
-					result = append(result, reflectValue.FieldByName(column).Interface())
+					field := object.FieldByName(column)
+					if hasValue || !reflect.DeepEqual(field.Interface(), reflect.Zero(field.Type()).Interface()) {
+						hasValue = true
+					}
+					result = append(result, field.Interface())
 				}
-				results = append(results, result)
+
+				if hasValue {
+					results = append(results, result)
+				}
 			}
 		case reflect.Struct:
 			var result []interface{}
+			var hasValue = false
 			for _, column := range columns {
-				result = append(result, indirectValue.FieldByName(column).Interface())
+				field := indirectValue.FieldByName(column)
+				if hasValue || !reflect.DeepEqual(field.Interface(), reflect.Zero(field.Type()).Interface()) {
+					hasValue = true
+				}
+				result = append(result, field.Interface())
 			}
-			results = append(results, result)
+			if hasValue {
+				results = append(results, result)
+			}
 		}
 	}
 	return results
@@ -1477,17 +1491,11 @@ func (scope *Scope) handleManyToManyPreload(field *StructField, conditions []int
 	var (
 		relation         = field.Relationship
 		joinTableHandler = relation.JoinTableHandler
-		fieldType        = field.Struct.Type.Elem()
+		fieldType, isPtr = field.Type, field.hasFlag(IS_POINTER)
 		foreignKeyValue  interface{}
 		foreignKeyType   = reflect.ValueOf(&foreignKeyValue).Type()
 		linkHash         = map[string][]reflect.Value{}
-		isPtr            bool
 	)
-
-	if fieldType.Kind() == reflect.Ptr {
-		isPtr = true
-		fieldType = fieldType.Elem()
-	}
 
 	var sourceKeys = []string{}
 	for _, key := range joinTableHandler.SourceForeignKeys() {

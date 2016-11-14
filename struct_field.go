@@ -25,12 +25,13 @@ const (
 	HAS_RELATIONS     uint16 = 10
 	IS_EMBED_OR_ANON  uint16 = 11
 	IS_AUTOINCREMENT  uint16 = 12
+	IS_POINTER        uint16 = 13
 )
 
-func NewStructField(fieldStruct reflect.StructField) (*StructField, error) {
+func NewStructField(fromStruct reflect.StructField) (*StructField, error) {
 	result := &StructField{
-		Struct: fieldStruct,
-		Names:  []string{fieldStruct.Name},
+		Struct: fromStruct,
+		Names:  []string{fromStruct.Name},
 	}
 	//field should process itself the tag settings
 	err := result.parseTagSettings()
@@ -54,7 +55,7 @@ func NewStructField(fieldStruct reflect.StructField) (*StructField, error) {
 		}
 	}
 
-	if result.HasSetting(EMBEDDED) || fieldStruct.Anonymous {
+	if result.HasSetting(EMBEDDED) || fromStruct.Anonymous {
 		//result.isEmbedOrAnon = true
 		result.setFlag(IS_EMBED_OR_ANON)
 	}
@@ -63,58 +64,29 @@ func NewStructField(fieldStruct reflect.StructField) (*StructField, error) {
 	if value := result.tagSettings.get(COLUMN); value != "" {
 		result.DBName = value
 	} else {
-		result.DBName = NamesMap.ToDBName(fieldStruct.Name)
+		result.DBName = NamesMap.ToDBName(fromStruct.Name)
 	}
 
 	//keeping the type for later usage
-	result.Type = fieldStruct.Type
-	for result.Type.Kind() == reflect.Slice || result.Type.Kind() == reflect.Ptr {
-		//dereference it
+	result.Type = fromStruct.Type
+
+	//dereference it, it's a pointer
+	for result.Type.Kind() == reflect.Ptr {
+		result.setFlag(IS_POINTER)
 		result.Type = result.Type.Elem()
 	}
 
-	UnderlyingType := fieldStruct.Type
-	for UnderlyingType.Kind() == reflect.Ptr {
-		//dereference it, it's a pointer
-		UnderlyingType = UnderlyingType.Elem()
-	}
+	//create a value of it, to be returned
+	result.Value = reflect.New(result.Type)
 
-	//ATTN : order matters, since it can be both slice and struct
-	if UnderlyingType.Kind() == reflect.Slice {
-		//mark it as slice
-		//result.IsSlice = true
-		result.setFlag(IS_SLICE)
-		//it's a slice of structs
-		if result.Type.Kind() == reflect.Struct {
-			//mark it as struct
-			//result.IsStruct = true
-			result.setFlag(IS_STRUCT)
-		}
-	} else if UnderlyingType.Kind() == reflect.Struct {
-		//mark it as struct
-		//result.IsStruct = true
-		result.setFlag(IS_STRUCT)
-	}
-
-	result.Value = reflect.New(UnderlyingType)
 	if !result.IsIgnored() {
+		//checking implements scanner or time
 		_, isScanner := result.Value.Interface().(sql.Scanner)
 		_, isTime := result.Value.Interface().(*time.Time)
 		if isScanner {
 			// is scanner
 			result.setFlag(IS_NORMAL)
 			result.setFlag(IS_SCANNER)
-			if result.IsStruct() && !result.IsSlice() {
-				for i := 0; i < UnderlyingType.NumField(); i++ {
-					tag := UnderlyingType.Field(i).Tag
-					for _, str := range []string{tag.Get(TAG_SQL), tag.Get(TAG_GORM)} {
-						err := result.tagSettings.loadFromTags(str)
-						if err != nil {
-							return nil, err
-						}
-					}
-				}
-			}
 		} else if isTime {
 			// is time
 			result.setFlag(IS_NORMAL)
@@ -122,7 +94,44 @@ func NewStructField(fieldStruct reflect.StructField) (*StructField, error) {
 		}
 	}
 
+	//ATTN : order matters, since it can be both slice and struct
+	if result.Type.Kind() == reflect.Slice {
+		//mark it as slice
+		result.setFlag(IS_SLICE)
+
+		for result.Type.Kind() == reflect.Slice || result.Type.Kind() == reflect.Ptr {
+			if result.Type.Kind() == reflect.Ptr {
+				result.setFlag(IS_POINTER)
+			}
+			//getting rid of slices and slices of pointers
+			result.Type = result.Type.Elem()
+		}
+		//it's a slice of structs
+		if result.Type.Kind() == reflect.Struct {
+			//mark it as struct
+			result.setFlag(IS_STRUCT)
+		}
+	} else if result.Type.Kind() == reflect.Struct {
+		//mark it as struct
+		result.setFlag(IS_STRUCT)
+		if !result.IsIgnored() && result.IsScanner() {
+			for i := 0; i < result.Type.NumField(); i++ {
+				tag := result.Type.Field(i).Tag
+				for _, str := range []string{tag.Get(TAG_SQL), tag.Get(TAG_GORM)} {
+					err := result.tagSettings.loadFromTags(str)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+	}
+
 	return result, err
+}
+
+func (field *StructField) PtrToValue() reflect.Value {
+	return reflect.New(reflect.PtrTo(field.Struct.Type))
 }
 
 func (field *StructField) Interface() interface{} {

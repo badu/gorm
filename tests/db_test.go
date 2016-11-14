@@ -826,8 +826,8 @@ func OpenTestConnection() (db *gorm.DBCon, err error) {
 	osDialect := os.Getenv("GORM_DIALECT")
 	osDBAddress := os.Getenv("GORM_DBADDRESS")
 
-	osDialect = "mysql"
-	osDBAddress = "127.0.0.1:3306"
+	//osDialect = "mysql"
+	//osDBAddress = "127.0.0.1:3306"
 
 	switch osDialect {
 	case "mysql":

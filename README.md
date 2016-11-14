@@ -33,6 +33,11 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
 
 # Changes log
 
+## 14.11.2016
+- [x] StructField - optimized creation a bit
+- [x] StructField - method PtrToValue() called in Scope (scan)
+- [x] integrate Omit duplicates and zero-value ids in preload queries. Resolves #854 and #1054. 
+ 
 ## 13.11.2016
 - [x] ModelStruct - removed properties PrimaryFields and StructFields - they are kept in fieldsMap struct
 - [x] ModelStruct - fieldsMap struct has method PrimaryFields() which are cached into cachedPrimaryFields
@@ -46,6 +51,7 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
 - [x] make StructField be able to provide a value's interface (Interface() method)
 - [x] make ModelStruct be able to provide a value's interface (Interface() method)
 - [x] cleanup reflect.New(blah... blah) - replaced with Interface() call (WIP)
+- [x] benchmarks (WIP) - seems like a steady 8% speed increase and lower memory footprint
 
 ## 12.11.2016
 - [x] switched bitflag from uint64 to uint16 (we really don't need more than 16 at the time)

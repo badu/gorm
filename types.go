@@ -26,15 +26,15 @@ type (
 	// StructField model field's struct definition
 	//TODO : @Badu - a StructField should support multiple relationships
 	StructField struct {
-		flags  uint16
-		DBName string
-		Names  []string
+		flags        uint16
+		DBName       string
+		Names        []string
 
-		tagSettings TagSettings
+		tagSettings  TagSettings
 
-		Struct reflect.StructField
-		Value  reflect.Value
-		Type   reflect.Type
+		Struct       reflect.StructField
+		Value        reflect.Value
+		Type         reflect.Type
 
 		Relationship *Relationship
 	}
@@ -67,6 +67,7 @@ type (
 
 	// ModelStruct model definition
 	ModelStruct struct {
+		//keeper of the fields, a safe map (aliases) and slice
 		fieldsMap fieldsMap
 		//collected from fields.fields, so we won't iterate all the time
 		cachedPrimaryFields StructFields
@@ -87,7 +88,7 @@ type (
 		SQLVars []interface{}
 
 		instanceID string
-
+		//cached version of cloned struct fields
 		fields *StructFields
 		//skip left remaining callbacks
 		skipLeft bool
@@ -122,21 +123,21 @@ type (
 
 	// DBCon contains information for current db connection
 	DBCon struct {
-		parent        *DBCon
-		dialect       Dialect
-		Value         interface{}
-		settings      map[string]interface{}
+		parent   *DBCon
+		dialect  Dialect
+		Value    interface{}
+		settings map[string]interface{}
 
-		Error         error
+		Error error
 
-		callback      *Callback
-		sqli          sqlInterf
+		callback *Callback
+		sqli     sqlInterf
 
-		search        *search
-		RowsAffected  int64
+		search       *search
+		RowsAffected int64
 
-		logMode       int
-		logger        logger
+		logMode int
+		logger  logger
 
 		singularTable bool
 		source        string
