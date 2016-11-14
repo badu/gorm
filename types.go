@@ -26,15 +26,15 @@ type (
 	// StructField model field's struct definition
 	//TODO : @Badu - a StructField should support multiple relationships
 	StructField struct {
-		flags        uint16
-		DBName       string
-		Names        []string
+		flags  uint16
+		DBName string
+		Names  []string
 
-		tagSettings  TagSettings
+		tagSettings TagSettings
 
-		Struct       reflect.StructField
-		Value        reflect.Value
-		Type         reflect.Type
+		Struct reflect.StructField
+		Value  reflect.Value
+		Type   reflect.Type
 
 		Relationship *Relationship
 	}
@@ -93,10 +93,18 @@ type (
 		//skip left remaining callbacks
 		skipLeft bool
 	}
+
+	sqlConditionType uint16
+	sqlCondition     struct {
+		Type   sqlConditionType
+		Values interface{}
+	}
+	sqlConditions []sqlCondition
 	//TODO : @Badu - pointer to DBCon is just to expose errors
 	//since they are related (Scope has a search inside)
 	search struct {
 		con              *DBCon
+		conditions       sqlConditions
 		whereConditions  []map[string]interface{}
 		orConditions     []map[string]interface{}
 		notConditions    []map[string]interface{}

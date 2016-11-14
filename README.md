@@ -8,6 +8,7 @@
 - [ ] Collect errors and their messages in one place
 - [ ] replace slices of strings with Collector
 - [ ] Relationships should be kept by ModelStruct (to accept many)
+- [ ] implement warning to scope, as errors are
 
 # Comments and thoughts
 - Generated SQL let's the SQL engine cast : SELECT * FROM aTable WHERE id = '1' (id being int). I think it's a bad practice and it should be fixed
@@ -20,7 +21,7 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
 - Set and Get, SetInstance and all that, should be nicer
 
 # Last merge
-- #1242 - "(Make gorm.Errors available for use outside gorm #1242)" 
+- #1242 - "Omit duplicates and zero-value ids in preload queries. Resolves #854 and #1054." 
  
 # Breaking changes
 - DB struct - renamed to DBCon, since that is what it represents.
@@ -30,6 +31,9 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
 - Removed MSSQL support - out of my concerns with this project
 - renamed DB() of Scope to Con()
 - renamed NewDB() of Scope to NewCon()
+- renamed PrimaryKey() of Scope to PKName()
+- renamed PrimaryField() of Scope to PK()
+- renamed PrimaryFields() of Scope to PKs()
 
 # Changes log
 
@@ -37,7 +41,8 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
 - [x] StructField - optimized creation
 - [x] StructField - optimized makeSlice()
 - [x] StructField - method PtrToValue() called in Scope (scan)
-- [x] integrate Omit duplicates and zero-value ids in preload queries. Resolves #854 and #1054. 
+- [x] integrate Omit duplicates and zero-value ids in preload queries. Resolves #854 and #1054.
+- [ ] WIP - slimmer search struct 
  
 ## 13.11.2016
 - [x] ModelStruct - removed properties PrimaryFields and StructFields - they are kept in fieldsMap struct

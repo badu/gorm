@@ -2,25 +2,120 @@ package gorm
 
 import "fmt"
 
+const (
+	where_query  sqlConditionType = 0
+	where_args   sqlConditionType = 1
+	not_query    sqlConditionType = 2
+	not_args     sqlConditionType = 3
+	or_query     sqlConditionType = 4
+	or_args      sqlConditionType = 5
+	init_attrs   sqlConditionType = 6
+	assign_attrs sqlConditionType = 7
+	select_query sqlConditionType = 8
+	select_args  sqlConditionType = 9
+	having_query sqlConditionType = 10
+	having_args  sqlConditionType = 11
+	joins_query  sqlConditionType = 12
+	joins_args   sqlConditionType = 13
+)
+
 func (s *search) clone() *search {
-	//TODO : @Badu - it's a ... clone ?
+	//TODO : @Badu - it's this a ... clone ?
 	clone := *s
 	return &clone
 }
 
+//typedQ - typedA are a pair , e.g. where_query, where_args
+func (s *search) GetTypedConditions(typedQ sqlConditionType, typedA sqlConditionType) {
+	var result sqlConditions
+	for _, condition := range s.conditions {
+		if condition.Type == typedQ || condition.Type == typedA {
+			result = append(result, condition)
+		}
+	}
+}
+
 func (s *search) Where(query interface{}, values ...interface{}) *search {
-	//TODO : @Badu - they all look alike, just to keep "query" and "args" . I think a struct is more suitable
 	s.whereConditions = append(s.whereConditions, map[string]interface{}{"query": query, "args": values})
+
+	s.conditions = append(s.conditions, sqlCondition{
+		Type:   where_query,
+		Values: query,
+	})
+	s.conditions = append(s.conditions, sqlCondition{
+		Type:   where_args,
+		Values: values,
+	})
 	return s
 }
 
 func (s *search) Not(query interface{}, values ...interface{}) *search {
 	s.notConditions = append(s.notConditions, map[string]interface{}{"query": query, "args": values})
+
+	s.conditions = append(s.conditions, sqlCondition{
+		Type:   not_query,
+		Values: query,
+	})
+	s.conditions = append(s.conditions, sqlCondition{
+		Type:   not_args,
+		Values: values,
+	})
 	return s
 }
 
 func (s *search) Or(query interface{}, values ...interface{}) *search {
 	s.orConditions = append(s.orConditions, map[string]interface{}{"query": query, "args": values})
+
+	s.conditions = append(s.conditions, sqlCondition{
+		Type:   or_query,
+		Values: query,
+	})
+	s.conditions = append(s.conditions, sqlCondition{
+		Type:   or_args,
+		Values: values,
+	})
+	return s
+}
+
+func (s *search) Having(query string, values ...interface{}) *search {
+	s.havingConditions = append(s.havingConditions, map[string]interface{}{"query": query, "args": values})
+
+	s.conditions = append(s.conditions, sqlCondition{
+		Type:   having_query,
+		Values: query,
+	})
+	s.conditions = append(s.conditions, sqlCondition{
+		Type:   having_args,
+		Values: values,
+	})
+	return s
+}
+
+func (s *search) Joins(query string, values ...interface{}) *search {
+	s.joinConditions = append(s.joinConditions, map[string]interface{}{"query": query, "args": values})
+
+	s.conditions = append(s.conditions, sqlCondition{
+		Type:   joins_query,
+		Values: query,
+	})
+	s.conditions = append(s.conditions, sqlCondition{
+		Type:   joins_args,
+		Values: values,
+	})
+	return s
+}
+
+func (s *search) Select(query interface{}, args ...interface{}) *search {
+	s.selects = map[string]interface{}{"query": query, "args": args}
+
+	s.conditions = append(s.conditions, sqlCondition{
+		Type:   select_query,
+		Values: query,
+	})
+	s.conditions = append(s.conditions, sqlCondition{
+		Type:   select_args,
+		Values: args,
+	})
 	return s
 }
 
@@ -45,11 +140,6 @@ func (s *search) Order(value interface{}, reorder ...bool) *search {
 	return s
 }
 
-func (s *search) Select(query interface{}, args ...interface{}) *search {
-	s.selects = map[string]interface{}{"query": query, "args": args}
-	return s
-}
-
 func (s *search) Omit(columns ...string) *search {
 	s.omits = columns
 	return s
@@ -67,16 +157,6 @@ func (s *search) Offset(offset interface{}) *search {
 
 func (s *search) Group(query string) *search {
 	s.group = s.getInterfaceAsSQL(query)
-	return s
-}
-
-func (s *search) Having(query string, values ...interface{}) *search {
-	s.havingConditions = append(s.havingConditions, map[string]interface{}{"query": query, "args": values})
-	return s
-}
-
-func (s *search) Joins(query string, values ...interface{}) *search {
-	s.joinConditions = append(s.joinConditions, map[string]interface{}{"query": query, "args": values})
 	return s
 }
 

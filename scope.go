@@ -116,7 +116,7 @@ func (scope *Scope) FieldByName(name string) (*StructField, bool) {
 	return mostMatchedField, mostMatchedField != nil
 }
 
-// PrimaryFields return scope's primary fields
+// was PrimaryFields() : PKs() return scope's primary fields
 func (scope *Scope) PKs() StructFields {
 	var fields StructFields
 	for _, field := range scope.Fields() {
@@ -127,7 +127,7 @@ func (scope *Scope) PKs() StructFields {
 	return fields
 }
 
-// PrimaryField return scope's main primary field, if defined more that one primary fields, will return the one having column name `id` or the first one
+// was PrimaryField() - PK() return scope's main primary field, if defined more that one primary fields, will return the one having column name `id` or the first one
 func (scope *Scope) PK() *StructField {
 	primaryFieldsLen := scope.GetModelStruct().noOfPKs()
 	if primaryFieldsLen > 0 {
@@ -144,7 +144,7 @@ func (scope *Scope) PK() *StructField {
 	return nil
 }
 
-// PrimaryKey get main primary field's db name
+// was PrimaryKey() - PKName() get main primary field's db name
 func (scope *Scope) PKName() string {
 	if field := scope.PK(); field != nil {
 		return field.DBName
