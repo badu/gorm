@@ -431,11 +431,16 @@ func (field *StructField) setIsBlank() {
 }
 
 func (field *StructField) makeSlice() interface{} {
-	elemType := field.Struct.Type
-	if elemType.Kind() == reflect.Slice {
-		elemType = elemType.Elem()
+	/**
+	if !field.IsSlice(){
+		fmt.Printf("Warning : making a %q slice, but field is not slice.\n", field.Type.Name())
 	}
-	sliceType := reflect.SliceOf(elemType)
+	**/
+	basicType := field.Type
+	if field.hasFlag(IS_POINTER){
+		basicType = reflect.PtrTo(field.Type)
+	}
+	sliceType := reflect.SliceOf(basicType)
 	slice := reflect.New(sliceType)
 	slice.Elem().Set(reflect.MakeSlice(sliceType, 0, 0))
 	return slice.Interface()
