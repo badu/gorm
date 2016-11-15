@@ -102,11 +102,25 @@ func (s *search) Select(query interface{}, args ...interface{}) *search {
 
 func (s *search) Attrs(attrs ...interface{}) *search {
 	s.initAttrs = append(s.initAttrs, toSearchableMap(attrs...))
+	entry, ok := s.conditions[init_attrs]
+	if !ok {
+		entry = make(sqlCondition, 0)
+	}
+	newPair := sqlPair{}
+	newPair.add(attrs)
+	entry = append(entry, newPair)
 	return s
 }
 
 func (s *search) Assign(attrs ...interface{}) *search {
 	s.assignAttrs = append(s.assignAttrs, toSearchableMap(attrs...))
+	entry, ok := s.conditions[assign_attrs]
+	if !ok {
+		entry = make(sqlCondition, 0)
+	}
+	newPair := sqlPair{}
+	newPair.add(attrs)
+	entry = append(entry, newPair)
 	return s
 }
 
@@ -171,11 +185,12 @@ func (s *search) Table(name string) *search {
 func (s *search) getInterfaceAsSQL(value interface{}) (str string) {
 	switch value.(type) {
 	case string, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+		//TODO: @Badu - separate string situation and print integers as integers
 		str = fmt.Sprintf("%v", value)
 	default:
 		s.con.AddError(ErrInvalidSQL)
 	}
-
+	//TODO : @Badu - this is from limit and offset. Kind of boilerplate, huh?
 	if str == "-1" {
 		return ""
 	}

@@ -39,6 +39,7 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
 
 ## 15.11.2016
 - [x] minor modification on ModelStruct Create() : moved HasRelations flag setters into StructField
+- [x] moved getValueFromFields from utils.go to string_slice.go (even if it don't belong there)
 - [ ] WIP - slimmer search struct
 
 ## 14.11.2016

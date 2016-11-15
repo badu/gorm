@@ -2,7 +2,6 @@ package gorm
 
 import (
 	"database/sql"
-	"database/sql/driver"
 	"errors"
 	"fmt"
 	"reflect"
@@ -71,16 +70,18 @@ func toQueryMarks(primaryValues [][]interface{}) string {
 	return strings.Join(results, ",")
 }
 
-func toQueryValues(values [][]interface{}) (results []interface{}) {
+func toQueryValues(values [][]interface{}) []interface{} {
+	var results []interface{}
 	for _, value := range values {
 		for _, v := range value {
 			results = append(results, v)
 		}
 	}
-	return
+	return results
 }
 
-func toSearchableMap(attrs ...interface{}) (result interface{}) {
+func toSearchableMap(attrs ...interface{}) interface{} {
+	var result interface{}
 	if len(attrs) > 1 {
 		if str, ok := attrs[0].(string); ok {
 			result = map[string]interface{}{str: attrs[1]}
@@ -94,7 +95,7 @@ func toSearchableMap(attrs ...interface{}) (result interface{}) {
 			result = attr
 		}
 	}
-	return
+	return result
 }
 
 func equalAsString(a interface{}, b interface{}) bool {
@@ -115,25 +116,6 @@ func toString(str interface{}) string {
 		return fmt.Sprintf("%v", reflectValue.Interface())
 	}
 	return ""
-}
-
-// getValueFromFields return given fields's value
-func getValueFromFields(value reflect.Value, fieldNames StrSlice) (results []interface{}) {
-	// If value is a nil pointer, Indirect returns a zero Value!
-	// Therefor we need to check for a zero value,
-	// as FieldByName could panic
-	if indirectValue := reflect.Indirect(value); indirectValue.IsValid() {
-		for _, fieldName := range fieldNames {
-			if fieldValue := indirectValue.FieldByName(fieldName); fieldValue.IsValid() {
-				result := fieldValue.Interface()
-				if r, ok := result.(driver.Valuer); ok {
-					result, _ = r.Value()
-				}
-				results = append(results, result)
-			}
-		}
-	}
-	return
 }
 
 func addExtraSpaceIfExist(str string) string {
@@ -200,6 +182,7 @@ func Open(dialectName string, args ...interface{}) (*DBCon, error) {
 	}
 	//register all default callbacks
 	db.callback.registerGORMDefaultCallbacks()
+	//TODO : @Badu - don't like that it points itself
 	db.parent = &db
 
 	if err == nil {

@@ -8,13 +8,13 @@ import (
 
 const (
 	poly_field_not_found_err string = "Relationship : polymorphic field %q not found on model struct %q"
-	fk_field_not_found_err   string = "Relationship : foreign key field %q not found on model struct %q"
-	afk_field_not_found_err  string = "Relationship : association foreign key field %q not found on model struct %q"
-	length_err               string = "Relationship : invalid foreign keys, should have same length"
+	fk_field_not_found_err   string = "Relationship [%q]: foreign key field %q not found on model struct %q"
+	afk_field_not_found_err  string = "Relationship [%q]: association foreign key field %q not found on model struct %q"
+	length_err               string = "Relationship [%q]: invalid foreign keys, should have same length"
 	poly_type                string = "Type"
 )
 
-func (relationship *Relationship) Poly(field *StructField, toModel *ModelStruct, fromScope, toScope *Scope) string {
+func (r *Relationship) Poly(field *StructField, toModel *ModelStruct, fromScope, toScope *Scope) string {
 	modelName := ""
 	if field.HasSetting(POLYMORPHIC) {
 		polyName := field.GetSetting(POLYMORPHIC)
@@ -24,13 +24,13 @@ func (relationship *Relationship) Poly(field *StructField, toModel *ModelStruct,
 		// Toy use OwnerID, OwnerType ('dogs') as foreign key
 		if polymorphicType, ok := toModel.FieldByName(polyFieldName); ok {
 			modelName = polyName
-			relationship.PolymorphicType = polymorphicType.GetName()
-			relationship.PolymorphicDBName = polymorphicType.DBName
+			r.PolymorphicType = polymorphicType.GetName()
+			r.PolymorphicDBName = polymorphicType.DBName
 			// if Dog has multiple set of toys set name of the set (instead of default 'dogs')
 			if polyValue != "" {
-				relationship.PolymorphicValue = polyValue
+				r.PolymorphicValue = polyValue
 			} else {
-				relationship.PolymorphicValue = fromScope.TableName()
+				r.PolymorphicValue = fromScope.TableName()
 			}
 			polymorphicType.SetIsForeignKey()
 		} else {
@@ -45,13 +45,13 @@ func (relationship *Relationship) Poly(field *StructField, toModel *ModelStruct,
 }
 
 //creates a many to many relationship, even if we don't have tags
-func (relationship *Relationship) ManyToMany(field *StructField,
+func (r *Relationship) ManyToMany(field *StructField,
 	fromModel *ModelStruct,
 	fromScope, toScope *Scope) {
 
 	var foreignKeys, associationForeignKeys StrSlice
 
-	relationship.Kind = MANY_TO_MANY
+	r.Kind = MANY_TO_MANY
 	elemType := field.Type
 	elemName := NamesMap.ToDBName(elemType.Name())
 	modelType := fromModel.ModelType
@@ -80,12 +80,12 @@ func (relationship *Relationship) ManyToMany(field *StructField,
 	for _, fk := range foreignKeys {
 		if fkField, ok := fromModel.FieldByName(fk); ok {
 			// source foreign keys (db names)
-			relationship.ForeignFieldNames.add(fkField.DBName)
+			r.ForeignFieldNames.add(fkField.DBName)
 			// join table foreign keys for source
-			relationship.ForeignDBNames.add(modelName + "_" + fkField.DBName)
+			r.ForeignDBNames.add(modelName + "_" + fkField.DBName)
 		} else {
 			//TODO : @Badu - activate below
-			errMsg := fmt.Sprintf(fk_field_not_found_err, fk, fromModel.ModelType.Name())
+			errMsg := fmt.Sprintf(fk_field_not_found_err, "Many2Many", fk, fromModel.ModelType.Name())
 			toScope.Log(errMsg)
 			//fromScope.Err(errors.New(errMsg))
 			//return
@@ -95,11 +95,11 @@ func (relationship *Relationship) ManyToMany(field *StructField,
 	for _, fk := range associationForeignKeys {
 		if fkField, ok := toScope.FieldByName(fk); ok {
 			// association foreign keys (db names)
-			relationship.AssociationForeignFieldNames.add(fkField.DBName)
+			r.AssociationForeignFieldNames.add(fkField.DBName)
 			// join table foreign keys for association
-			relationship.AssociationForeignDBNames.add(elemName + "_" + fkField.DBName)
+			r.AssociationForeignDBNames.add(elemName + "_" + fkField.DBName)
 		} else {
-			errMsg := fmt.Sprintf(afk_field_not_found_err, fk, toScope.GetModelStruct().ModelType.Name())
+			errMsg := fmt.Sprintf(afk_field_not_found_err, "Many2Many", fk, toScope.GetModelStruct().ModelType.Name())
 			toScope.Log(errMsg)
 			//TODO : @Badu - activate below
 			//fromScope.Err(errors.New(errMsg))
@@ -108,45 +108,45 @@ func (relationship *Relationship) ManyToMany(field *StructField,
 	}
 
 	joinTableHandler := JoinTableHandler{TableName: referencedTable}
-	joinTableHandler.Setup(relationship, modelType, elemType)
-	relationship.JoinTableHandler = &joinTableHandler
-	field.Relationship = relationship
+	joinTableHandler.Setup(r, modelType, elemType)
+	r.JoinTableHandler = &joinTableHandler
+	field.Relationship = r
 }
 
-func (relationship *Relationship) HasMany(field *StructField,
+func (r *Relationship) HasMany(field *StructField,
 	fromModel, toModel *ModelStruct,
 	fromScope, toScope *Scope) {
 
 	// User has many comments, associationType is User, comment use UserID as foreign key
 	modelName := NamesMap.ToDBName(fromModel.ModelType.Name())
-	relationship.Kind = HAS_MANY
+	r.Kind = HAS_MANY
 
-	if polyName := relationship.Poly(field, toModel, fromScope, toScope); polyName != "" {
+	if polyName := r.Poly(field, toModel, fromScope, toScope); polyName != "" {
 		modelName = polyName
 	}
 
-	foreignKeys, associationForeignKeys := relationship.collectFKsAndAFKs(field, fromModel, fromScope, modelName)
+	foreignKeys, associationForeignKeys := r.collectFKsAndAFKs(field, fromModel, fromScope, modelName)
 
 	for idx, foreignKey := range foreignKeys {
 		if foreignField, ok := toModel.FieldByName(foreignKey); ok {
 			if associationField, ok := fromModel.FieldByName(associationForeignKeys[idx]); ok {
 				// source foreign keys
 				foreignField.SetIsForeignKey()
-				relationship.AssociationForeignFieldNames.add(associationField.GetName())
-				relationship.AssociationForeignDBNames.add(associationField.DBName)
+				r.AssociationForeignFieldNames.add(associationField.GetName())
+				r.AssociationForeignDBNames.add(associationField.DBName)
 
 				// association foreign keys
-				relationship.ForeignFieldNames.add(foreignField.GetName())
-				relationship.ForeignDBNames.add(foreignField.DBName)
+				r.ForeignFieldNames.add(foreignField.GetName())
+				r.ForeignDBNames.add(foreignField.DBName)
 			} else {
-				errMsg := fmt.Sprintf(afk_field_not_found_err, associationForeignKeys[idx], fromModel.ModelType.Name())
+				errMsg := fmt.Sprintf(afk_field_not_found_err, "HasMany", associationForeignKeys[idx], fromModel.ModelType.Name())
 				toScope.Log(errMsg)
 				//TODO : @Badu - activate below
 				//fromScope.Err(errors.New(errMsg))
 				//return
 			}
 		} else {
-			errMsg := fmt.Sprintf(fk_field_not_found_err, foreignKey, fromModel.ModelType.Name())
+			errMsg := fmt.Sprintf(fk_field_not_found_err, "HasMany", foreignKey, fromModel.ModelType.Name())
 			toScope.Log(errMsg)
 			//TODO : @Badu - activate below
 			//fromScope.Err(errors.New(errMsg))
@@ -154,43 +154,43 @@ func (relationship *Relationship) HasMany(field *StructField,
 		}
 	}
 
-	if relationship.ForeignFieldNames.len() != 0 {
-		field.Relationship = relationship
+	if r.ForeignFieldNames.len() != 0 {
+		field.Relationship = r
 	}
 }
 
-func (relationship *Relationship) HasOne(field *StructField,
+func (r *Relationship) HasOne(field *StructField,
 	fromModel, toModel *ModelStruct,
 	fromScope, toScope *Scope) bool {
 
 	modelName := NamesMap.ToDBName(fromModel.ModelType.Name())
 
-	if polyName := relationship.Poly(field, toModel, fromScope, toScope); polyName != "" {
+	if polyName := r.Poly(field, toModel, fromScope, toScope); polyName != "" {
 		modelName = polyName
 	}
 
-	foreignKeys, associationForeignKeys := relationship.collectFKsAndAFKs(field, fromModel, fromScope, modelName)
+	foreignKeys, associationForeignKeys := r.collectFKsAndAFKs(field, fromModel, fromScope, modelName)
 
 	for idx, foreignKey := range foreignKeys {
 		if foreignField, ok := toModel.FieldByName(foreignKey); ok {
 			if scopeField, ok := fromModel.FieldByName(associationForeignKeys[idx]); ok {
 				foreignField.SetIsForeignKey()
 				// source foreign keys
-				relationship.AssociationForeignFieldNames.add(scopeField.GetName())
-				relationship.AssociationForeignDBNames.add(scopeField.DBName)
+				r.AssociationForeignFieldNames.add(scopeField.GetName())
+				r.AssociationForeignDBNames.add(scopeField.DBName)
 
 				// association foreign keys
-				relationship.ForeignFieldNames.add(foreignField.GetName())
-				relationship.ForeignDBNames.add(foreignField.DBName)
+				r.ForeignFieldNames.add(foreignField.GetName())
+				r.ForeignDBNames.add(foreignField.DBName)
 			} else {
-				errMsg := fmt.Sprintf(afk_field_not_found_err, associationForeignKeys[idx], fromModel.ModelType.Name())
+				errMsg := fmt.Sprintf(afk_field_not_found_err, "HasOne fromModel", associationForeignKeys[idx], fromModel.ModelType.Name())
 				toScope.Log(errMsg)
 				//TODO : @Badu - activate below
 				//fromScope.Err(errors.New(errMsg))
 				//return true
 			}
 		} else {
-			errMsg := fmt.Sprintf(fk_field_not_found_err, foreignKey, fromModel.ModelType.Name())
+			errMsg := fmt.Sprintf(fk_field_not_found_err, "HasOne toModel", foreignKey, fromModel.ModelType.Name())
 			toScope.Log(errMsg)
 			//TODO : @Badu - activate below
 			//fromScope.Err(errors.New(errMsg))
@@ -198,19 +198,19 @@ func (relationship *Relationship) HasOne(field *StructField,
 		}
 	}
 
-	if relationship.ForeignFieldNames.len() != 0 {
-		relationship.Kind = HAS_ONE
-		field.Relationship = relationship
+	if r.ForeignFieldNames.len() != 0 {
+		r.Kind = HAS_ONE
+		field.Relationship = r
 		return true
 	}
 	return false
 }
 
-func (relationship *Relationship) BelongTo(field *StructField,
+func (r *Relationship) BelongTo(field *StructField,
 	fromModel, toModel *ModelStruct,
 	fromScope, toScope *Scope) bool {
 
-	foreignKeys, associationForeignKeys := relationship.collectFKsAndAFKs(field, toModel, fromScope, "")
+	foreignKeys, associationForeignKeys := r.collectFKsAndAFKs(field, toModel, fromScope, "")
 
 	for idx, foreignKey := range foreignKeys {
 		if foreignField, ok := fromModel.FieldByName(foreignKey); ok {
@@ -218,21 +218,21 @@ func (relationship *Relationship) BelongTo(field *StructField,
 				foreignField.SetIsForeignKey()
 
 				// association foreign keys
-				relationship.AssociationForeignFieldNames.add(associationField.GetName())
-				relationship.AssociationForeignDBNames.add(associationField.DBName)
+				r.AssociationForeignFieldNames.add(associationField.GetName())
+				r.AssociationForeignDBNames.add(associationField.DBName)
 
 				// source foreign keys
-				relationship.ForeignFieldNames.add(foreignField.GetName())
-				relationship.ForeignDBNames.add(foreignField.DBName)
+				r.ForeignFieldNames.add(foreignField.GetName())
+				r.ForeignDBNames.add(foreignField.DBName)
 			} else {
-				errMsg := fmt.Sprintf(afk_field_not_found_err, associationForeignKeys[idx], fromModel.ModelType.Name())
+				errMsg := fmt.Sprintf(afk_field_not_found_err, "BelongTo", associationForeignKeys[idx], fromModel.ModelType.Name())
 				toScope.Log(errMsg)
 				//TODO : @Badu - activate below
 				//fromScope.Err(errors.New(errMsg))
 				//return true
 			}
 		} else {
-			errMsg := fmt.Sprintf(fk_field_not_found_err, foreignKey, fromModel.ModelType.Name())
+			errMsg := fmt.Sprintf(fk_field_not_found_err, "BelongTo", foreignKey, fromModel.ModelType.Name())
 			toScope.Log(errMsg)
 			//TODO : @Badu - activate below
 			//fromScope.Err(errors.New(errMsg))
@@ -240,15 +240,15 @@ func (relationship *Relationship) BelongTo(field *StructField,
 		}
 	}
 
-	if relationship.ForeignFieldNames.len() != 0 {
-		relationship.Kind = BELONGS_TO
-		field.Relationship = relationship
+	if r.ForeignFieldNames.len() != 0 {
+		r.Kind = BELONGS_TO
+		field.Relationship = r
 		return true
 	}
 	return false
 }
 
-func (relationship *Relationship) collectFKsAndAFKs(field *StructField,
+func (r *Relationship) collectFKsAndAFKs(field *StructField,
 	model *ModelStruct,
 	scope *Scope,
 	modelName string) (StrSlice, StrSlice) {
@@ -279,7 +279,7 @@ func (relationship *Relationship) collectFKsAndAFKs(field *StructField,
 					}
 					associationForeignKeys.add(fkField.GetName())
 				} else {
-					errMsg := fmt.Sprintf(afk_field_not_found_err, fkField, model.ModelType.Name())
+					errMsg := fmt.Sprintf(afk_field_not_found_err, "collectFKsAndAFKs", fkField, model.ModelType.Name())
 					scope.Log(errMsg)
 					//TODO : @Badu - activate below
 					//fromScope.Err(errors.New(errMsg))
@@ -301,7 +301,7 @@ func (relationship *Relationship) collectFKsAndAFKs(field *StructField,
 					if _, ok := model.FieldByName(afk); ok {
 						associationForeignKeys.add(afk)
 					} else {
-						errMsg := fmt.Sprintf(fk_field_not_found_err, afk, model.ModelType.Name())
+						errMsg := fmt.Sprintf(fk_field_not_found_err, "collectFKsAndAFKs", afk, model.ModelType.Name())
 						scope.Log(errMsg)
 						//TODO : @Badu - activate below
 						//fromScope.Err(errors.New(errMsg))

@@ -443,6 +443,7 @@ func (field *StructField) setIsBlank() {
 }
 
 func (field *StructField) makeSlice() interface{} {
+	//TODO : @Badu - make warning
 	/**
 	if !field.IsSlice(){
 		fmt.Printf("Warning : making a %q slice, but field is not slice.\n", field.Type.Name())

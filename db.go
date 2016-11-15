@@ -582,6 +582,7 @@ func (con *DBCon) AddError(err error) error {
 			} else {
 				con.log(err)
 			}
+			fmt.Printf("ERROR ( %s ) : %v", fileWithLineNum(), err)
 			gormErrors := GormErrors(con.GetErrors())
 			gormErrors = gormErrors.Add(err)
 			if len(gormErrors.GetErrors()) > 1 {
@@ -610,13 +611,13 @@ func (con *DBCon) GetErrors() []error {
 //clone - blank param is for copying values and search as well
 func (con *DBCon) clone(withoutSettings bool, withoutSearch bool) *DBCon {
 	clone := DBCon{
-		sqli:    con.sqli,
-		parent:  con.parent,
-		logger:  con.logger,
-		logMode: con.logMode,
-		settings:  map[string]interface{}{},
-		Value:   con.Value,
-		Error:   con.Error,
+		sqli:     con.sqli,
+		parent:   con.parent,
+		logger:   con.logger,
+		logMode:  con.logMode,
+		settings: map[string]interface{}{},
+		Value:    con.Value,
+		Error:    con.Error,
 	}
 	if !withoutSettings {
 		for key, value := range con.settings {

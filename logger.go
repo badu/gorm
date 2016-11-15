@@ -26,6 +26,12 @@ type (
 	}
 )
 
+var (
+	//regexpSelf = regexp.MustCompile(`badu/gorm/.*.go`)
+	regexpSelf = regexp.MustCompile(`/gorm/.*.go`)
+	regexpTest = regexp.MustCompile(`/gorm/tests/.*.go`)
+)
+
 func isPrintable(s string) bool {
 	for _, r := range s {
 		if !unicode.IsPrint(r) {
@@ -36,12 +42,13 @@ func isPrintable(s string) bool {
 }
 
 func fileWithLineNum() string {
-	//TODO : @Badu - from exactly 2 to 15! Well...
-	for i := 2; i < 15; i++ {
+	for i := 6; i < 15; i++ {
 		_, file, line, ok := runtime.Caller(i)
-		//TODO : @Badu - and this boiler plate regexps
-		if ok && (!regexp.MustCompile(`badu/gorm/.*.go`).MatchString(file) ||
-			regexp.MustCompile(`badu/gorm/.*test.go`).MatchString(file)) {
+		if ok && regexpTest.MatchString(file) {
+			//matching test files - we print that
+			return fmt.Sprintf("%v:%v", file, line)
+		} else if ok && !regexpSelf.MatchString(file) {
+			//otherwise
 			return fmt.Sprintf("%v:%v", file, line)
 		}
 	}

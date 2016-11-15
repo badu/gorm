@@ -815,12 +815,13 @@ func (scope *Scope) callCallbacks(funcs ScopedFuncs) *Scope {
 	return scope
 }
 
-func (scope *Scope) updatedAttrsWithValues(value interface{}) (results map[string]interface{}, hasUpdate bool) {
+func (scope *Scope) updatedAttrsWithValues(value interface{}) (map[string]interface{}, bool) {
+	hasUpdate := false
 	if scope.IndirectValue().Kind() != reflect.Struct {
 		return convertInterfaceToMap(value, false), true
 	}
 
-	results = map[string]interface{}{}
+	results := map[string]interface{}{}
 
 	for key, value := range convertInterfaceToMap(value, true) {
 		if field, ok := scope.FieldByName(key); ok && scope.changeableField(field) {
@@ -840,7 +841,7 @@ func (scope *Scope) updatedAttrsWithValues(value interface{}) (results map[strin
 			}
 		}
 	}
-	return
+	return results, hasUpdate
 }
 
 func (scope *Scope) row() *sql.Row {
@@ -858,8 +859,11 @@ func (scope *Scope) rows() (*sql.Rows, error) {
 }
 
 func (scope *Scope) initialize() *Scope {
+	scope.Search.conditions[where_query]
 	for _, clause := range scope.Search.whereConditions {
-		scope.updatedAttrsWithValues(clause["query"])
+		query := clause["query"]
+		scope.con.toLog(query)
+		scope.updatedAttrsWithValues(query)
 	}
 	scope.updatedAttrsWithValues(scope.Search.initAttrs)
 	scope.updatedAttrsWithValues(scope.Search.assignAttrs)
@@ -1361,12 +1365,12 @@ func (scope *Scope) handleHasOnePreload(field *StructField, conditions []interfa
 		for j := 0; j < indirectScopeValue.Len(); j++ {
 			for i := 0; i < resultsValue.Len(); i++ {
 				result := resultsValue.Index(i)
-				foreignValues := getValueFromFields(result, relation.ForeignFieldNames)
+				foreignValues := relation.ForeignFieldNames.getValueFromFields(result)
 				indirectValue := indirectScopeValue.Index(j)
 				for indirectValue.Kind() == reflect.Ptr {
 					indirectValue = indirectValue.Elem()
 				}
-				if equalAsString(getValueFromFields(indirectValue, relation.AssociationForeignFieldNames), foreignValues) {
+				if equalAsString(relation.AssociationForeignFieldNames.getValueFromFields(indirectValue), foreignValues) {
 					indirectValue.FieldByName(field.GetName()).Set(result)
 					break
 				}
@@ -1418,7 +1422,7 @@ func (scope *Scope) handleHasManyPreload(field *StructField, conditions []interf
 		preloadMap := make(map[string][]reflect.Value)
 		for i := 0; i < resultsValue.Len(); i++ {
 			result := resultsValue.Index(i)
-			foreignValues := getValueFromFields(result, relation.ForeignFieldNames)
+			foreignValues := relation.ForeignFieldNames.getValueFromFields(result)
 			preloadMap[toString(foreignValues)] = append(preloadMap[toString(foreignValues)], result)
 		}
 
@@ -1427,7 +1431,7 @@ func (scope *Scope) handleHasManyPreload(field *StructField, conditions []interf
 			for reflectValue.Kind() == reflect.Ptr {
 				reflectValue = reflectValue.Elem()
 			}
-			objectRealValue := getValueFromFields(reflectValue, relation.AssociationForeignFieldNames)
+			objectRealValue := relation.AssociationForeignFieldNames.getValueFromFields(reflectValue)
 			f := reflectValue.FieldByName(field.GetName())
 			if results, ok := preloadMap[toString(objectRealValue)]; ok {
 				f.Set(reflect.Append(f, results...))
@@ -1442,6 +1446,7 @@ func (scope *Scope) handleHasManyPreload(field *StructField, conditions []interf
 
 // handleBelongsToPreload used to preload belongs to associations
 func (scope *Scope) handleBelongsToPreload(field *StructField, conditions []interface{}) {
+	indirectScopeValue := scope.IndirectValue()
 	relation := field.Relationship
 
 	// preload conditions
@@ -1458,9 +1463,6 @@ func (scope *Scope) handleBelongsToPreload(field *StructField, conditions []inte
 	scope.Err(preloadDB.Where(fmt.Sprintf("%v IN (%v)", scope.toQueryCondition(relation.AssociationForeignDBNames), toQueryMarks(primaryKeys)), toQueryValues(primaryKeys)...).Find(results, preloadConditions...).Error)
 
 	// assign find results
-	var (
-		indirectScopeValue = scope.IndirectValue()
-	)
 
 	resultsValue := reflect.ValueOf(results)
 	for resultsValue.Kind() == reflect.Ptr {
@@ -1470,13 +1472,13 @@ func (scope *Scope) handleBelongsToPreload(field *StructField, conditions []inte
 	for i := 0; i < resultsValue.Len(); i++ {
 		result := resultsValue.Index(i)
 		if indirectScopeValue.Kind() == reflect.Slice {
-			value := getValueFromFields(result, relation.AssociationForeignFieldNames)
+			value := relation.AssociationForeignFieldNames.getValueFromFields(result)
 			for j := 0; j < indirectScopeValue.Len(); j++ {
 				reflectValue := indirectScopeValue.Index(j)
 				for reflectValue.Kind() == reflect.Ptr {
 					reflectValue = reflectValue.Elem()
 				}
-				if equalAsString(getValueFromFields(reflectValue, relation.ForeignFieldNames), value) {
+				if equalAsString(relation.ForeignFieldNames.getValueFromFields(reflectValue), value) {
 					reflectValue.FieldByName(field.GetName()).Set(result)
 				}
 			}
@@ -1577,11 +1579,11 @@ func (scope *Scope) handleManyToManyPreload(field *StructField, conditions []int
 			for reflectValue.Kind() == reflect.Ptr {
 				reflectValue = reflectValue.Elem()
 			}
-			key := toString(getValueFromFields(reflectValue, foreignFieldNames))
+			key := toString(foreignFieldNames.getValueFromFields(reflectValue))
 			fieldsSourceMap[key] = append(fieldsSourceMap[key], reflectValue.FieldByName(field.GetName()))
 		}
 	} else if indirectScopeValue.IsValid() {
-		key := toString(getValueFromFields(indirectScopeValue, foreignFieldNames))
+		key := toString(foreignFieldNames.getValueFromFields(indirectScopeValue))
 		fieldsSourceMap[key] = append(fieldsSourceMap[key], indirectScopeValue.FieldByName(field.GetName()))
 	}
 	for source, link := range linkHash {
