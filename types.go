@@ -95,11 +95,12 @@ type (
 	}
 
 	sqlConditionType uint16
-	sqlCondition     struct {
-		Type   sqlConditionType
-		Values interface{}
+	sqlPair struct {
+		expression interface{}
+		args []interface{}
 	}
-	sqlConditions []sqlCondition
+	sqlCondition []sqlPair
+	sqlConditions map[sqlConditionType]sqlCondition
 	//TODO : @Badu - pointer to DBCon is just to expose errors
 	//since they are related (Scope has a search inside)
 	search struct {

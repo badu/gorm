@@ -37,12 +37,15 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
 
 # Changes log
 
+## 15.11.2016
+- [x] minor modification on ModelStruct Create() : moved HasRelations flag setters into StructField
+- [ ] WIP - slimmer search struct
+
 ## 14.11.2016
 - [x] StructField - optimized creation
 - [x] StructField - optimized makeSlice()
 - [x] StructField - method PtrToValue() called in Scope (scan)
 - [x] integrate Omit duplicates and zero-value ids in preload queries. Resolves #854 and #1054.
-- [ ] WIP - slimmer search struct 
  
 ## 13.11.2016
 - [x] ModelStruct - removed properties PrimaryFields and StructFields - they are kept in fieldsMap struct

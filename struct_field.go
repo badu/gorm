@@ -127,6 +127,18 @@ func NewStructField(fromStruct reflect.StructField) (*StructField, error) {
 		}
 	}
 
+	if !result.IsIgnored() && !result.IsScanner() && !result.IsTime() && !result.IsEmbedOrAnon() {
+		if result.IsSlice() {
+			//marker for later processing of relationships
+			result.SetHasRelations()
+		} else if result.IsStruct() {
+			//marker for later processing of relationships
+			result.SetHasRelations()
+		} else {
+			result.SetIsNormal()
+		}
+	}
+
 	return result, err
 }
 
@@ -437,7 +449,7 @@ func (field *StructField) makeSlice() interface{} {
 	}
 	**/
 	basicType := field.Type
-	if field.hasFlag(IS_POINTER){
+	if field.hasFlag(IS_POINTER) {
 		basicType = reflect.PtrTo(field.Type)
 	}
 	sliceType := reflect.SliceOf(basicType)

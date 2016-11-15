@@ -82,37 +82,25 @@ func (modelStruct *ModelStruct) Create(reflectType reflect.Type, scope *Scope) {
 				scope.Err(errors.New(fmt.Sprintf(proc_tag_err, modelStruct.ModelType.Name(), err)))
 				return
 			}
-			// is ignored field
+
 			if !field.IsIgnored() {
 				//field Value is created with the new struct field
 				fieldValue := field.Value.Interface()
-				if !field.IsScanner() && !field.IsTime() {
-					if field.IsEmbedOrAnon() {
-						// is embedded struct
-						for _, subField := range scope.New(fieldValue).GetModelStruct().StructFields() {
-							subField = subField.clone()
-							subField.Names = append([]string{fieldStruct.Name}, subField.Names...)
-							if prefix := field.GetSetting(EMBEDDED_PREFIX); prefix != "" {
-								subField.DBName = prefix + subField.DBName
-							}
-							err = modelStruct.fieldsMap.Add(subField)
-							if err != nil {
-								scope.Err(errors.New(fmt.Sprintf(add_field_err, modelStruct.ModelType.Name(), err)))
-								return
-							}
+				if !field.IsScanner() && !field.IsTime() && field.IsEmbedOrAnon() {
+					// is embedded struct
+					for _, subField := range scope.New(fieldValue).GetModelStruct().StructFields() {
+						subField = subField.clone()
+						subField.Names = append([]string{fieldStruct.Name}, subField.Names...)
+						if prefix := field.GetSetting(EMBEDDED_PREFIX); prefix != "" {
+							subField.DBName = prefix + subField.DBName
 						}
-						continue
-					} else {
-						if field.IsSlice() {
-							//marker for later processing of relationships
-							field.SetHasRelations()
-						} else if field.IsStruct() {
-							//marker for later processing of relationships
-							field.SetHasRelations()
-						} else {
-							field.SetIsNormal()
+						err = modelStruct.fieldsMap.Add(subField)
+						if err != nil {
+							scope.Err(errors.New(fmt.Sprintf(add_field_err, modelStruct.ModelType.Name(), err)))
+							return
 						}
 					}
+					continue
 				}
 			}
 
