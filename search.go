@@ -20,6 +20,8 @@ func (p *sqlPair) addExpressions(values ...interface{}) {
 }
 
 func (s *search) addSqlCondition(condType sqlConditionType, query interface{}, values ...interface{}) {
+	//TODO : @Badu - VERY IMPORTANT : check in which condition we clone the search,
+	//otherwise slice will grow indefinitely ( causing memory leak :) )
 	//TODO : @Badu - just until we get stable with this
 	if s.conditions == nil {
 		s.conditions = make(sqlConditions)
