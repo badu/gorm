@@ -95,35 +95,32 @@ type (
 	}
 
 	sqlConditionType uint16
-	sqlPair struct {
+	sqlPair          struct {
 		expression interface{}
-		args []interface{}
+		args       []interface{}
 	}
-	sqlCondition []sqlPair
+	sqlCondition  []sqlPair
 	sqlConditions map[sqlConditionType]sqlCondition
 	//TODO : @Badu - pointer to DBCon is just to expose errors
 	//since they are related (Scope has a search inside)
 	search struct {
-		con              *DBCon
-		conditions       sqlConditions
-		whereConditions  []map[string]interface{}
-		orConditions     []map[string]interface{}
-		notConditions    []map[string]interface{}
-		havingConditions []map[string]interface{}
-		joinConditions   []map[string]interface{}
-		selects          map[string]interface{}
-		initAttrs        []interface{}
-		assignAttrs      []interface{}
-		orders           []interface{}
-		omits            []string
-		preload          []searchPreload
-		offset           interface{}
-		limit            interface{}
-		group            string
-		tableName        string
-		raw              bool
-		Unscoped         bool
-		countingQuery    bool
+		con           *DBCon
+		conditions    sqlConditions
+		notConditions []map[string]interface{}
+		selects       map[string]interface{}
+		initAttrs     []interface{}
+		assignAttrs   []interface{}
+		orders        []interface{}
+		omits         []string
+		preload       []searchPreload
+		offset        interface{}
+		limit         interface{}
+		group         string
+		tableName     string
+		//TODO : make flags out this booleans
+		raw           bool
+		Unscoped      bool
+		countingQuery bool
 	}
 	searchPreload struct {
 		schema     string

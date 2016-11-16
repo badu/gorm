@@ -34,13 +34,16 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
 - renamed PrimaryKey() of Scope to PKName()
 - renamed PrimaryField() of Scope to PK()
 - renamed PrimaryFields() of Scope to PKs()
+- renamed SQLDB() of Scope to AsSQLDB()
 
 # Changes log
+
+## 16.11.2016
+- [x] slimmer search struct - whereConditions, orConditions, havingConditions, joinConditions are gone
 
 ## 15.11.2016
 - [x] minor modification on ModelStruct Create() : moved HasRelations flag setters into StructField
 - [x] moved getValueFromFields from utils.go to string_slice.go (even if it don't belong there)
-- [ ] WIP - slimmer search struct
 
 ## 14.11.2016
 - [x] StructField - optimized creation

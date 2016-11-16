@@ -7,14 +7,14 @@ import (
 
 func TestCloneSearch(t *testing.T) {
 	t.Log("129) TestCloneSearch")
-	s := new(search)
+	s := &search{conditions: make(sqlConditions)}
 	s.Where("name = ?", "jinzhu").Order("name").Attrs("name", "jinzhu").Select("name, age")
 
 	s1 := s.clone()
 	s1.Where("age = ?", 20).Order("age").Attrs("email", "a@e.org").Select("email")
 
-	if reflect.DeepEqual(s.whereConditions, s1.whereConditions) {
-		t.Errorf("Where should be copied")
+	if reflect.DeepEqual(s.conditions[where_query], s1.conditions[where_query]) {
+		t.Errorf("Where should be copied (NOT deep equal)")
 	}
 
 	if reflect.DeepEqual(s.orders, s1.orders) {

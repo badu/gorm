@@ -23,7 +23,7 @@ func (scope *Scope) IndirectValue() reflect.Value {
 
 // New create a new Scope without search information
 func (scope *Scope) New(value interface{}) *Scope {
-	return &Scope{con: scope.NewCon(), Search: &search{}, Value: value}
+	return &Scope{con: scope.NewCon(), Search: &search{conditions: make(sqlConditions)}, Value: value}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -494,6 +494,70 @@ func (scope *Scope) primaryCondition(value interface{}) string {
 	return fmt.Sprintf("(%v.%v = %v)", scope.QuotedTableName(), scope.Quote(scope.PKName()), value)
 }
 
+//TODO : @Badu - this will replace buildWhereCondition
+func (scope *Scope) upgradedBuildWhereCondition(fromPair sqlPair) string {
+	var str string
+
+	switch expType := fromPair.expression.(type) {
+	case string:
+		// if string is number
+		if regexp.MustCompile("^\\s*\\d+\\s*$").MatchString(expType) {
+			return scope.primaryCondition(scope.AddToVars(expType))
+		} else if expType != "" {
+			str = fmt.Sprintf("(%v)", expType)
+		}
+	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, sql.NullInt64:
+		return scope.primaryCondition(scope.AddToVars(expType))
+	case []int, []int8, []int16, []int32, []int64, []uint, []uint8, []uint16, []uint32, []uint64, []string, []interface{}:
+		str = fmt.Sprintf("(%v.%v IN (?))", scope.QuotedTableName(), scope.Quote(scope.PKName()))
+		//TODO : @Badu - seems really bad "work around" (boiler plate logic)
+		fromPair.args = []interface{}{expType}
+	case map[string]interface{}:
+		var sqls []string
+		for key, value := range expType {
+			if value != nil {
+				sqls = append(sqls, fmt.Sprintf("(%v.%v = %v)", scope.QuotedTableName(), scope.Quote(key), scope.AddToVars(value)))
+			} else {
+				sqls = append(sqls, fmt.Sprintf("(%v.%v IS NULL)", scope.QuotedTableName(), scope.Quote(key)))
+			}
+		}
+		return strings.Join(sqls, " AND ")
+	case interface{}:
+		var sqls []string
+		newScope := scope.New(expType)
+		for _, field := range newScope.Fields() {
+			if !field.IsIgnored() && !field.IsBlank() {
+				sqls = append(sqls, fmt.Sprintf("(%v.%v = %v)", newScope.QuotedTableName(), scope.Quote(field.DBName), scope.AddToVars(field.Value.Interface())))
+			}
+		}
+		return strings.Join(sqls, " AND ")
+	}
+
+	for _, arg := range fromPair.args {
+		switch reflect.ValueOf(arg).Kind() {
+		case reflect.Slice: // For where("id in (?)", []int64{1,2})
+			if bytes, ok := arg.([]byte); ok {
+				str = strings.Replace(str, "?", scope.AddToVars(bytes), 1)
+			} else if values := reflect.ValueOf(arg); values.Len() > 0 {
+				var tempMarks []string
+				for i := 0; i < values.Len(); i++ {
+					tempMarks = append(tempMarks, scope.AddToVars(values.Index(i).Interface()))
+				}
+				str = strings.Replace(str, "?", strings.Join(tempMarks, ","), 1)
+			} else {
+				str = strings.Replace(str, "?", scope.AddToVars(Expr("NULL")), 1)
+			}
+		default:
+			if valuer, ok := interface{}(arg).(driver.Valuer); ok {
+				arg, _ = valuer.Value()
+			}
+
+			str = strings.Replace(str, "?", scope.AddToVars(arg), 1)
+		}
+	}
+	return str
+}
+
 func (scope *Scope) buildWhereCondition(clause map[string]interface{}) string {
 	var str string
 	switch value := clause["query"].(type) {
@@ -676,14 +740,14 @@ func (scope *Scope) whereSQL() string {
 		}
 	}
 
-	for _, clause := range scope.Search.whereConditions {
-		if aStr := scope.buildWhereCondition(clause); aStr != "" {
+	for _, pair := range scope.Search.conditions[where_query] {
+		if aStr := scope.upgradedBuildWhereCondition(pair); aStr != "" {
 			andConditions = append(andConditions, aStr)
 		}
 	}
 
-	for _, clause := range scope.Search.orConditions {
-		if aStr := scope.buildWhereCondition(clause); aStr != "" {
+	for _, pair := range scope.Search.conditions[or_query] {
+		if aStr := scope.upgradedBuildWhereCondition(pair); aStr != "" {
 			orConditions = append(orConditions, aStr)
 		}
 	}
@@ -717,7 +781,7 @@ func (scope *Scope) whereSQL() string {
 
 func (scope *Scope) selectSQL() string {
 	if len(scope.Search.selects) == 0 {
-		if len(scope.Search.joinConditions) > 0 {
+		if scope.Search.numConditions(joins_query) > 0 {
 			return fmt.Sprintf("%v.*", scope.QuotedTableName())
 		}
 		return "*"
@@ -758,18 +822,18 @@ func (scope *Scope) groupSQL() string {
 }
 
 func (scope *Scope) havingSQL() string {
-	if len(scope.Search.havingConditions) == 0 {
+	if scope.Search.numConditions(having_query) == 0 {
 		return ""
 	}
 
 	var andConditions []string
-	for _, clause := range scope.Search.havingConditions {
-		if aStr := scope.buildWhereCondition(clause); aStr != "" {
+	for _, pair := range scope.Search.conditions[having_query] {
+		if aStr := scope.upgradedBuildWhereCondition(pair); aStr != "" {
 			andConditions = append(andConditions, aStr)
 		}
 	}
-
 	combinedSQL := strings.Join(andConditions, " AND ")
+
 	if len(combinedSQL) == 0 {
 		return ""
 	}
@@ -779,8 +843,9 @@ func (scope *Scope) havingSQL() string {
 
 func (scope *Scope) joinsSQL() string {
 	var joinConditions []string
-	for _, clause := range scope.Search.joinConditions {
-		if aStr := scope.buildWhereCondition(clause); aStr != "" {
+
+	for _, pair := range scope.Search.conditions[joins_query] {
+		if aStr := scope.upgradedBuildWhereCondition(pair); aStr != "" {
 			joinConditions = append(joinConditions, strings.TrimSuffix(strings.TrimPrefix(aStr, "("), ")"))
 		}
 	}
@@ -859,14 +924,21 @@ func (scope *Scope) rows() (*sql.Rows, error) {
 }
 
 func (scope *Scope) initialize() *Scope {
-	scope.Search.conditions[where_query]
+	//scope.con.toLog("", fmt.Sprintf("start init %d and %d", len(scope.Search.conditions), len(scope.Search.conditions[where_query])))
+	for _, pair := range scope.Search.conditions[where_query] {
+		//scope.con.toLog("", fmt.Sprintf("%v", pair.expression))
+		scope.updatedAttrsWithValues(pair.expression)
+	}
+	/**
 	for _, clause := range scope.Search.whereConditions {
 		query := clause["query"]
-		scope.con.toLog(query)
+		scope.con.toLog("", fmt.Sprintf("%v", query))
 		scope.updatedAttrsWithValues(query)
 	}
+	**/
 	scope.updatedAttrsWithValues(scope.Search.initAttrs)
 	scope.updatedAttrsWithValues(scope.Search.assignAttrs)
+	//scope.con.toLog("", "end init")
 	return scope
 }
 

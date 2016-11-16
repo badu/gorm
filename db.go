@@ -626,7 +626,7 @@ func (con *DBCon) clone(withoutSettings bool, withoutSearch bool) *DBCon {
 	}
 	if !withoutSearch {
 		if con.search == nil {
-			clone.search = &search{limit: -1, offset: -1}
+			clone.search = &search{limit: -1, offset: -1, conditions:make(sqlConditions)}
 		} else {
 			clone.search = con.search.clone()
 		}

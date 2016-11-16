@@ -27,7 +27,7 @@ const (
 	IS_AUTOINCREMENT  uint16 = 12
 	IS_POINTER        uint16 = 13
 )
-
+//TODO : @Badu - benchmark discarding settings (except those with value) while keeping the flags
 func NewStructField(fromStruct reflect.StructField) (*StructField, error) {
 	result := &StructField{
 		Struct: fromStruct,

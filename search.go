@@ -1,6 +1,8 @@
 package gorm
 
-import "fmt"
+import (
+	"fmt"
+)
 
 const (
 	select_query sqlConditionType = 0
@@ -13,114 +15,90 @@ const (
 	assign_attrs sqlConditionType = 7
 )
 
-func (s *sqlPair) add(values ... interface{}){
-	s.args = append(s.args, values...)
+func (p *sqlPair) addExpressions(values ...interface{}) {
+	p.args = append(p.args, values...)
+}
+
+func (s *search) addSqlCondition(condType sqlConditionType, query interface{}, values ...interface{}) {
+	//TODO : @Badu - just until we get stable with this
+	if s.conditions == nil {
+		s.conditions = make(sqlConditions)
+	}
+	//create a new condition pair
+	newPair := sqlPair{expression: query}
+	newPair.addExpressions(values...)
+	//create a slice of conditions for the key of map if there isn't already one
+	if _, ok := s.conditions[condType]; !ok {
+		s.conditions[condType] = make([]sqlPair, 0, 0)
+	}
+	//add the condition pair to the slice
+	s.conditions[condType] = append(s.conditions[condType], newPair)
+}
+
+func (s *search) numConditions(condType sqlConditionType) int {
+	//TODO : @Badu - just until we get stable with this
+	if s.conditions == nil {
+		s.conditions = make(sqlConditions)
+	}
+	if _, ok := s.conditions[condType]; !ok {
+		s.conditions[condType] = make([]sqlPair, 0, 0)
+	}
+	//should return the number of conditions of that type
+	return len(s.conditions[condType])
 }
 
 func (s *search) clone() *search {
 	//TODO : @Badu - it's this a ... clone ?
 	clone := *s
+	//clone conditions
+	clone.conditions = make(sqlConditions)
+	for key, value := range s.conditions {
+		clone.conditions[key] = value
+	}
 	return &clone
 }
 
 func (s *search) Where(query interface{}, values ...interface{}) *search {
-	s.whereConditions = append(s.whereConditions, map[string]interface{}{"query": query, "args": values})
-	entry, ok := s.conditions[where_query]
-	if !ok {
-		entry = make(sqlCondition, 0)
-	}
-	newPair := sqlPair{expression: query}
-	newPair.add(values)
-	entry = append(entry, newPair)
+	s.addSqlCondition(where_query, query, values...)
 	return s
 }
 
 func (s *search) Not(query interface{}, values ...interface{}) *search {
 	s.notConditions = append(s.notConditions, map[string]interface{}{"query": query, "args": values})
-
-	entry, ok := s.conditions[not_query]
-	if !ok {
-		entry = make(sqlCondition, 0)
-	}
-	newPair := sqlPair{expression: query}
-	newPair.add(values)
-	entry = append(entry, newPair)
+	s.addSqlCondition(not_query, query, values...)
 	return s
 }
 
 func (s *search) Or(query interface{}, values ...interface{}) *search {
-	s.orConditions = append(s.orConditions, map[string]interface{}{"query": query, "args": values})
-
-	entry, ok := s.conditions[or_query]
-	if !ok {
-		entry = make(sqlCondition, 0)
-	}
-	newPair := sqlPair{expression: query}
-	newPair.add(values)
-	entry = append(entry, newPair)
+	s.addSqlCondition(or_query, query, values...)
 	return s
 }
 
 func (s *search) Having(query string, values ...interface{}) *search {
-	s.havingConditions = append(s.havingConditions, map[string]interface{}{"query": query, "args": values})
-
-	entry, ok := s.conditions[having_query]
-	if !ok {
-		entry = make(sqlCondition, 0)
-	}
-	newPair := sqlPair{expression: query}
-	newPair.add(values)
-	entry = append(entry, newPair)
+	s.addSqlCondition(having_query, query, values...)
 	return s
 }
 
 func (s *search) Joins(query string, values ...interface{}) *search {
-	s.joinConditions = append(s.joinConditions, map[string]interface{}{"query": query, "args": values})
-
-	entry, ok := s.conditions[joins_query]
-	if !ok {
-		entry = make(sqlCondition, 0)
-	}
-	newPair := sqlPair{expression: query}
-	newPair.add(values)
-	entry = append(entry, newPair)
+	s.addSqlCondition(joins_query, query, values...)
 	return s
 }
 
 func (s *search) Select(query interface{}, args ...interface{}) *search {
 	s.selects = map[string]interface{}{"query": query, "args": args}
-
-	entry, ok := s.conditions[select_query]
-	if !ok {
-		entry = make(sqlCondition, 0)
-	}
-	newPair := sqlPair{expression: query}
-	newPair.add(args)
-	entry = append(entry, newPair)
+	s.addSqlCondition(select_query, query, args...)
 	return s
 }
 
 func (s *search) Attrs(attrs ...interface{}) *search {
 	s.initAttrs = append(s.initAttrs, toSearchableMap(attrs...))
-	entry, ok := s.conditions[init_attrs]
-	if !ok {
-		entry = make(sqlCondition, 0)
-	}
-	newPair := sqlPair{}
-	newPair.add(attrs)
-	entry = append(entry, newPair)
+	s.addSqlCondition(init_attrs, nil, attrs...)
 	return s
 }
 
 func (s *search) Assign(attrs ...interface{}) *search {
 	s.assignAttrs = append(s.assignAttrs, toSearchableMap(attrs...))
-	entry, ok := s.conditions[assign_attrs]
-	if !ok {
-		entry = make(sqlCondition, 0)
-	}
-	newPair := sqlPair{}
-	newPair.add(attrs)
-	entry = append(entry, newPair)
+	s.addSqlCondition(assign_attrs, nil, attrs...)
 	return s
 }
 
