@@ -48,7 +48,7 @@ func TestPreload(t *testing.T) {
 				t.Errorf("should only preload one emails for user3 when with condition")
 			}
 		} else if len(user.Emails) != 0 {
-			t.Errorf("should not preload any emails for other users when with condition")
+			t.Errorf("should not preload any emails for other users when with condition (%d loaded)", len(user.Emails))
 		} else if user.Emails == nil {
 			t.Errorf("should return an empty slice to indicate zero results")
 		}

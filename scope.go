@@ -2004,7 +2004,7 @@ func (scope *Scope) afterQueryCallback() {
 //============================================
 // preloadCallback used to preload associations
 func (scope *Scope) preloadCallback() {
-	if scope.Search.preload == nil || scope.HasError() {
+	if scope.Search.numConditions(preload_query) <= 0 || scope.HasError() {
 		return
 	}
 
@@ -2012,7 +2012,72 @@ func (scope *Scope) preloadCallback() {
 		preloadedMap = map[string]bool{}
 		fields       = scope.Fields()
 	)
+	/**
+	for _, sqlPair := range scope.Search.conditions[preload_query] {
+		var (
+			preloadFields = strings.Split(sqlPair.strExpr(), ".")
+			currentScope  = scope
+			currentFields = fields
+		)
 
+		for idx, preloadField := range preloadFields {
+			fmt.Printf("Preloading %d %q\n", idx, preloadField)
+			var currentPreloadConditions []interface{}
+			//there is no next level
+			if currentScope == nil {
+				continue
+			}
+
+			// if not preloaded
+			if preloadKey := strings.Join(preloadFields[:idx+1], "."); !preloadedMap[preloadKey] {
+
+				// assign search conditions to last preload
+				if idx == len(preloadFields)-1 {
+					currentPreloadConditions = sqlPair.args
+					for _, argCond := range currentPreloadConditions {
+						fmt.Printf("Condition : %v\n", argCond)
+					}
+				}
+
+				for _, field := range currentFields {
+					if field.GetName() != preloadField || field.Relationship == nil {
+						continue
+					}
+
+					switch field.Relationship.Kind {
+					case HAS_ONE:
+						currentScope.handleHasOnePreload(field, currentPreloadConditions)
+					case HAS_MANY:
+						currentScope.handleHasManyPreload(field, currentPreloadConditions)
+					case BELONGS_TO:
+						currentScope.handleBelongsToPreload(field, currentPreloadConditions)
+					case MANY_TO_MANY:
+						currentScope.handleManyToManyPreload(field, currentPreloadConditions)
+					default:
+						scope.Err(errors.New("SCOPE : unsupported relation"))
+					}
+
+					preloadedMap[preloadKey] = true
+					break
+				}
+
+				if !preloadedMap[preloadKey] {
+					scope.Err(fmt.Errorf("can't preload field %s for %s", preloadField, currentScope.GetModelStruct().ModelType))
+					return
+				}
+			}
+
+			// preload next level
+			if idx < len(preloadFields)-1 {
+				//if preloadField is struct or slice, we need to get it's scope
+				currentScope = currentScope.getColumnAsScope(preloadField)
+				if currentScope != nil {
+					currentFields = currentScope.Fields()
+				}
+			}
+		}
+	}
+	**/
 	for _, preload := range scope.Search.preload {
 		var (
 			preloadFields = strings.Split(preload.schema, ".")
@@ -2021,6 +2086,7 @@ func (scope *Scope) preloadCallback() {
 		)
 
 		for idx, preloadField := range preloadFields {
+			fmt.Printf("Preloading %d %q\n", idx, preloadField)
 			var currentPreloadConditions []interface{}
 			//there is no next level
 			if currentScope == nil {
@@ -2033,6 +2099,9 @@ func (scope *Scope) preloadCallback() {
 				// assign search conditions to last preload
 				if idx == len(preloadFields)-1 {
 					currentPreloadConditions = preload.conditions
+					for _, argCond := range currentPreloadConditions {
+						fmt.Printf("Condition : %v\n", argCond)
+					}
 				}
 
 				for _, field := range currentFields {

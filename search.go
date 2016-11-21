@@ -5,14 +5,15 @@ import (
 )
 
 const (
-	select_query sqlConditionType = 0
-	where_query  sqlConditionType = 1
-	not_query    sqlConditionType = 2
-	or_query     sqlConditionType = 3
-	having_query sqlConditionType = 4
-	joins_query  sqlConditionType = 5
-	init_attrs   sqlConditionType = 6
-	assign_attrs sqlConditionType = 7
+	select_query  sqlConditionType = 0
+	where_query   sqlConditionType = 1
+	not_query     sqlConditionType = 2
+	or_query      sqlConditionType = 3
+	having_query  sqlConditionType = 4
+	joins_query   sqlConditionType = 5
+	init_attrs    sqlConditionType = 6
+	assign_attrs  sqlConditionType = 7
+	preload_query sqlConditionType = 8
 
 	IS_UNSCOPED uint16 = 0
 	IS_RAW      uint16 = 1
@@ -21,6 +22,42 @@ const (
 
 func (p *sqlPair) addExpressions(values ...interface{}) {
 	p.args = append(p.args, values...)
+}
+
+func (p *sqlPair) strExpr() string {
+	result := p.expression.(string)
+	return result
+}
+
+func (s *search) Preload(schema string, values ...interface{}) *search {
+	//TODO : @Badu - just until we get stable with this
+	if s.conditions == nil {
+		s.conditions = make(sqlConditions)
+	}
+	if _, ok := s.conditions[preload_query]; !ok {
+		s.conditions[preload_query] = make([]sqlPair, 0, 0)
+	}
+	sameSchema := false
+	for _, pair := range s.conditions[preload_query] {
+		if pair.strExpr() == schema {
+			sameSchema = true
+			//create a new slice of args and put those values
+			pair.args = append(make([]interface{}, 0, 0), values...)
+		}
+	}
+	if !sameSchema {
+		s.addSqlCondition(preload_query, schema, values...)
+	}
+	var preloads []searchPreload
+	for _, existingPreload := range s.preload {
+		//if it's a different schema... same schema gets skipped ...
+		if existingPreload.schema != schema {
+			preloads = append(preloads, existingPreload)
+		}
+	}
+	preloads = append(preloads, searchPreload{schema, values})
+	s.preload = preloads
+	return s
 }
 
 func (s *search) addSqlCondition(condType sqlConditionType, query interface{}, values ...interface{}) {
@@ -182,18 +219,6 @@ func (s *search) Offset(offset interface{}) *search {
 
 func (s *search) Group(query string) *search {
 	s.group = s.getInterfaceAsSQL(query)
-	return s
-}
-
-func (s *search) Preload(schema string, values ...interface{}) *search {
-	var preloads []searchPreload
-	for _, preload := range s.preload {
-		if preload.schema != schema {
-			preloads = append(preloads, preload)
-		}
-	}
-	preloads = append(preloads, searchPreload{schema, values})
-	s.preload = preloads
 	return s
 }
 
