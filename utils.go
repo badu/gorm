@@ -82,17 +82,18 @@ func toQueryValues(values [][]interface{}) []interface{} {
 
 func toSearchableMap(attrs ...interface{}) interface{} {
 	var result interface{}
-	if len(attrs) > 1 {
-		if str, ok := attrs[0].(string); ok {
-			result = map[string]interface{}{str: attrs[1]}
-		}
-	} else if len(attrs) == 1 {
+	//TODO : @Badu - what happens to zero ? return nil, right? Return warning
+	if len(attrs) == 1 {
 		if attr, ok := attrs[0].(map[string]interface{}); ok {
 			result = attr
 		}
 
 		if attr, ok := attrs[0].(interface{}); ok {
 			result = attr
+		}
+	}else if len(attrs) > 1 {
+		if str, ok := attrs[0].(string); ok {
+			result = map[string]interface{}{str: attrs[1]}
 		}
 	}
 	return result

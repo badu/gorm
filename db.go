@@ -151,7 +151,7 @@ func (con *DBCon) Scopes(funcs ...func(*DBCon) *DBCon) *DBCon {
 
 // Unscoped return all record including deleted record, refer Soft Delete
 func (con *DBCon) Unscoped() *DBCon {
-	return con.clone(false, false).search.unscoped().con
+	return con.clone(false, false).search.setUnscoped().con
 }
 
 // Attrs initialize struct with argument if record not found with `FirstOrInit` or `FirstOrCreate`
@@ -241,7 +241,13 @@ func (con *DBCon) FirstOrInit(out interface{}, where ...interface{}) *DBCon {
 		}
 		c.NewScope(out).inlineCondition(where...).initialize()
 	} else {
-		c.NewScope(out).updatedAttrsWithValues(c.search.assignAttrs)
+		scope := c.NewScope(out)
+		args, argsOk := scope.Search.GetAssignAttr()
+		if argsOk {
+			scope.updatedAttrsWithValues(args)
+		} else {
+			//TODO : @Badu - warning ?
+		}
 	}
 	return c
 }
@@ -254,8 +260,15 @@ func (con *DBCon) FirstOrCreate(out interface{}, where ...interface{}) *DBCon {
 			return result
 		}
 		return c.NewScope(out).inlineCondition(where...).initialize().callCallbacks(c.parent.callback.creates).con
-	} else if len(c.search.assignAttrs) > 0 {
-		return c.NewScope(out).InstanceSet("gorm:update_interface", c.search.assignAttrs).callCallbacks(c.parent.callback.updates).con
+	} else if c.search.numConditions(assign_attrs) > 0 {
+		scope := c.NewScope(out)
+		args, argsOk := scope.Search.GetAssignAttr()
+		if argsOk {
+			scope.InstanceSet("gorm:update_interface", args)
+		} else {
+			//TODO : @Badu - warning ?
+		}
+		return scope.callCallbacks(c.parent.callback.updates).con
 	}
 	return c
 }
@@ -314,13 +327,15 @@ func (con *DBCon) Delete(value interface{}, where ...interface{}) *DBCon {
 // Raw use raw sql as conditions, won't run it unless invoked by other methods
 //    db.Raw("SELECT name, age FROM users WHERE name = ?", 3).Scan(&result)
 func (con *DBCon) Raw(sql string, values ...interface{}) *DBCon {
-	return con.clone(false, false).search.Raw(true).Where(sql, values...).con
+	return con.clone(false, false).search.SetRaw().Where(sql, values...).con
 }
 
 // Exec execute raw sql
 func (con *DBCon) Exec(sql string, values ...interface{}) *DBCon {
 	scope := con.clone(false, false).NewScope(nil)
-	generatedSQL := scope.buildWhereCondition(map[string]interface{}{"query": sql, "args": values})
+	newPair := sqlPair{expression: sql}
+	newPair.addExpressions(values...)
+	generatedSQL := scope.buildWhereCondition(newPair)
 	generatedSQL = strings.TrimSuffix(strings.TrimPrefix(generatedSQL, "("), ")")
 	scope.Raw(generatedSQL)
 	return scope.Exec().con
@@ -626,7 +641,7 @@ func (con *DBCon) clone(withoutSettings bool, withoutSearch bool) *DBCon {
 	}
 	if !withoutSearch {
 		if con.search == nil {
-			clone.search = &search{limit: -1, offset: -1, conditions:make(sqlConditions)}
+			clone.search = &search{limit: -1, offset: -1, conditions: make(sqlConditions)}
 		} else {
 			clone.search = con.search.clone()
 		}

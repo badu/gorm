@@ -13,6 +13,10 @@ const (
 	joins_query  sqlConditionType = 5
 	init_attrs   sqlConditionType = 6
 	assign_attrs sqlConditionType = 7
+
+	IS_UNSCOPED uint16 = 0
+	IS_RAW      uint16 = 1
+	IS_COUNTING uint16 = 2
 )
 
 func (p *sqlPair) addExpressions(values ...interface{}) {
@@ -66,7 +70,6 @@ func (s *search) Where(query interface{}, values ...interface{}) *search {
 }
 
 func (s *search) Not(query interface{}, values ...interface{}) *search {
-	s.notConditions = append(s.notConditions, map[string]interface{}{"query": query, "args": values})
 	s.addSqlCondition(not_query, query, values...)
 	return s
 }
@@ -93,14 +96,61 @@ func (s *search) Select(query interface{}, args ...interface{}) *search {
 }
 
 func (s *search) Attrs(attrs ...interface{}) *search {
-	s.initAttrs = append(s.initAttrs, toSearchableMap(attrs...))
-	s.addSqlCondition(init_attrs, nil, attrs...)
+	var result interface{}
+	if len(attrs) == 1 {
+		if attr, ok := attrs[0].(map[string]interface{}); ok {
+			result = attr
+		}
+
+		if attr, ok := attrs[0].(interface{}); ok {
+			result = attr
+		}
+	} else if len(attrs) > 1 {
+		if str, ok := attrs[0].(string); ok {
+			result = map[string]interface{}{str: attrs[1]}
+		}
+	}
+	if result != nil {
+		s.addSqlCondition(init_attrs, nil, result)
+	}
 	return s
 }
 
+func (s *search) GetInitAttr() ([]interface{}, bool) {
+	if s.numConditions(init_attrs) == 1 {
+		assign := s.conditions[init_attrs][0]
+		return assign.args, true
+	}
+	return nil, false
+}
+
+func (s *search) GetAssignAttr() ([]interface{}, bool) {
+	if s.numConditions(assign_attrs) == 1 {
+		assign := s.conditions[assign_attrs][0]
+		return assign.args, true
+	}
+	return nil, false
+}
+
 func (s *search) Assign(attrs ...interface{}) *search {
-	s.assignAttrs = append(s.assignAttrs, toSearchableMap(attrs...))
-	s.addSqlCondition(assign_attrs, nil, attrs...)
+	//s.assignAttrs = append(s.assignAttrs, toSearchableMap(attrs...))
+	var result interface{}
+	if len(attrs) == 1 {
+		if attr, ok := attrs[0].(map[string]interface{}); ok {
+			result = attr
+		}
+
+		if attr, ok := attrs[0].(interface{}); ok {
+			result = attr
+		}
+	} else if len(attrs) > 1 {
+		if str, ok := attrs[0].(string); ok {
+			result = map[string]interface{}{str: attrs[1]}
+		}
+	}
+	if result != nil {
+		s.addSqlCondition(assign_attrs, nil, result)
+	}
 	return s
 }
 
@@ -147,13 +197,42 @@ func (s *search) Preload(schema string, values ...interface{}) *search {
 	return s
 }
 
-func (s *search) Raw(b bool) *search {
-	s.raw = b
+func (s search) hasFlag(value uint16) bool {
+	return s.flags&(1<<value) != 0
+}
+
+func (s *search) setFlag(value uint16) {
+	s.flags = s.flags | (1 << value)
+}
+
+func (s *search) unsetFlag(value uint16) {
+	s.flags = s.flags & ^(1 << value)
+}
+
+func (s *search) isCounting() bool {
+	return s.flags&(1<<IS_COUNTING) != 0
+}
+
+func (s *search) setCounting() *search {
+	s.flags = s.flags | (1 << IS_COUNTING)
 	return s
 }
 
-func (s *search) unscoped() *search {
-	s.Unscoped = true
+func (s *search) IsRaw() bool {
+	return s.flags&(1<<IS_RAW) != 0
+}
+
+func (s *search) SetRaw() *search {
+	s.flags = s.flags | (1 << IS_RAW)
+	return s
+}
+
+func (s *search) isUnscoped() bool {
+	return s.flags&(1<<IS_UNSCOPED) != 0
+}
+
+func (s *search) setUnscoped() *search {
+	s.flags = s.flags | (1 << IS_UNSCOPED)
 	return s
 }
 

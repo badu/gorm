@@ -38,6 +38,12 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
 
 # Changes log
 
+## 21.11.2016
+- [x] slimmer search struct - notConditions are gone
+- [x] slimmer search struct - flags instead of booleans
+- [x] slimmer search struct - initAttrs gone + method GetInitAttr()        
+- [x] slimmer search struct - assignAttrs gome + method GetAssignAttr()     
+
 ## 16.11.2016
 - [x] slimmer search struct - whereConditions, orConditions, havingConditions, joinConditions are gone
 

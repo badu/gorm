@@ -21,7 +21,7 @@ func TestCloneSearch(t *testing.T) {
 		t.Errorf("Order should be copied")
 	}
 
-	if reflect.DeepEqual(s.initAttrs, s1.initAttrs) {
+	if reflect.DeepEqual(s.conditions[init_attrs], s1.conditions[init_attrs]) {
 		t.Errorf("InitAttrs should be copied")
 	}
 

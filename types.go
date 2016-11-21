@@ -104,24 +104,19 @@ type (
 	//TODO : @Badu - pointer to DBCon is just to expose errors
 	//since they are related (Scope has a search inside)
 	search struct {
-		con           *DBCon
-		conditions    sqlConditions
-		notConditions []map[string]interface{}
-		selects       map[string]interface{}
-		initAttrs     []interface{}
-		assignAttrs   []interface{}
-		orders        []interface{}
-		omits         []string
-		preload       []searchPreload
-		offset        interface{}
-		limit         interface{}
-		group         string
-		tableName     string
-		//TODO : make flags out this booleans
-		raw           bool
-		Unscoped      bool
-		countingQuery bool
+		flags      uint16
+		con        *DBCon
+		conditions sqlConditions
+		selects    map[string]interface{}
+		orders     []interface{}
+		omits      []string
+		preload    []searchPreload
+		offset     interface{}
+		limit      interface{}
+		group      string
+		tableName  string
 	}
+
 	searchPreload struct {
 		schema     string
 		conditions []interface{}
