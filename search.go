@@ -37,26 +37,22 @@ func (s *search) Preload(schema string, values ...interface{}) *search {
 	if _, ok := s.conditions[preload_query]; !ok {
 		s.conditions[preload_query] = make([]sqlPair, 0, 0)
 	}
-	sameSchema := false
-	for _, pair := range s.conditions[preload_query] {
+
+	//overriding sql pairs within the same schema
+	for i, pair := range s.conditions[preload_query] {
 		if pair.strExpr() == schema {
-			sameSchema = true
-			//create a new slice of args and put those values
-			pair.args = append(make([]interface{}, 0, 0), values...)
+			//fmt.Printf("Detected same schema %v %q having %v.Replacing with %v\n", pair.expression, schema, pair.args, values)
+			//delete from slice
+			s.conditions[preload_query] = append(s.conditions[preload_query][:i], s.conditions[preload_query][i+1:]...)
 		}
 	}
-	if !sameSchema {
-		s.addSqlCondition(preload_query, schema, values...)
+
+	s.addSqlCondition(preload_query, schema, values...)
+	/**
+	for _, p := range s.conditions[preload_query] {
+		fmt.Printf("Pair %v %q has %v\n", p.expression, p.strExpr(), p.args)
 	}
-	var preloads []searchPreload
-	for _, existingPreload := range s.preload {
-		//if it's a different schema... same schema gets skipped ...
-		if existingPreload.schema != schema {
-			preloads = append(preloads, existingPreload)
-		}
-	}
-	preloads = append(preloads, searchPreload{schema, values})
-	s.preload = preloads
+	**/
 	return s
 }
 

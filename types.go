@@ -110,16 +110,10 @@ type (
 		selects    map[string]interface{}
 		orders     []interface{}
 		omits      []string
-		preload    []searchPreload
 		offset     interface{}
 		limit      interface{}
 		group      string
 		tableName  string
-	}
-
-	searchPreload struct {
-		schema     string
-		conditions []interface{}
 	}
 
 	// DBCon contains information for current db connection
