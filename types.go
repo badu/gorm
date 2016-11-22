@@ -107,7 +107,6 @@ type (
 		flags      uint16
 		con        *DBCon
 		conditions sqlConditions
-		selects    map[string]interface{}
 		orders     []interface{}
 		omits      []string
 		offset     interface{}

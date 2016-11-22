@@ -91,6 +91,7 @@ func (s *search) clone() *search {
 	clone := *s
 	//clone conditions
 	clone.conditions = make(sqlConditions)
+	clone.flags = s.flags
 	for key, value := range s.conditions {
 		clone.conditions[key] = value
 	}
@@ -123,7 +124,6 @@ func (s *search) Joins(query string, values ...interface{}) *search {
 }
 
 func (s *search) Select(query interface{}, args ...interface{}) *search {
-	s.selects = map[string]interface{}{"query": query, "args": args}
 	s.addSqlCondition(select_query, query, args...)
 	return s
 }
@@ -279,17 +279,17 @@ func (s *search) getInterfaceAsSQL(value interface{}) (str string) {
 
 func (s *search) collectAttrs() *[]string {
 	attrs := []string{}
-	for _, value := range s.selects {
-		switch strs := value.(type) {
+	for _, pair := range s.conditions[select_query] {
+		switch strs := pair.expression.(type) {
 		case string:
 			attrs = append(attrs, strs)
 		case []string:
 			attrs = append(attrs, strs...)
-		case []interface{}:
-			for _, str := range strs {
-				attrs = append(attrs, fmt.Sprintf("%v", str))
-			}
+		}
+		for _, pairArg := range pair.args {
+			attrs = append(attrs, fmt.Sprintf("%v", pairArg))
 		}
 	}
+
 	return &attrs
 }

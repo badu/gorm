@@ -629,17 +629,20 @@ func (scope *Scope) buildNotCondition(fromPair sqlPair) string {
 	return str
 }
 
-func (scope *Scope) buildSelectQuery(clause map[string]interface{}) string {
+func (scope *Scope) buildSelectQuery() string {
+	if scope.Search.numConditions(select_query)!=1{
+		scope.Err(errors.New("buildSelectQuery : select_query should have exactly one"))
+		return ""
+	}
+	fromPair:= scope.Search.conditions[select_query][0]
 	var str string
-	switch value := clause["query"].(type) {
+	switch value := fromPair.expression.(type) {
 	case string:
 		str = value
 	case []string:
 		str = strings.Join(value, ", ")
 	}
-
-	args := clause["args"].([]interface{})
-	for _, arg := range args {
+	for _, arg := range fromPair.args {
 		switch reflect.ValueOf(arg).Kind() {
 		case reflect.Slice:
 			values := reflect.ValueOf(arg)
@@ -717,13 +720,13 @@ func (scope *Scope) whereSQL() string {
 }
 
 func (scope *Scope) selectSQL() string {
-	if len(scope.Search.selects) == 0 {
+	if scope.Search.numConditions(select_query) == 0 {
 		if scope.Search.numConditions(joins_query) > 0 {
 			return fmt.Sprintf("%v.*", scope.QuotedTableName())
 		}
 		return "*"
 	}
-	return scope.buildSelectQuery(scope.Search.selects)
+	return scope.buildSelectQuery()
 }
 
 func (scope *Scope) orderSQL() string {
@@ -896,8 +899,16 @@ func (scope *Scope) pluck(column string, value interface{}) *Scope {
 }
 
 func (scope *Scope) count(value interface{}) *Scope {
-	if query, ok := scope.Search.selects["query"]; !ok || !regexp.MustCompile("(?i)^count(.+)$").MatchString(fmt.Sprint(query)) {
+	numSelects := scope.Search.numConditions(select_query)
+	if numSelects == 0 {
 		scope.Search.Select("count(*)")
+	} else if numSelects == 1 {
+		sqlPair := scope.Search.conditions[select_query][0]
+		if !regexp.MustCompile("(?i)^count(.+)$").MatchString(fmt.Sprint(sqlPair.expression)) {
+			scope.Search.Select("count(*)")
+		}
+	} else {
+		scope.con.toLog("ERROR : search select_query should be empty or exaclty one for checking count")
 	}
 	scope.Search.setCounting()
 	scope.Err(scope.row().Scan(value))
