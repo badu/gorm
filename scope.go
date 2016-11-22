@@ -23,7 +23,7 @@ func (scope *Scope) IndirectValue() reflect.Value {
 
 // New create a new Scope without search information
 func (scope *Scope) New(value interface{}) *Scope {
-	return &Scope{con: scope.NewCon(), Search: &search{conditions: make(sqlConditions)}, Value: value}
+	return &Scope{con: scope.NewCon(), Search: &Search{Conditions: make(SqlConditions)}, Value: value}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -630,11 +630,11 @@ func (scope *Scope) buildNotCondition(fromPair sqlPair) string {
 }
 
 func (scope *Scope) buildSelectQuery() string {
-	if scope.Search.numConditions(select_query)!=1{
+	if scope.Search.numConditions(Select_query)!=1{
 		scope.Err(errors.New("buildSelectQuery : select_query should have exactly one"))
 		return ""
 	}
-	fromPair:= scope.Search.conditions[select_query][0]
+	fromPair:= scope.Search.Conditions[Select_query][0]
 	var str string
 	switch value := fromPair.expression.(type) {
 	case string:
@@ -680,19 +680,19 @@ func (scope *Scope) whereSQL() string {
 		}
 	}
 
-	for _, pair := range scope.Search.conditions[where_query] {
+	for _, pair := range scope.Search.Conditions[Where_query] {
 		if aStr := scope.buildWhereCondition(pair); aStr != "" {
 			andConditions = append(andConditions, aStr)
 		}
 	}
 
-	for _, pair := range scope.Search.conditions[or_query] {
+	for _, pair := range scope.Search.Conditions[or_query] {
 		if aStr := scope.buildWhereCondition(pair); aStr != "" {
 			orConditions = append(orConditions, aStr)
 		}
 	}
 
-	for _, pair := range scope.Search.conditions[not_query] {
+	for _, pair := range scope.Search.Conditions[not_query] {
 		if aStr := scope.buildNotCondition(pair); aStr != "" {
 			andConditions = append(andConditions, aStr)
 		}
@@ -720,7 +720,7 @@ func (scope *Scope) whereSQL() string {
 }
 
 func (scope *Scope) selectSQL() string {
-	if scope.Search.numConditions(select_query) == 0 {
+	if scope.Search.numConditions(Select_query) == 0 {
 		if scope.Search.numConditions(joins_query) > 0 {
 			return fmt.Sprintf("%v.*", scope.QuotedTableName())
 		}
@@ -730,12 +730,12 @@ func (scope *Scope) selectSQL() string {
 }
 
 func (scope *Scope) orderSQL() string {
-	if scope.Search.numConditions(order_query)== 0 || scope.Search.isCounting() {
+	if scope.Search.numConditions(Order_query)== 0 || scope.Search.isCounting() {
 		return ""
 	}
 
 	var orders []string
-	for _, orderPair := range scope.Search.conditions[order_query] {
+	for _, orderPair := range scope.Search.Conditions[Order_query] {
 		if str, ok := orderPair.args[0].(string); ok {
 			orders = append(orders, scope.quoteIfPossible(str))
 		} else if expr, ok := orderPair.args[0].(*expr); ok {
@@ -768,7 +768,7 @@ func (scope *Scope) havingSQL() string {
 	}
 
 	var andConditions []string
-	for _, pair := range scope.Search.conditions[having_query] {
+	for _, pair := range scope.Search.Conditions[having_query] {
 		if aStr := scope.buildWhereCondition(pair); aStr != "" {
 			andConditions = append(andConditions, aStr)
 		}
@@ -785,7 +785,7 @@ func (scope *Scope) havingSQL() string {
 func (scope *Scope) joinsSQL() string {
 	var joinConditions []string
 
-	for _, pair := range scope.Search.conditions[joins_query] {
+	for _, pair := range scope.Search.Conditions[joins_query] {
 		if aStr := scope.buildWhereCondition(pair); aStr != "" {
 			joinConditions = append(joinConditions, strings.TrimSuffix(strings.TrimPrefix(aStr, "("), ")"))
 		}
@@ -865,7 +865,7 @@ func (scope *Scope) rows() (*sql.Rows, error) {
 }
 
 func (scope *Scope) initialize() *Scope {
-	for _, pair := range scope.Search.conditions[where_query] {
+	for _, pair := range scope.Search.Conditions[Where_query] {
 		scope.updatedAttrsWithValues(pair.expression)
 	}
 	initArgs, ok := scope.Search.GetInitAttr()
@@ -900,11 +900,11 @@ func (scope *Scope) pluck(column string, value interface{}) *Scope {
 }
 
 func (scope *Scope) count(value interface{}) *Scope {
-	numSelects := scope.Search.numConditions(select_query)
+	numSelects := scope.Search.numConditions(Select_query)
 	if numSelects == 0 {
 		scope.Search.Select("count(*)")
 	} else if numSelects == 1 {
-		sqlPair := scope.Search.conditions[select_query][0]
+		sqlPair := scope.Search.Conditions[Select_query][0]
 		if !regexp.MustCompile("(?i)^count(.+)$").MatchString(fmt.Sprint(sqlPair.expression)) {
 			scope.Search.Select("count(*)")
 		}
@@ -2025,7 +2025,7 @@ func (scope *Scope) preloadCallback() {
 		fields1       = scope.Fields()
 	)
 
-	for _, sqlPair := range scope.Search.conditions[preload_query] {
+	for _, sqlPair := range scope.Search.Conditions[preload_query] {
 		var (
 			preloadFields = strings.Split(sqlPair.strExpr(), ".")
 			currentScope  = scope

@@ -32,7 +32,7 @@ func (con *DBCon) New() *DBCon {
 func (con *DBCon) NewScope(value interface{}) *Scope {
 	dbClone := con.clone(false, false)
 	dbClone.Value = value
-	return &Scope{con: dbClone, Search: dbClone.search.clone(), Value: value}
+	return &Scope{con: dbClone, Search: dbClone.search.Clone(), Value: value}
 }
 
 // CommonDB return the underlying `*sql.DB` or `*sql.Tx` instance, mainly intended to allow coexistence with legacy non-GORM code.
@@ -641,9 +641,9 @@ func (con *DBCon) clone(withoutSettings bool, withoutSearch bool) *DBCon {
 	}
 	if !withoutSearch {
 		if con.search == nil {
-			clone.search = &search{limit: -1, offset: -1, conditions: make(sqlConditions)}
+			clone.search = &Search{limit: -1, offset: -1, Conditions: make(SqlConditions)}
 		} else {
-			clone.search = con.search.clone()
+			clone.search = con.search.Clone()
 		}
 
 		clone.search.con = &clone

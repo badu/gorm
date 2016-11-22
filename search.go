@@ -5,16 +5,16 @@ import (
 )
 
 const (
-	select_query  sqlConditionType = 0
-	where_query   sqlConditionType = 1
+	Select_query  sqlConditionType = 0
+	Where_query   sqlConditionType = 1
 	not_query     sqlConditionType = 2
 	or_query      sqlConditionType = 3
 	having_query  sqlConditionType = 4
 	joins_query   sqlConditionType = 5
-	init_attrs    sqlConditionType = 6
+	Init_attrs    sqlConditionType = 6
 	assign_attrs  sqlConditionType = 7
 	preload_query sqlConditionType = 8
-	order_query   sqlConditionType = 9
+	Order_query   sqlConditionType = 9
 
 	IS_UNSCOPED uint16 = 0
 	IS_RAW      uint16 = 1
@@ -30,34 +30,34 @@ func (p *sqlPair) strExpr() string {
 	return result
 }
 
-func (s *search) checkInit(condType sqlConditionType) {
-	if s.conditions == nil {
-		s.conditions = make(sqlConditions)
+func (s *Search) checkInit(condType sqlConditionType) {
+	if s.Conditions == nil {
+		s.Conditions = make(SqlConditions)
 	}
 	//create a slice of conditions for the key of map if there isn't already one
-	if _, ok := s.conditions[condType]; !ok {
-		s.conditions[condType] = make([]sqlPair, 0, 0)
+	if _, ok := s.Conditions[condType]; !ok {
+		s.Conditions[condType] = make([]sqlPair, 0, 0)
 	}
 }
 
-func (s *search) Preload(schema string, values ...interface{}) *search {
+func (s *Search) Preload(schema string, values ...interface{}) *Search {
 	s.checkInit(preload_query)
 	//overriding sql pairs within the same schema
-	for i, pair := range s.conditions[preload_query] {
+	for i, pair := range s.Conditions[preload_query] {
 		if pair.strExpr() == schema {
 			//delete from slice
-			s.conditions[preload_query] = append(s.conditions[preload_query][:i], s.conditions[preload_query][i+1:]...)
+			s.Conditions[preload_query] = append(s.Conditions[preload_query][:i], s.Conditions[preload_query][i+1:]...)
 		}
 	}
 	//add preload
 	newPair := sqlPair{expression: schema}
 	newPair.addExpressions(values...)
 	//add the condition pair to the slice
-	s.conditions[preload_query] = append(s.conditions[preload_query], newPair)
+	s.Conditions[preload_query] = append(s.Conditions[preload_query], newPair)
 	return s
 }
 
-func (s *search) addSqlCondition(condType sqlConditionType, query interface{}, values ...interface{}) {
+func (s *Search) addSqlCondition(condType sqlConditionType, query interface{}, values ...interface{}) {
 	//TODO : @Badu - VERY IMPORTANT : check in which condition we clone the search,
 	//otherwise slice will grow indefinitely ( causing memory leak :) )
 	s.checkInit(condType)
@@ -65,58 +65,63 @@ func (s *search) addSqlCondition(condType sqlConditionType, query interface{}, v
 	newPair := sqlPair{expression: query}
 	newPair.addExpressions(values...)
 	//add the condition pair to the slice
-	s.conditions[condType] = append(s.conditions[condType], newPair)
+	s.Conditions[condType] = append(s.Conditions[condType], newPair)
 }
 
-func (s *search) numConditions(condType sqlConditionType) int {
+func (s *Search) numConditions(condType sqlConditionType) int {
 	s.checkInit(condType)
 	//should return the number of conditions of that type
-	return len(s.conditions[condType])
+	return len(s.Conditions[condType])
 }
 
-func (s *search) clone() *search {
-	//TODO : @Badu - make it a true clone, after you finish cleanup of fields!!!
-	clone := *s
-	//clone conditions
-	clone.conditions = make(sqlConditions)
+func (s *Search) Clone() *Search {
+	clone := Search{}
+
 	clone.flags = s.flags
-	for key, value := range s.conditions {
-		clone.conditions[key] = value
+	//clone conditions
+	clone.Conditions = make(SqlConditions)
+	for key, value := range s.Conditions {
+		clone.Conditions[key] = value
 	}
+	clone.omits = s.omits
+	clone.offset = s.offset
+	clone.limit = s.limit
+	clone.group = s.group
+	clone.tableName = s.tableName
 	return &clone
 }
 
-func (s *search) Where(query interface{}, values ...interface{}) *search {
-	s.addSqlCondition(where_query, query, values...)
+func (s *Search) Where(query interface{}, values ...interface{}) *Search {
+	s.addSqlCondition(Where_query, query, values...)
 	return s
 }
 
-func (s *search) Not(query interface{}, values ...interface{}) *search {
+func (s *Search) Not(query interface{}, values ...interface{}) *Search {
 	s.addSqlCondition(not_query, query, values...)
 	return s
 }
 
-func (s *search) Or(query interface{}, values ...interface{}) *search {
+func (s *Search) Or(query interface{}, values ...interface{}) *Search {
 	s.addSqlCondition(or_query, query, values...)
 	return s
 }
 
-func (s *search) Having(query string, values ...interface{}) *search {
+func (s *Search) Having(query string, values ...interface{}) *Search {
 	s.addSqlCondition(having_query, query, values...)
 	return s
 }
 
-func (s *search) Joins(query string, values ...interface{}) *search {
+func (s *Search) Joins(query string, values ...interface{}) *Search {
 	s.addSqlCondition(joins_query, query, values...)
 	return s
 }
 
-func (s *search) Select(query interface{}, args ...interface{}) *search {
-	s.addSqlCondition(select_query, query, args...)
+func (s *Search) Select(query interface{}, args ...interface{}) *Search {
+	s.addSqlCondition(Select_query, query, args...)
 	return s
 }
 
-func (s *search) Attrs(attrs ...interface{}) *search {
+func (s *Search) Attrs(attrs ...interface{}) *Search {
 	var result interface{}
 	if len(attrs) == 1 {
 		if attr, ok := attrs[0].(map[string]interface{}); ok {
@@ -132,30 +137,30 @@ func (s *search) Attrs(attrs ...interface{}) *search {
 		}
 	}
 	if result != nil {
-		s.addSqlCondition(init_attrs, nil, result)
+		s.addSqlCondition(Init_attrs, nil, result)
 	}
 	return s
 }
 
 //TODO : @Badu - make getter of first item in slice method - since most conditions have exactly one
 //@see select_query logic
-func (s *search) GetInitAttr() ([]interface{}, bool) {
-	if s.numConditions(init_attrs) == 1 {
-		assign := s.conditions[init_attrs][0]
+func (s *Search) GetInitAttr() ([]interface{}, bool) {
+	if s.numConditions(Init_attrs) == 1 {
+		assign := s.Conditions[Init_attrs][0]
 		return assign.args, true
 	}
 	return nil, false
 }
 
-func (s *search) GetAssignAttr() ([]interface{}, bool) {
+func (s *Search) GetAssignAttr() ([]interface{}, bool) {
 	if s.numConditions(assign_attrs) == 1 {
-		assign := s.conditions[assign_attrs][0]
+		assign := s.Conditions[assign_attrs][0]
 		return assign.args, true
 	}
 	return nil, false
 }
 
-func (s *search) Assign(attrs ...interface{}) *search {
+func (s *Search) Assign(attrs ...interface{}) *Search {
 	var result interface{}
 	if len(attrs) == 1 {
 		if attr, ok := attrs[0].(map[string]interface{}); ok {
@@ -176,81 +181,81 @@ func (s *search) Assign(attrs ...interface{}) *search {
 	return s
 }
 
-func (s *search) Order(value interface{}, reorder ...bool) *search {
+func (s *Search) Order(value interface{}, reorder ...bool) *Search {
 	if len(reorder) > 0 && reorder[0] {
-		s.conditions[order_query] = make([]sqlPair, 0, 0)
+		s.Conditions[Order_query] = make([]sqlPair, 0, 0)
 	}
 	if value != nil {
-		s.addSqlCondition(order_query, nil, value)
+		s.addSqlCondition(Order_query, nil, value)
 	}
 	return s
 }
 
-func (s *search) Omit(columns ...string) *search {
+func (s *Search) Omit(columns ...string) *Search {
 	s.omits = columns
 	return s
 }
 
-func (s *search) Limit(limit interface{}) *search {
+func (s *Search) Limit(limit interface{}) *Search {
 	s.limit = limit
 	return s
 }
 
-func (s *search) Offset(offset interface{}) *search {
+func (s *Search) Offset(offset interface{}) *Search {
 	s.offset = offset
 	return s
 }
 
-func (s *search) Group(query string) *search {
+func (s *Search) Group(query string) *Search {
 	s.group = s.getInterfaceAsSQL(query)
 	return s
 }
 
-func (s search) hasFlag(value uint16) bool {
+func (s Search) hasFlag(value uint16) bool {
 	return s.flags&(1<<value) != 0
 }
 
-func (s *search) setFlag(value uint16) {
+func (s *Search) setFlag(value uint16) {
 	s.flags = s.flags | (1 << value)
 }
 
-func (s *search) unsetFlag(value uint16) {
+func (s *Search) unsetFlag(value uint16) {
 	s.flags = s.flags & ^(1 << value)
 }
 
-func (s *search) isCounting() bool {
+func (s *Search) isCounting() bool {
 	return s.flags&(1<<IS_COUNTING) != 0
 }
 
-func (s *search) setCounting() *search {
+func (s *Search) setCounting() *Search {
 	s.flags = s.flags | (1 << IS_COUNTING)
 	return s
 }
 
-func (s *search) IsRaw() bool {
+func (s *Search) IsRaw() bool {
 	return s.flags&(1<<IS_RAW) != 0
 }
 
-func (s *search) SetRaw() *search {
+func (s *Search) SetRaw() *Search {
 	s.flags = s.flags | (1 << IS_RAW)
 	return s
 }
 
-func (s *search) isUnscoped() bool {
+func (s *Search) isUnscoped() bool {
 	return s.flags&(1<<IS_UNSCOPED) != 0
 }
 
-func (s *search) setUnscoped() *search {
+func (s *Search) setUnscoped() *Search {
 	s.flags = s.flags | (1 << IS_UNSCOPED)
 	return s
 }
 
-func (s *search) Table(name string) *search {
+func (s *Search) Table(name string) *Search {
 	s.tableName = name
 	return s
 }
 
-func (s *search) getInterfaceAsSQL(value interface{}) (str string) {
+func (s *Search) getInterfaceAsSQL(value interface{}) (str string) {
 	switch value.(type) {
 	case string, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
 		//TODO: @Badu - separate string situation and print integers as integers
@@ -265,9 +270,9 @@ func (s *search) getInterfaceAsSQL(value interface{}) (str string) {
 	return
 }
 
-func (s *search) collectAttrs() *[]string {
+func (s *Search) collectAttrs() *[]string {
 	attrs := []string{}
-	for _, pair := range s.conditions[select_query] {
+	for _, pair := range s.Conditions[Select_query] {
 		switch strs := pair.expression.(type) {
 		case string:
 			attrs = append(attrs, strs)

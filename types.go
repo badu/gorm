@@ -79,7 +79,7 @@ type (
 	Scope struct {
 		con *DBCon
 
-		Search *search
+		Search *Search
 		Value  interface{}
 
 		selectAttrs *[]string
@@ -100,13 +100,13 @@ type (
 		args       []interface{}
 	}
 	sqlCondition  []sqlPair
-	sqlConditions map[sqlConditionType]sqlCondition
+	SqlConditions map[sqlConditionType]sqlCondition
 	//TODO : @Badu - pointer to DBCon is just to expose errors
 	//since they are related (Scope has a search inside)
-	search struct {
+	Search struct {
 		flags      uint16
 		con        *DBCon
-		conditions sqlConditions
+		Conditions SqlConditions
 		omits      []string
 		offset     interface{}
 		limit      interface{}
@@ -126,7 +126,7 @@ type (
 		callback *Callback
 		sqli     sqlInterf
 
-		search       *search
+		search       *Search
 		RowsAffected int64
 
 		logMode int

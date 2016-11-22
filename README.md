@@ -8,7 +8,13 @@
 - [ ] Collect errors and their messages in one place
 - [ ] replace slices of strings with Collector
 - [ ] Relationships should be kept by ModelStruct (to accept many)
-- [ ] implement warning to scope, as errors are
+- [ ] implement Warnings as Errors are
+- [ ] put back DB() of Scope shadow of Con() with Warning "deprecated"
+- [ ] put back NewDB() of Scope shadow of NewCon() with Warning "deprecated"
+- [ ] put back PrimaryKey() of Scope shadow of PKName() with Warning "deprecated"
+- [ ] put back PrimaryField() of Scope shadow of PK() with Warning "deprecated"
+- [ ] put back PrimaryFields() of Scope shadow of PKs() with Warning "deprecated"
+- [ ] put back SQLDB() of Scope shadow of AsSQLDB() with Warning "deprecated"
 
 # Comments and thoughts
 - Generated SQL let's the SQL engine cast : SELECT * FROM aTable WHERE id = '1' (id being int). I think it's a bad practice and it should be fixed
@@ -42,6 +48,8 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
 - [x] slimmer search struct - preload gone
 - [x] slimmer search struct - selects gone
 - [x] slimmer search struct - order gone
+- [x] search true clone
+- [x] search conditions renamed to Conditions, sqlConditions struct renamed to SqlConditions,  so search_test.go could be moved in tests
 
 ## 21.11.2016
 - [x] slimmer search struct - notConditions are gone
