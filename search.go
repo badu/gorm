@@ -14,6 +14,7 @@ const (
 	init_attrs    sqlConditionType = 6
 	assign_attrs  sqlConditionType = 7
 	preload_query sqlConditionType = 8
+	order_query   sqlConditionType = 9
 
 	IS_UNSCOPED uint16 = 0
 	IS_RAW      uint16 = 1
@@ -29,65 +30,52 @@ func (p *sqlPair) strExpr() string {
 	return result
 }
 
-func (s *search) Preload(schema string, values ...interface{}) *search {
-	//TODO : @Badu - just until we get stable with this
+func (s *search) checkInit(condType sqlConditionType) {
 	if s.conditions == nil {
 		s.conditions = make(sqlConditions)
 	}
-	if _, ok := s.conditions[preload_query]; !ok {
-		s.conditions[preload_query] = make([]sqlPair, 0, 0)
+	//create a slice of conditions for the key of map if there isn't already one
+	if _, ok := s.conditions[condType]; !ok {
+		s.conditions[condType] = make([]sqlPair, 0, 0)
 	}
+}
 
+func (s *search) Preload(schema string, values ...interface{}) *search {
+	s.checkInit(preload_query)
 	//overriding sql pairs within the same schema
 	for i, pair := range s.conditions[preload_query] {
 		if pair.strExpr() == schema {
-			//fmt.Printf("Detected same schema %v %q having %v.Replacing with %v\n", pair.expression, schema, pair.args, values)
 			//delete from slice
 			s.conditions[preload_query] = append(s.conditions[preload_query][:i], s.conditions[preload_query][i+1:]...)
 		}
 	}
-
-	s.addSqlCondition(preload_query, schema, values...)
-	/**
-	for _, p := range s.conditions[preload_query] {
-		fmt.Printf("Pair %v %q has %v\n", p.expression, p.strExpr(), p.args)
-	}
-	**/
+	//add preload
+	newPair := sqlPair{expression: schema}
+	newPair.addExpressions(values...)
+	//add the condition pair to the slice
+	s.conditions[preload_query] = append(s.conditions[preload_query], newPair)
 	return s
 }
 
 func (s *search) addSqlCondition(condType sqlConditionType, query interface{}, values ...interface{}) {
 	//TODO : @Badu - VERY IMPORTANT : check in which condition we clone the search,
 	//otherwise slice will grow indefinitely ( causing memory leak :) )
-	//TODO : @Badu - just until we get stable with this
-	if s.conditions == nil {
-		s.conditions = make(sqlConditions)
-	}
+	s.checkInit(condType)
 	//create a new condition pair
 	newPair := sqlPair{expression: query}
 	newPair.addExpressions(values...)
-	//create a slice of conditions for the key of map if there isn't already one
-	if _, ok := s.conditions[condType]; !ok {
-		s.conditions[condType] = make([]sqlPair, 0, 0)
-	}
 	//add the condition pair to the slice
 	s.conditions[condType] = append(s.conditions[condType], newPair)
 }
 
 func (s *search) numConditions(condType sqlConditionType) int {
-	//TODO : @Badu - just until we get stable with this
-	if s.conditions == nil {
-		s.conditions = make(sqlConditions)
-	}
-	if _, ok := s.conditions[condType]; !ok {
-		s.conditions[condType] = make([]sqlPair, 0, 0)
-	}
+	s.checkInit(condType)
 	//should return the number of conditions of that type
 	return len(s.conditions[condType])
 }
 
 func (s *search) clone() *search {
-	//TODO : @Badu - it's this a ... clone ?
+	//TODO : @Badu - make it a true clone, after you finish cleanup of fields!!!
 	clone := *s
 	//clone conditions
 	clone.conditions = make(sqlConditions)
@@ -149,6 +137,8 @@ func (s *search) Attrs(attrs ...interface{}) *search {
 	return s
 }
 
+//TODO : @Badu - make getter of first item in slice method - since most conditions have exactly one
+//@see select_query logic
 func (s *search) GetInitAttr() ([]interface{}, bool) {
 	if s.numConditions(init_attrs) == 1 {
 		assign := s.conditions[init_attrs][0]
@@ -166,7 +156,6 @@ func (s *search) GetAssignAttr() ([]interface{}, bool) {
 }
 
 func (s *search) Assign(attrs ...interface{}) *search {
-	//s.assignAttrs = append(s.assignAttrs, toSearchableMap(attrs...))
 	var result interface{}
 	if len(attrs) == 1 {
 		if attr, ok := attrs[0].(map[string]interface{}); ok {
@@ -189,11 +178,10 @@ func (s *search) Assign(attrs ...interface{}) *search {
 
 func (s *search) Order(value interface{}, reorder ...bool) *search {
 	if len(reorder) > 0 && reorder[0] {
-		s.orders = []interface{}{}
+		s.conditions[order_query] = make([]sqlPair, 0, 0)
 	}
-
 	if value != nil {
-		s.orders = append(s.orders, value)
+		s.addSqlCondition(order_query, nil, value)
 	}
 	return s
 }

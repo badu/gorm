@@ -730,15 +730,16 @@ func (scope *Scope) selectSQL() string {
 }
 
 func (scope *Scope) orderSQL() string {
-	if len(scope.Search.orders) == 0 || scope.Search.isCounting() {
+	if scope.Search.numConditions(order_query)== 0 || scope.Search.isCounting() {
 		return ""
 	}
 
 	var orders []string
-	for _, order := range scope.Search.orders {
-		if str, ok := order.(string); ok {
+	for _, orderPair := range scope.Search.conditions[order_query] {
+		if str, ok := orderPair.args[0].(string); ok {
 			orders = append(orders, scope.quoteIfPossible(str))
-		} else if expr, ok := order.(*expr); ok {
+		} else if expr, ok := orderPair.args[0].(*expr); ok {
+			scope.con.toLog("other", "??? %#v", expr)
 			//TODO : @Badu - duplicated code - AddToVars
 			exp := expr.expr
 			for _, arg := range expr.args {

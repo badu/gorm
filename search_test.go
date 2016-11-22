@@ -17,7 +17,7 @@ func TestCloneSearch(t *testing.T) {
 		t.Errorf("Where should be copied (NOT deep equal)")
 	}
 
-	if reflect.DeepEqual(s.orders, s1.orders) {
+	if reflect.DeepEqual(s.conditions[order_query], s1.conditions[order_query]) {
 		t.Errorf("Order should be copied")
 	}
 
@@ -25,7 +25,7 @@ func TestCloneSearch(t *testing.T) {
 		t.Errorf("InitAttrs should be copied")
 	}
 
-	if reflect.DeepEqual(s.Select, s1.Select) {
+	if reflect.DeepEqual(s.conditions[select_query], s1.conditions[select_query]) {
 		t.Errorf("selectStr should be copied")
 	}
 }

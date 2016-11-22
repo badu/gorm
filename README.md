@@ -41,6 +41,7 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
 ## 22.11.2016
 - [x] slimmer search struct - preload gone
 - [x] slimmer search struct - selects gone
+- [x] slimmer search struct - order gone
 
 ## 21.11.2016
 - [x] slimmer search struct - notConditions are gone

@@ -107,7 +107,6 @@ type (
 		flags      uint16
 		con        *DBCon
 		conditions sqlConditions
-		orders     []interface{}
 		omits      []string
 		offset     interface{}
 		limit      interface{}
