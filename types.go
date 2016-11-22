@@ -101,8 +101,7 @@ type (
 	}
 	sqlCondition  []sqlPair
 	SqlConditions map[sqlConditionType]sqlCondition
-	//TODO : @Badu - pointer to DBCon is just to expose errors
-	//since they are related (Scope has a search inside)
+	//TODO : @Badu - pointer to DBCon is just to expose errors since they are related (Scope has a search inside)
 	Search struct {
 		flags      uint16
 		con        *DBCon

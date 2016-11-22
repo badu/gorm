@@ -630,11 +630,11 @@ func (scope *Scope) buildNotCondition(fromPair sqlPair) string {
 }
 
 func (scope *Scope) buildSelectQuery() string {
-	if scope.Search.numConditions(Select_query)!=1{
-		scope.Err(errors.New("buildSelectQuery : select_query should have exactly one"))
+	fromPair := scope.Search.getFirst(Select_query)
+	if fromPair == nil {
+		//error has occured in getting first item in slice
 		return ""
 	}
-	fromPair:= scope.Search.Conditions[Select_query][0]
 	var str string
 	switch value := fromPair.expression.(type) {
 	case string:
@@ -730,7 +730,7 @@ func (scope *Scope) selectSQL() string {
 }
 
 func (scope *Scope) orderSQL() string {
-	if scope.Search.numConditions(Order_query)== 0 || scope.Search.isCounting() {
+	if scope.Search.numConditions(Order_query) == 0 || scope.Search.isCounting() {
 		return ""
 	}
 
@@ -739,7 +739,8 @@ func (scope *Scope) orderSQL() string {
 		if str, ok := orderPair.args[0].(string); ok {
 			orders = append(orders, scope.quoteIfPossible(str))
 		} else if expr, ok := orderPair.args[0].(*expr); ok {
-			scope.con.toLog("other", "??? %#v", expr)
+			//TODO : @Badu - check when this is called
+			scope.con.toLog("other", fmt.Sprintf("??? %#v", expr))
 			//TODO : @Badu - duplicated code - AddToVars
 			exp := expr.expr
 			for _, arg := range expr.args {
@@ -904,7 +905,11 @@ func (scope *Scope) count(value interface{}) *Scope {
 	if numSelects == 0 {
 		scope.Search.Select("count(*)")
 	} else if numSelects == 1 {
-		sqlPair := scope.Search.Conditions[Select_query][0]
+		sqlPair := scope.Search.getFirst(Select_query)
+		if sqlPair == nil {
+			//error has occured in getting first item in slice
+			return scope
+		}
 		if !regexp.MustCompile("(?i)^count(.+)$").MatchString(fmt.Sprint(sqlPair.expression)) {
 			scope.Search.Select("count(*)")
 		}

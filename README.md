@@ -15,6 +15,7 @@
 - [ ] put back PrimaryField() of Scope shadow of PK() with Warning "deprecated"
 - [ ] put back PrimaryFields() of Scope shadow of PKs() with Warning "deprecated"
 - [ ] put back SQLDB() of Scope shadow of AsSQLDB() with Warning "deprecated"
+- [ ] replace current method of keeping data Set / SetInstance / Get
 
 # Comments and thoughts
 - Generated SQL let's the SQL engine cast : SELECT * FROM aTable WHERE id = '1' (id being int). I think it's a bad practice and it should be fixed

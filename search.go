@@ -30,10 +30,20 @@ func (p *sqlPair) strExpr() string {
 	return result
 }
 
-func (s *Search) checkInit(condType sqlConditionType) {
-	if s.Conditions == nil {
-		s.Conditions = make(SqlConditions)
+func (s *Search) getFirst(condType sqlConditionType) *sqlPair {
+	numConditions := s.numConditions(condType)
+	if numConditions != 1 {
+		err := fmt.Errorf("Search getFirst : %d should have exactly one item in slice, but has %d", condType, numConditions)
+		fmt.Println(err)
+		if s.con != nil {
+			s.con.AddError(err)
+		}
+		return nil
 	}
+	return &s.Conditions[condType][0]
+}
+
+func (s *Search) checkInit(condType sqlConditionType) {
 	//create a slice of conditions for the key of map if there isn't already one
 	if _, ok := s.Conditions[condType]; !ok {
 		s.Conditions[condType] = make([]sqlPair, 0, 0)
@@ -142,22 +152,22 @@ func (s *Search) Attrs(attrs ...interface{}) *Search {
 	return s
 }
 
-//TODO : @Badu - make getter of first item in slice method - since most conditions have exactly one
-//@see select_query logic
+//TODO : @Badu - move this where is called
 func (s *Search) GetInitAttr() ([]interface{}, bool) {
-	if s.numConditions(Init_attrs) == 1 {
-		assign := s.Conditions[Init_attrs][0]
-		return assign.args, true
+	pair := s.getFirst(Init_attrs)
+	if pair == nil {
+		return nil, false
 	}
-	return nil, false
+	return pair.args, true
 }
 
+//TODO : @Badu - move this where is called
 func (s *Search) GetAssignAttr() ([]interface{}, bool) {
-	if s.numConditions(assign_attrs) == 1 {
-		assign := s.Conditions[assign_attrs][0]
-		return assign.args, true
+	pair := s.getFirst(assign_attrs)
+	if pair == nil {
+		return nil, false
 	}
-	return nil, false
+	return pair.args, true
 }
 
 func (s *Search) Assign(attrs ...interface{}) *Search {
@@ -183,6 +193,7 @@ func (s *Search) Assign(attrs ...interface{}) *Search {
 
 func (s *Search) Order(value interface{}, reorder ...bool) *Search {
 	if len(reorder) > 0 && reorder[0] {
+		//reseting existing entry
 		s.Conditions[Order_query] = make([]sqlPair, 0, 0)
 	}
 	if value != nil {
