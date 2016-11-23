@@ -169,9 +169,9 @@ func (con *DBCon) New() *DBCon {
 
 // NewScope create a scope for current operation
 func (con *DBCon) NewScope(value interface{}) *Scope {
-	dbClone := con.clone(false, false)
-	dbClone.Value = value
-	return &Scope{con: dbClone, Search: dbClone.search.Clone(), Value: value}
+	clone := con.clone(false, false)
+	clone.Value = value
+	return &Scope{con: clone, Search: clone.search.Clone(), Value: value}
 }
 
 // CommonDB return the underlying `*sql.DB` or `*sql.Tx` instance, mainly intended to allow coexistence with legacy non-GORM code.
