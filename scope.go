@@ -217,16 +217,7 @@ func (scope *Scope) CallMethod(methodName string) {
 
 // AddToVars add value as sql's vars, used to prevent SQL injection
 func (scope *Scope) AddToVars(value interface{}) string {
-	if pair, ok := value.(*SqlPair); ok {
-		exp := pair.strExpr()
-		for _, arg := range pair.args {
-			exp = strings.Replace(exp, "?", scope.AddToVars(arg), 1)
-		}
-		return exp
-	}
-
-	scope.SQLVars = append(scope.SQLVars, value)
-	return scope.Dialect().BindVar(len(scope.SQLVars))
+	return scope.Search.AddToVars(value, scope.Dialect())
 }
 
 // TableName return table name
@@ -269,7 +260,7 @@ func (scope *Scope) CombinedConditionSql() string {
 
 // Raw set raw sql
 func (scope *Scope) Raw(sql string) *Scope {
-	scope.SQL = strings.Replace(sql, "$$", "?", -1)
+	scope.Search.SQL = strings.Replace(sql, "$$", "?", -1)
 	return scope
 }
 
@@ -278,7 +269,7 @@ func (scope *Scope) Exec() *Scope {
 	defer scope.trace(NowFunc())
 
 	if !scope.HasError() {
-		if result, err := scope.AsSQLDB().Exec(scope.SQL, scope.SQLVars...); scope.Err(err) == nil {
+		if result, err := scope.AsSQLDB().Exec(scope.Search.SQL, scope.Search.SQLVars...); scope.Err(err) == nil {
 			if count, err := result.RowsAffected(); scope.Err(err) == nil {
 				scope.con.RowsAffected = count
 			}
@@ -843,14 +834,14 @@ func (scope *Scope) row() *sql.Row {
 	defer scope.trace(NowFunc())
 	scope.callCallbacks(scope.con.parent.callback.rowQueries)
 	scope.prepareQuerySQL()
-	return scope.AsSQLDB().QueryRow(scope.SQL, scope.SQLVars...)
+	return scope.AsSQLDB().QueryRow(scope.Search.SQL, scope.Search.SQLVars...)
 }
 
 func (scope *Scope) rows() (*sql.Rows, error) {
 	defer scope.trace(NowFunc())
 	scope.callCallbacks(scope.con.parent.callback.rowQueries)
 	scope.prepareQuerySQL()
-	return scope.AsSQLDB().Query(scope.SQL, scope.SQLVars...)
+	return scope.AsSQLDB().Query(scope.Search.SQL, scope.Search.SQLVars...)
 }
 
 func (scope *Scope) initialize() *Scope {
@@ -919,8 +910,8 @@ func (scope *Scope) typeName() string {
 
 // trace print sql log
 func (scope *Scope) trace(t time.Time) {
-	if len(scope.SQL) > 0 {
-		scope.con.slog(scope.SQL, t, scope.SQLVars...)
+	if len(scope.Search.SQL) > 0 {
+		scope.con.slog(scope.Search.SQL, t, scope.Search.SQLVars...)
 	}
 }
 
@@ -1696,7 +1687,7 @@ func (scope *Scope) createCallback() {
 
 		// execute create sql
 		if lastInsertIDReturningSuffix == "" || primaryField == nil {
-			if result, err := scope.AsSQLDB().Exec(scope.SQL, scope.SQLVars...); scope.Err(err) == nil {
+			if result, err := scope.AsSQLDB().Exec(scope.Search.SQL, scope.Search.SQLVars...); scope.Err(err) == nil {
 				// set rows affected count
 				scope.con.RowsAffected, _ = result.RowsAffected()
 
@@ -1708,7 +1699,7 @@ func (scope *Scope) createCallback() {
 				}
 			}
 		} else {
-			if err := scope.AsSQLDB().QueryRow(scope.SQL, scope.SQLVars...).Scan(primaryField.Value.Addr().Interface()); scope.Err(err) == nil {
+			if err := scope.AsSQLDB().QueryRow(scope.Search.SQL, scope.Search.SQLVars...).Scan(primaryField.Value.Addr().Interface()); scope.Err(err) == nil {
 				primaryField.unsetFlag(IS_BLANK)
 				scope.con.RowsAffected = 1
 			}
@@ -1958,10 +1949,10 @@ func (scope *Scope) queryCallback() {
 	if !scope.HasError() {
 		scope.con.RowsAffected = 0
 		if str, ok := scope.Get("gorm:query_option"); ok {
-			scope.SQL += addExtraSpaceIfExist(fmt.Sprint(str))
+			scope.Search.SQL += addExtraSpaceIfExist(fmt.Sprint(str))
 		}
 
-		if rows, err := scope.AsSQLDB().Query(scope.SQL, scope.SQLVars...); scope.Err(err) == nil {
+		if rows, err := scope.AsSQLDB().Query(scope.Search.SQL, scope.Search.SQLVars...); scope.Err(err) == nil {
 			defer rows.Close()
 
 			columns, _ := rows.Columns()

@@ -82,9 +82,6 @@ type (
 		Search *Search
 		Value  interface{}
 
-		SQL     string
-		SQLVars []interface{}
-
 		instanceID string
 		//cached version of cloned struct fields
 		fields *StructFields
@@ -102,12 +99,13 @@ type (
 	//TODO : @Badu - pointer to DBCon is just to expose errors since they are related (Scope has a search inside)
 	Search struct {
 		flags      uint16
-		con        *DBCon
 		Conditions SqlConditions
 		offset     interface{}
 		limit      interface{}
 		group      string
 		tableName  string
+		SQL        string
+		SQLVars    []interface{}
 	}
 
 	// DBCon contains information for current db connection

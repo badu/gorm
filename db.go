@@ -7,7 +7,146 @@ import (
 	"strings"
 	"time"
 )
+////////////////////////////////////////////////////////////////////////////////
+// "unscoped" methods
+////////////////////////////////////////////////////////////////////////////////
+// Where return a new relation, filter records with given conditions, accepts `map`, `struct` or `string` as conditions
+// Note : no scope
+func (con *DBCon) Where(query interface{}, args ...interface{}) *DBCon {
+	clone := con.clone(false, false)
+	clone.search.Where(query, args...)
+	return clone
+}
 
+// Or filter records that match before conditions or this one, similar to `Where`
+// Note : no scope
+func (con *DBCon) Or(query interface{}, args ...interface{}) *DBCon {
+	clone := con.clone(false, false)
+	clone.search.Or(query, args...)
+	return clone
+}
+
+// Not filter records that don't match current conditions, similar to `Where`
+// Note : no scope
+func (con *DBCon) Not(query interface{}, args ...interface{}) *DBCon {
+	clone := con.clone(false, false)
+	clone.search.Not(query, args...)
+	return clone
+}
+
+// Limit specify the number of records to be retrieved
+//Note : no scope
+func (con *DBCon) Limit(limit interface{}) *DBCon {
+	clone := con.clone(false, false)
+	clone.search.Limit(limit)
+	return clone
+}
+
+// Offset specify the number of records to skip before starting to return the records
+// Note : no scope
+func (con *DBCon) Offset(offset interface{}) *DBCon {
+	clone := con.clone(false, false)
+	clone.search.Offset(offset)
+	return clone
+}
+
+// Order specify order when retrieve records from database, set reorder to `true` to overwrite defined conditions
+//     db.Order("name DESC")
+//     db.Order("name DESC", true) // reorder
+//     db.Order(gorm.Expr("name = ? DESC", "first")) // sql expression
+// Note : no scope
+func (con *DBCon) Order(value interface{}, reorder ...bool) *DBCon {
+	clone := con.clone(false, false)
+	clone.search.Order(value, reorder...)
+	return clone
+}
+
+// Select specify fields that you want to retrieve from database when querying, by default, will select all fields;
+// When creating/updating, specify fields that you want to save to database
+// Note : no scope
+func (con *DBCon) Select(query interface{}, args ...interface{}) *DBCon {
+	clone := con.clone(false, false)
+	clone.search.Select(query, args...)
+	return clone
+}
+
+// Omit specify fields that you want to ignore when saving to database for creating, updating
+// Note : no scope
+func (con *DBCon) Omit(columns ...string) *DBCon {
+	clone := con.clone(false, false)
+	clone.search.Omit(columns...)
+	return clone
+}
+
+// Group specify the group method on the find
+// Note : no scope
+func (con *DBCon) Group(query string) *DBCon {
+	clone := con.clone(false, false)
+	clone.search.Group(query)
+	return clone
+}
+
+// Having specify HAVING conditions for GROUP BY
+// Note : no scope
+func (con *DBCon) Having(query string, values ...interface{}) *DBCon {
+	clone := con.clone(false, false)
+	clone.search.Having(query, values...)
+	return clone
+}
+
+// Joins specify Joins conditions
+//     db.Joins("JOIN emails ON emails.user_id = users.id AND emails.email = ?", "user@example.org").Find(&user)
+//Note:no scope
+func (con *DBCon) Joins(query string, args ...interface{}) *DBCon {
+	clone := con.clone(false, false)
+	clone.search.Joins(query, args...)
+	return clone
+}
+
+// Unscoped return all record including deleted record, refer Soft Delete
+// Note : no scope (as the name says)
+func (con *DBCon) Unscoped() *DBCon {
+	clone := con.clone(false, false)
+	clone.search.setUnscoped()
+	return clone
+}
+
+// Attrs initialize struct with argument if record not found with `FirstOrInit` or `FirstOrCreate`
+// Note : no scope
+func (con *DBCon) Attrs(attrs ...interface{}) *DBCon {
+	clone := con.clone(false, false)
+	clone.search.Attrs(attrs...)
+	return clone
+}
+
+// Assign assign result with argument regardless it is found or not with `FirstOrInit` or `FirstOrCreate`
+// Note : no scope
+func (con *DBCon) Assign(attrs ...interface{}) *DBCon {
+	clone := con.clone(false, false)
+	clone.search.Assign(attrs...)
+	return clone
+}
+
+// Raw use raw sql as conditions, won't run it unless invoked by other methods
+//    db.Raw("SELECT name, age FROM users WHERE name = ?", 3).Scan(&result)
+// Note : no scope
+func (con *DBCon) Raw(sql string, values ...interface{}) *DBCon {
+	clone := con.clone(false, false)
+	clone.search.SetRaw().Where(sql, values...)
+	return clone
+}
+
+// Preload preload associations with given conditions
+//    db.Preload("Orders", "state NOT IN (?)", "cancelled").Find(&users)
+// Note : no scope
+func (con *DBCon) Preload(column string, conditions ...interface{}) *DBCon {
+	clone := con.clone(false, false)
+	clone.search.Preload(column, conditions...)
+	return clone
+}
+////////////////////////////////////////////////////////////////////////////////
+//
+////////////////////////////////////////////////////////////////////////////////
 // Close close current db connection
 func (con *DBCon) Close() error {
 	return con.parent.sqli.(*sql.DB).Close()
@@ -68,66 +207,6 @@ func (con *DBCon) SingularTable(enable bool) {
 	con.parent.singularTable = enable
 }
 
-// Where return a new relation, filter records with given conditions, accepts `map`, `struct` or `string` as conditions
-func (con *DBCon) Where(query interface{}, args ...interface{}) *DBCon {
-	return con.clone(false, false).search.Where(query, args...).con
-}
-
-// Or filter records that match before conditions or this one, similar to `Where`
-func (con *DBCon) Or(query interface{}, args ...interface{}) *DBCon {
-	return con.clone(false, false).search.Or(query, args...).con
-}
-
-// Not filter records that don't match current conditions, similar to `Where`
-func (con *DBCon) Not(query interface{}, args ...interface{}) *DBCon {
-	return con.clone(false, false).search.Not(query, args...).con
-}
-
-// Limit specify the number of records to be retrieved
-func (con *DBCon) Limit(limit interface{}) *DBCon {
-	return con.clone(false, false).search.Limit(limit).con
-}
-
-// Offset specify the number of records to skip before starting to return the records
-func (con *DBCon) Offset(offset interface{}) *DBCon {
-	return con.clone(false, false).search.Offset(offset).con
-}
-
-// Order specify order when retrieve records from database, set reorder to `true` to overwrite defined conditions
-//     db.Order("name DESC")
-//     db.Order("name DESC", true) // reorder
-//     db.Order(gorm.Expr("name = ? DESC", "first")) // sql expression
-func (con *DBCon) Order(value interface{}, reorder ...bool) *DBCon {
-	return con.clone(false, false).search.Order(value, reorder...).con
-}
-
-// Select specify fields that you want to retrieve from database when querying, by default, will select all fields;
-// When creating/updating, specify fields that you want to save to database
-func (con *DBCon) Select(query interface{}, args ...interface{}) *DBCon {
-	return con.clone(false, false).search.Select(query, args...).con
-}
-
-// Omit specify fields that you want to ignore when saving to database for creating, updating
-func (con *DBCon) Omit(columns ...string) *DBCon {
-	return con.clone(false, false).search.Omit(columns...).con
-}
-
-// Group specify the group method on the find
-func (con *DBCon) Group(query string) *DBCon {
-	return con.clone(false, false).search.Group(query).con
-}
-
-// Having specify HAVING conditions for GROUP BY
-func (con *DBCon) Having(query string, values ...interface{}) *DBCon {
-	return con.clone(false, false).search.Having(query, values...).con
-}
-
-// Joins specify Joins conditions
-//     db.Joins("JOIN emails ON emails.user_id = users.id AND emails.email = ?", "user@example.org").Find(&user)
-func (con *DBCon) Joins(query string, args ...interface{}) *DBCon {
-	return con.clone(false, false).search.Joins(query, args...).con
-}
-
 // Scopes pass current database connection to arguments `func(*DBCon) *DBCon`, which could be used to add conditions dynamically
 //     func AmountGreaterThan1000(db *gorm.DB) *gorm.DB {
 //         return db.Where("amount > ?", 1000)
@@ -147,21 +226,6 @@ func (con *DBCon) Scopes(funcs ...func(*DBCon) *DBCon) *DBCon {
 		con = f(con)
 	}
 	return con
-}
-
-// Unscoped return all record including deleted record, refer Soft Delete
-func (con *DBCon) Unscoped() *DBCon {
-	return con.clone(false, false).search.setUnscoped().con
-}
-
-// Attrs initialize struct with argument if record not found with `FirstOrInit` or `FirstOrCreate`
-func (con *DBCon) Attrs(attrs ...interface{}) *DBCon {
-	return con.clone(false, false).search.Attrs(attrs...).con
-}
-
-// Assign assign result with argument regardless it is found or not with `FirstOrInit` or `FirstOrCreate`
-func (con *DBCon) Assign(attrs ...interface{}) *DBCon {
-	return con.clone(false, false).search.Assign(attrs...).con
 }
 
 // First find first record that match given conditions, order by primary key
@@ -322,12 +386,6 @@ func (con *DBCon) Create(value interface{}) *DBCon {
 // Delete delete value match given conditions, if the value has primary key, then will including the primary key as condition
 func (con *DBCon) Delete(value interface{}, where ...interface{}) *DBCon {
 	return con.clone(false, false).NewScope(value).inlineCondition(where...).callCallbacks(con.parent.callback.deletes).con
-}
-
-// Raw use raw sql as conditions, won't run it unless invoked by other methods
-//    db.Raw("SELECT name, age FROM users WHERE name = ?", 3).Scan(&result)
-func (con *DBCon) Raw(sql string, values ...interface{}) *DBCon {
-	return con.clone(false, false).search.SetRaw().Where(sql, values...).con
 }
 
 // Exec execute raw sql
@@ -546,12 +604,6 @@ func (con *DBCon) Association(column string) *Association {
 	return &Association{Error: err}
 }
 
-// Preload preload associations with given conditions
-//    db.Preload("Orders", "state NOT IN (?)", "cancelled").Find(&users)
-func (con *DBCon) Preload(column string, conditions ...interface{}) *DBCon {
-	return con.clone(false, false).search.Preload(column, conditions...).con
-}
-
 // Set set setting by name, which could be used in callbacks, will clone a new db, and update its setting
 func (con *DBCon) Set(name string, value interface{}) *DBCon {
 	return con.clone(false, false).InstantSet(name, value)
@@ -645,8 +697,6 @@ func (con *DBCon) clone(withoutSettings bool, withoutSearch bool) *DBCon {
 		} else {
 			clone.search = con.search.Clone()
 		}
-
-		clone.search.con = &clone
 	}
 	return &clone
 }

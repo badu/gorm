@@ -50,20 +50,23 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
 - [x] removed Scope SelectAttrs() method and Scope selectAttrs property
 - [x] removed Scope OmitAttrs() []string
 - [x] because above removals, Scope changeableField() method simplified
-- [x] search struct - added more flags instead of using length for conditions
+- [x] Search struct - added more flags instead of using length for conditions
+- [x] moved SQL and SQLVars from Scope to Search
+- [x] removed Search "con" property : DBCon struct has now clear unscoped methods (stores in search property)
+- [x] removed Search getInterfaceAsSQL since it was used by Group, which takes string parameter
 
 ## 22.11.2016
-- [x] slimmer search struct - preload gone
-- [x] slimmer search struct - selects gone
-- [x] slimmer search struct - order gone
-- [x] search true clone
-- [x] search conditions renamed to Conditions, sqlConditions struct renamed to SqlConditions,  so search_test.go could be moved in tests
+- [x] slimmer Search struct - preload gone
+- [x] slimmer Search struct - selects gone
+- [x] slimmer Search struct - order gone
+- [x] Search true clone
+- [x] Search conditions renamed to Conditions, sqlConditions struct renamed to SqlConditions,  so search_test.go could be moved in tests
 
 ## 21.11.2016
-- [x] slimmer search struct - notConditions are gone
-- [x] slimmer search struct - flags instead of booleans
-- [x] slimmer search struct - initAttrs gone + method GetInitAttr()        
-- [x] slimmer search struct - assignAttrs gone + method GetAssignAttr()
+- [x] slimmer Search struct - notConditions are gone
+- [x] slimmer Search struct - flags instead of booleans
+- [x] slimmer Search struct - initAttrs gone + method GetInitAttr()        
+- [x] slimmer Search struct - assignAttrs gone + method GetAssignAttr()
 
 ## 16.11.2016
 - [x] slimmer search struct - whereConditions, orConditions, havingConditions, joinConditions are gone

@@ -1,7 +1,7 @@
 package gorm
 
 import (
-	"fmt"
+	"strings"
 )
 
 const (
@@ -261,7 +261,7 @@ func (s *Search) Offset(offset interface{}) *Search {
 }
 
 func (s *Search) Group(query string) *Search {
-	s.group = s.getInterfaceAsSQL(query)
+	s.group = query
 	return s
 }
 
@@ -333,22 +333,6 @@ func (s *Search) Table(name string) *Search {
 	return s
 }
 
-func (s *Search) getInterfaceAsSQL(value interface{}) string {
-	str := ""
-	switch value.(type) {
-	case string, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
-		//TODO: @Badu - separate string situation and print integers as integers
-		str = fmt.Sprintf("%v", value)
-	default:
-		s.con.AddError(ErrInvalidSQL)
-	}
-	//TODO : @Badu - this is from limit and offset. Kind of boilerplate, huh?
-	if str == "-1" {
-		return ""
-	}
-	return str
-}
-
 func (s *Search) GetInitAttr() ([]interface{}, bool) {
 	pair := s.getFirst(Init_attrs)
 	if pair == nil {
@@ -405,4 +389,17 @@ func (s *Search) checkFieldOmitted(field *StructField) bool {
 		}
 	}
 	return false
+}
+
+// AddToVars add value as sql's vars, used to prevent SQL injection
+func (s *Search) AddToVars(value interface{}, dialect Dialect) string {
+	if pair, ok := value.(*SqlPair); ok {
+		exp := pair.strExpr()
+		for _, arg := range pair.args {
+			exp = strings.Replace(exp, "?", s.AddToVars(arg, dialect), 1)
+		}
+		return exp
+	}
+	s.SQLVars = append(s.SQLVars, value)
+	return dialect.BindVar(len(s.SQLVars))
 }
