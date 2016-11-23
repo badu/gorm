@@ -15,29 +15,74 @@ const (
 	assign_attrs  sqlConditionType = 7
 	preload_query sqlConditionType = 8
 	Order_query   sqlConditionType = 9
+	omits_query   sqlConditionType = 10
 
 	IS_UNSCOPED uint16 = 0
 	IS_RAW      uint16 = 1
 	IS_COUNTING uint16 = 2
+
+	HAS_SELECT  uint16 = 3
+	HAS_WHERE   uint16 = 4
+	HAS_NOT     uint16 = 5
+	HAS_OR      uint16 = 6
+	HAS_HAVING  uint16 = 7
+	HAS_JOINS   uint16 = 8
+	HAS_INIT    uint16 = 9
+	HAS_ASSIGN  uint16 = 10
+	HAS_PRELOAD uint16 = 11
+	HAS_ORDER   uint16 = 12
+	HAS_OMITS   uint16 = 13
 )
 
-func (p *sqlPair) addExpressions(values ...interface{}) {
+// Expr generate raw SQL expression, for example:
+//     DB.Model(&product).Update("price", gorm.SqlPair("price * ? + ?", 2, 100))
+func SqlExpr(expression interface{}, args ...interface{}) *SqlPair {
+	return &SqlPair{expression: expression, args: args}
+}
+
+//TODO : @Badu - move some pieces of code from Scope AddToVars, orderSQL, updatedAttrsWithValues
+//TODO : @Badu - make expr string bytes buffer, allow args to be added, allow bytes buffer to be written into
+//TODO : @Badu - before doing above, benchmark bytesbuffer versus string concat
+/**
+var buf bytes.Buffer
+var prParams []interface{}
+if p.Id > 0 {
+	buf.WriteString("%q:%d,")
+	prParams = append(prParams, "id")
+	prParams = append(prParams, p.Id)
+}
+buf.WriteString("%q:%q,%q:%q,%q:%t,%q:{%v}")
+prParams = append(prParams, "name")
+prParams = append(prParams, p.DisplayName)
+prParams = append(prParams, "states")
+prParams = append(prParams, p.USStates)
+prParams = append(prParams, "customerPays")
+prParams = append(prParams, p.AppliesToCustomer)
+prParams = append(prParams, "price")
+prParams = append(prParams, p.Price)
+return fmt.Sprintf(buf.String(), prParams...)
+*/
+//TODO : @Badu - use it to build strings with multiple fmt.Sprintf calls - making one call
+
+func (p *SqlPair) addExpressions(values ...interface{}) {
 	p.args = append(p.args, values...)
 }
 
-func (p *sqlPair) strExpr() string {
+func (p *SqlPair) strExpr() string {
 	result := p.expression.(string)
 	return result
 }
 
-func (s *Search) getFirst(condType sqlConditionType) *sqlPair {
-	numConditions := s.numConditions(condType)
+func (s *Search) getFirst(condType sqlConditionType) *SqlPair {
+	s.checkInit(condType)
+	//should return the number of conditions of that type
+	numConditions := len(s.Conditions[condType])
 	if numConditions != 1 {
-		err := fmt.Errorf("Search getFirst : %d should have exactly one item in slice, but has %d", condType, numConditions)
-		fmt.Println(err)
-		if s.con != nil {
-			s.con.AddError(err)
-		}
+		//err := fmt.Errorf("Search getFirst : %d should have exactly one item in slice, but has %d", condType, numConditions)
+		//fmt.Println(err)
+		//if s.con != nil {
+		//	s.con.AddError(err)
+		//}
 		return nil
 	}
 	return &s.Conditions[condType][0]
@@ -46,11 +91,13 @@ func (s *Search) getFirst(condType sqlConditionType) *sqlPair {
 func (s *Search) checkInit(condType sqlConditionType) {
 	//create a slice of conditions for the key of map if there isn't already one
 	if _, ok := s.Conditions[condType]; !ok {
-		s.Conditions[condType] = make([]sqlPair, 0, 0)
+		s.Conditions[condType] = make([]SqlPair, 0, 0)
 	}
 }
 
 func (s *Search) Preload(schema string, values ...interface{}) *Search {
+	//Note to self : order matters here : if you attempt to replace the existing item,
+	//logic will break - as in many many places
 	s.checkInit(preload_query)
 	//overriding sql pairs within the same schema
 	for i, pair := range s.Conditions[preload_query] {
@@ -60,10 +107,11 @@ func (s *Search) Preload(schema string, values ...interface{}) *Search {
 		}
 	}
 	//add preload
-	newPair := sqlPair{expression: schema}
+	newPair := SqlPair{expression: schema}
 	newPair.addExpressions(values...)
 	//add the condition pair to the slice
 	s.Conditions[preload_query] = append(s.Conditions[preload_query], newPair)
+	s.setFlag(HAS_PRELOAD)
 	return s
 }
 
@@ -72,16 +120,10 @@ func (s *Search) addSqlCondition(condType sqlConditionType, query interface{}, v
 	//otherwise slice will grow indefinitely ( causing memory leak :) )
 	s.checkInit(condType)
 	//create a new condition pair
-	newPair := sqlPair{expression: query}
+	newPair := SqlPair{expression: query}
 	newPair.addExpressions(values...)
 	//add the condition pair to the slice
 	s.Conditions[condType] = append(s.Conditions[condType], newPair)
-}
-
-func (s *Search) numConditions(condType sqlConditionType) int {
-	s.checkInit(condType)
-	//should return the number of conditions of that type
-	return len(s.Conditions[condType])
 }
 
 func (s *Search) Clone() *Search {
@@ -93,7 +135,6 @@ func (s *Search) Clone() *Search {
 	for key, value := range s.Conditions {
 		clone.Conditions[key] = value
 	}
-	clone.omits = s.omits
 	clone.offset = s.offset
 	clone.limit = s.limit
 	clone.group = s.group
@@ -103,31 +144,37 @@ func (s *Search) Clone() *Search {
 
 func (s *Search) Where(query interface{}, values ...interface{}) *Search {
 	s.addSqlCondition(Where_query, query, values...)
+	s.setFlag(HAS_WHERE)
 	return s
 }
 
 func (s *Search) Not(query interface{}, values ...interface{}) *Search {
 	s.addSqlCondition(not_query, query, values...)
+	s.setFlag(HAS_NOT)
 	return s
 }
 
 func (s *Search) Or(query interface{}, values ...interface{}) *Search {
 	s.addSqlCondition(or_query, query, values...)
+	s.setFlag(HAS_OR)
 	return s
 }
 
 func (s *Search) Having(query string, values ...interface{}) *Search {
 	s.addSqlCondition(having_query, query, values...)
+	s.setFlag(HAS_HAVING)
 	return s
 }
 
 func (s *Search) Joins(query string, values ...interface{}) *Search {
 	s.addSqlCondition(joins_query, query, values...)
+	s.setFlag(HAS_JOINS)
 	return s
 }
 
 func (s *Search) Select(query interface{}, args ...interface{}) *Search {
 	s.addSqlCondition(Select_query, query, args...)
+	s.setFlag(HAS_SELECT)
 	return s
 }
 
@@ -148,26 +195,9 @@ func (s *Search) Attrs(attrs ...interface{}) *Search {
 	}
 	if result != nil {
 		s.addSqlCondition(Init_attrs, nil, result)
+		s.setFlag(HAS_INIT)
 	}
 	return s
-}
-
-//TODO : @Badu - move this where is called
-func (s *Search) GetInitAttr() ([]interface{}, bool) {
-	pair := s.getFirst(Init_attrs)
-	if pair == nil {
-		return nil, false
-	}
-	return pair.args, true
-}
-
-//TODO : @Badu - move this where is called
-func (s *Search) GetAssignAttr() ([]interface{}, bool) {
-	pair := s.getFirst(assign_attrs)
-	if pair == nil {
-		return nil, false
-	}
-	return pair.args, true
 }
 
 func (s *Search) Assign(attrs ...interface{}) *Search {
@@ -187,6 +217,7 @@ func (s *Search) Assign(attrs ...interface{}) *Search {
 	}
 	if result != nil {
 		s.addSqlCondition(assign_attrs, nil, result)
+		s.setFlag(HAS_ASSIGN)
 	}
 	return s
 }
@@ -194,16 +225,28 @@ func (s *Search) Assign(attrs ...interface{}) *Search {
 func (s *Search) Order(value interface{}, reorder ...bool) *Search {
 	if len(reorder) > 0 && reorder[0] {
 		//reseting existing entry
-		s.Conditions[Order_query] = make([]sqlPair, 0, 0)
+		s.Conditions[Order_query] = make([]SqlPair, 0, 0)
 	}
 	if value != nil {
 		s.addSqlCondition(Order_query, nil, value)
+		s.setFlag(HAS_ORDER)
 	}
 	return s
 }
 
 func (s *Search) Omit(columns ...string) *Search {
-	s.omits = columns
+	s.checkInit(omits_query)
+	//add omit
+	newPair := SqlPair{}
+	//transfer slices (copy) - strings to interface
+	newPair.args = make([]interface{}, len(columns))
+	for i, v := range columns {
+		newPair.args[i] = v
+	}
+	//add the condition pair to the slice
+	s.Conditions[omits_query] = append(s.Conditions[omits_query], newPair)
+	//fmt.Printf("Omit %d elements\n", s.numConditions(omits_query))
+	s.setFlag(HAS_OMITS)
 	return s
 }
 
@@ -238,6 +281,30 @@ func (s *Search) isCounting() bool {
 	return s.flags&(1<<IS_COUNTING) != 0
 }
 
+func (s *Search) hasSelect() bool {
+	return s.flags&(1<<HAS_SELECT) != 0
+}
+
+func (s *Search) hasJoins() bool {
+	return s.flags&(1<<HAS_JOINS) != 0
+}
+
+func (s *Search) hasOrder() bool {
+	return s.flags&(1<<HAS_ORDER) != 0
+}
+
+func (s *Search) hasAssign() bool {
+	return s.flags&(1<<HAS_ASSIGN) != 0
+}
+
+func (s *Search) hasPreload() bool {
+	return s.flags&(1<<HAS_PRELOAD) != 0
+}
+
+func (s *Search) hasHaving() bool {
+	return s.flags&(1<<HAS_HAVING) != 0
+}
+
 func (s *Search) setCounting() *Search {
 	s.flags = s.flags | (1 << IS_COUNTING)
 	return s
@@ -266,7 +333,8 @@ func (s *Search) Table(name string) *Search {
 	return s
 }
 
-func (s *Search) getInterfaceAsSQL(value interface{}) (str string) {
+func (s *Search) getInterfaceAsSQL(value interface{}) string {
+	str := ""
 	switch value.(type) {
 	case string, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
 		//TODO: @Badu - separate string situation and print integers as integers
@@ -278,22 +346,63 @@ func (s *Search) getInterfaceAsSQL(value interface{}) (str string) {
 	if str == "-1" {
 		return ""
 	}
-	return
+	return str
 }
 
-func (s *Search) collectAttrs() *[]string {
-	attrs := []string{}
+func (s *Search) GetInitAttr() ([]interface{}, bool) {
+	pair := s.getFirst(Init_attrs)
+	if pair == nil {
+		return nil, false
+	}
+	return pair.args, true
+}
+
+func (s *Search) GetAssignAttr() ([]interface{}, bool) {
+	pair := s.getFirst(assign_attrs)
+	if pair == nil {
+		return nil, false
+	}
+	return pair.args, true
+}
+
+func (s *Search) checkFieldIncluded(field *StructField) bool {
 	for _, pair := range s.Conditions[Select_query] {
 		switch strs := pair.expression.(type) {
 		case string:
-			attrs = append(attrs, strs)
+			if field.GetName() == strs || field.DBName == strs {
+				//fmt.Printf("[str] Field %q included\n", strs)
+				return true
+			}
+
 		case []string:
-			attrs = append(attrs, strs...)
+			for _, o := range strs {
+				if field.GetName() == o || field.DBName == o {
+					//fmt.Printf("[slice] Field %q included\n", o)
+					return true
+				}
+			}
 		}
+
 		for _, pairArg := range pair.args {
-			attrs = append(attrs, fmt.Sprintf("%v", pairArg))
+			if field.GetName() == pairArg || field.DBName == pairArg {
+				//fmt.Printf("[arg] Field %q included\n", pairArg)
+				return true
+			}
 		}
 	}
+	return false
+}
 
-	return &attrs
+func (s *Search) checkFieldOmitted(field *StructField) bool {
+	pair := s.getFirst(omits_query)
+	if pair == nil {
+		return false
+	}
+	for _, attr := range pair.args {
+		if field.GetName() == attr || field.DBName == attr {
+			//fmt.Printf("Field %q omitted\n", attr.(string))
+			return true
+		}
+	}
+	return false
 }

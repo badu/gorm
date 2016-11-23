@@ -759,7 +759,7 @@ func (*PersonAddress) Add(handler gorm.JoinTableHandlerInterface, db *gorm.DBCon
 	}).Assign(map[string]interface{}{
 		"person_id":  foreignValue,
 		"address_id": associationValue,
-		"deleted_at": gorm.Expr("NULL"),
+		"deleted_at": gorm.SqlExpr("NULL"),
 	}).FirstOrCreate(&PersonAddress{}).Error
 }
 

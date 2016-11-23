@@ -217,9 +217,9 @@ func (scope *Scope) CallMethod(methodName string) {
 
 // AddToVars add value as sql's vars, used to prevent SQL injection
 func (scope *Scope) AddToVars(value interface{}) string {
-	if expr, ok := value.(*expr); ok {
-		exp := expr.expr
-		for _, arg := range expr.args {
+	if pair, ok := value.(*SqlPair); ok {
+		exp := pair.strExpr()
+		for _, arg := range pair.args {
 			exp = strings.Replace(exp, "?", scope.AddToVars(arg), 1)
 		}
 		return exp
@@ -227,19 +227,6 @@ func (scope *Scope) AddToVars(value interface{}) string {
 
 	scope.SQLVars = append(scope.SQLVars, value)
 	return scope.Dialect().BindVar(len(scope.SQLVars))
-}
-
-// SelectAttrs return selected attributes
-func (scope *Scope) SelectAttrs() []string {
-	if scope.selectAttrs == nil {
-		scope.selectAttrs = scope.Search.collectAttrs()
-	}
-	return *scope.selectAttrs
-}
-
-// OmitAttrs return omitted attributes
-func (scope *Scope) OmitAttrs() []string {
-	return scope.Search.omits
 }
 
 // TableName return table name
@@ -438,7 +425,8 @@ func (scope *Scope) callMethod(methodName string, reflectValue reflect.Value) {
 }
 
 func (scope *Scope) quoteIfPossible(str string) string {
-	if columnRegexp.MatchString(str) {
+	// only match string like `name`, `users.name`
+	if regexp.MustCompile("^[a-zA-Z]+(\\.[a-zA-Z]+)*$").MatchString(str) {
 		return scope.Quote(str)
 	}
 	return str
@@ -494,7 +482,7 @@ func (scope *Scope) primaryCondition(value interface{}) string {
 	return fmt.Sprintf("(%v.%v = %v)", scope.QuotedTableName(), scope.Quote(scope.PKName()), value)
 }
 
-func (scope *Scope) buildWhereCondition(fromPair sqlPair) string {
+func (scope *Scope) buildWhereCondition(fromPair SqlPair) string {
 	var str string
 
 	switch expType := fromPair.expression.(type) {
@@ -544,7 +532,7 @@ func (scope *Scope) buildWhereCondition(fromPair sqlPair) string {
 				}
 				str = strings.Replace(str, "?", strings.Join(tempMarks, ","), 1)
 			} else {
-				str = strings.Replace(str, "?", scope.AddToVars(Expr("NULL")), 1)
+				str = strings.Replace(str, "?", scope.AddToVars(SqlExpr("NULL")), 1)
 			}
 		default:
 			if valuer, ok := interface{}(arg).(driver.Valuer); ok {
@@ -557,7 +545,7 @@ func (scope *Scope) buildWhereCondition(fromPair sqlPair) string {
 	return str
 }
 
-func (scope *Scope) buildNotCondition(fromPair sqlPair) string {
+func (scope *Scope) buildNotCondition(fromPair SqlPair) string {
 	var str string
 	var notEqualSQL string
 	var primaryKey = scope.PKName()
@@ -617,7 +605,7 @@ func (scope *Scope) buildNotCondition(fromPair sqlPair) string {
 				}
 				str = strings.Replace(str, "?", strings.Join(tempMarks, ","), 1)
 			} else {
-				str = strings.Replace(str, "?", scope.AddToVars(Expr("NULL")), 1)
+				str = strings.Replace(str, "?", scope.AddToVars(SqlExpr("NULL")), 1)
 			}
 		default:
 			if scanner, ok := interface{}(arg).(driver.Valuer); ok {
@@ -720,8 +708,8 @@ func (scope *Scope) whereSQL() string {
 }
 
 func (scope *Scope) selectSQL() string {
-	if scope.Search.numConditions(Select_query) == 0 {
-		if scope.Search.numConditions(joins_query) > 0 {
+	if !scope.Search.hasSelect() {
+		if scope.Search.hasJoins() {
 			return fmt.Sprintf("%v.*", scope.QuotedTableName())
 		}
 		return "*"
@@ -730,7 +718,7 @@ func (scope *Scope) selectSQL() string {
 }
 
 func (scope *Scope) orderSQL() string {
-	if scope.Search.numConditions(Order_query) == 0 || scope.Search.isCounting() {
+	if !scope.Search.hasOrder() || scope.Search.isCounting() {
 		return ""
 	}
 
@@ -738,12 +726,12 @@ func (scope *Scope) orderSQL() string {
 	for _, orderPair := range scope.Search.Conditions[Order_query] {
 		if str, ok := orderPair.args[0].(string); ok {
 			orders = append(orders, scope.quoteIfPossible(str))
-		} else if expr, ok := orderPair.args[0].(*expr); ok {
+		} else if pair, ok := orderPair.args[0].(*SqlPair); ok {
 			//TODO : @Badu - check when this is called
-			scope.con.toLog("other", fmt.Sprintf("??? %#v", expr))
+			scope.con.toLog("other", fmt.Sprintf("??? %#v", pair))
 			//TODO : @Badu - duplicated code - AddToVars
-			exp := expr.expr
-			for _, arg := range expr.args {
+			exp := pair.strExpr()
+			for _, arg := range pair.args {
 				exp = strings.Replace(exp, "?", scope.AddToVars(arg), 1)
 			}
 			orders = append(orders, exp)
@@ -764,7 +752,7 @@ func (scope *Scope) groupSQL() string {
 }
 
 func (scope *Scope) havingSQL() string {
-	if scope.Search.numConditions(having_query) == 0 {
+	if !scope.Search.hasHaving() {
 		return ""
 	}
 
@@ -832,7 +820,7 @@ func (scope *Scope) updatedAttrsWithValues(value interface{}) (map[string]interf
 
 	for key, value := range convertInterfaceToMap(value, true) {
 		if field, ok := scope.FieldByName(key); ok && scope.changeableField(field) {
-			if _, ok := value.(*expr); ok {
+			if _, ok := value.(*SqlPair); ok {
 				hasUpdate = true
 				results[field.DBName] = value
 			} else {
@@ -901,20 +889,18 @@ func (scope *Scope) pluck(column string, value interface{}) *Scope {
 }
 
 func (scope *Scope) count(value interface{}) *Scope {
-	numSelects := scope.Search.numConditions(Select_query)
-	if numSelects == 0 {
+	if !scope.Search.hasSelect() {
 		scope.Search.Select("count(*)")
-	} else if numSelects == 1 {
+	} else {
 		sqlPair := scope.Search.getFirst(Select_query)
 		if sqlPair == nil {
+			scope.con.toLog("ERROR : search select_query should have exaclty one count")
 			//error has occured in getting first item in slice
 			return scope
 		}
 		if !regexp.MustCompile("(?i)^count(.+)$").MatchString(fmt.Sprint(sqlPair.expression)) {
 			scope.Search.Select("count(*)")
 		}
-	} else {
-		scope.con.toLog("ERROR : search select_query should be empty or exaclty one for checking count")
 	}
 	scope.Search.setCounting()
 	scope.Err(scope.row().Scan(value))
@@ -939,19 +925,15 @@ func (scope *Scope) trace(t time.Time) {
 }
 
 func (scope *Scope) changeableField(field *StructField) bool {
-	if selectAttrs := scope.SelectAttrs(); len(selectAttrs) > 0 {
-		for _, attr := range selectAttrs {
-			if field.GetName() == attr || field.DBName == attr {
-				return true
-			}
+	if scope.Search.hasSelect() {
+		if scope.Search.checkFieldIncluded(field) {
+			return true
 		}
 		return false
 	}
 
-	for _, attr := range scope.OmitAttrs() {
-		if field.GetName() == attr || field.DBName == attr {
-			return false
-		}
+	if scope.Search.checkFieldOmitted(field) {
+		return false
 	}
 
 	return true
@@ -2021,7 +2003,7 @@ func (scope *Scope) afterQueryCallback() {
 //============================================
 // preloadCallback used to preload associations
 func (scope *Scope) preloadCallback() {
-	if scope.Search.numConditions(preload_query) <= 0 || scope.HasError() {
+	if !scope.Search.hasPreload() || scope.HasError() {
 		return
 	}
 

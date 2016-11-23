@@ -338,7 +338,7 @@ func TestOrderAndPluck(t *testing.T) {
 	scopedb := TestDB.Model(&User{}).Where("name like ?", "%OrderPluckUser%")
 
 	var user User
-	scopedb.Order(gorm.Expr("name = ? DESC", "OrderPluckUser2")).First(&user)
+	scopedb.Order(gorm.SqlExpr("name = ? DESC", "OrderPluckUser2")).First(&user)
 	if user.Name != "OrderPluckUser2" {
 		t.Errorf("Order with sql expression")
 	}
@@ -682,7 +682,7 @@ func TestSelectWithVariables(t *testing.T) {
 	t.Log("125) TestSelectWithVariables")
 	TestDB.Save(&User{Name: "jinzhu"})
 
-	rows, _ := TestDB.Table("users").Select("? as fake", gorm.Expr("name")).Rows()
+	rows, _ := TestDB.Table("users").Select("? as fake", gorm.SqlExpr("name")).Rows()
 
 	if !rows.Next() {
 		t.Errorf("Should have returned at least one row")

@@ -45,6 +45,13 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
 
 # Changes log
 
+## 23.11.2016
+- [x] file for expr struct - removed, replaced with SqlPair
+- [x] removed Scope SelectAttrs() method and Scope selectAttrs property
+- [x] removed Scope OmitAttrs() []string
+- [x] because above removals, Scope changeableField() method simplified
+- [x] search struct - added more flags instead of using length for conditions
+
 ## 22.11.2016
 - [x] slimmer search struct - preload gone
 - [x] slimmer search struct - selects gone

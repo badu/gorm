@@ -260,7 +260,7 @@ func (con *DBCon) FirstOrCreate(out interface{}, where ...interface{}) *DBCon {
 			return result
 		}
 		return c.NewScope(out).inlineCondition(where...).initialize().callCallbacks(c.parent.callback.creates).con
-	} else if c.search.numConditions(assign_attrs) > 0 {
+	} else if c.search.hasAssign() {
 		scope := c.NewScope(out)
 		args, argsOk := scope.Search.GetAssignAttr()
 		if argsOk {
@@ -333,7 +333,7 @@ func (con *DBCon) Raw(sql string, values ...interface{}) *DBCon {
 // Exec execute raw sql
 func (con *DBCon) Exec(sql string, values ...interface{}) *DBCon {
 	scope := con.clone(false, false).NewScope(nil)
-	newPair := sqlPair{expression: sql}
+	newPair := SqlPair{expression: sql}
 	newPair.addExpressions(values...)
 	generatedSQL := scope.buildWhereCondition(newPair)
 	generatedSQL = strings.TrimSuffix(strings.TrimPrefix(generatedSQL, "("), ")")

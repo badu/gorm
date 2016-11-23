@@ -82,8 +82,6 @@ type (
 		Search *Search
 		Value  interface{}
 
-		selectAttrs *[]string
-
 		SQL     string
 		SQLVars []interface{}
 
@@ -95,18 +93,17 @@ type (
 	}
 
 	sqlConditionType uint16
-	sqlPair          struct {
+	SqlPair          struct {
 		expression interface{}
 		args       []interface{}
 	}
-	sqlCondition  []sqlPair
+	sqlCondition  []SqlPair
 	SqlConditions map[sqlConditionType]sqlCondition
 	//TODO : @Badu - pointer to DBCon is just to expose errors since they are related (Scope has a search inside)
 	Search struct {
 		flags      uint16
 		con        *DBCon
 		Conditions SqlConditions
-		omits      []string
 		offset     interface{}
 		limit      interface{}
 		group      string
@@ -316,8 +313,6 @@ var (
 	NowFunc = func() time.Time {
 		return time.Now()
 	}
-
-	columnRegexp = regexp.MustCompile("^[a-zA-Z]+(\\.[a-zA-Z]+)*$") // only match string like `name`, `users.name`
 
 	defaultLogger = Logger{log.New(os.Stdout, "\r\n", 0)}
 
