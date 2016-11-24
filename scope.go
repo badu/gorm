@@ -213,14 +213,6 @@ func (scope *Scope) CallMethod(methodName string) {
 	}
 }
 
-// AddToVars add value as sql's vars, used to prevent SQL injection
-func (scope *Scope) AddToVars(value interface{}) string {
-	if scope.Search.dialect == nil {
-		scope.Search.dialect = scope.con.parent.dialect
-	}
-	return scope.Search.AddToVars(value)
-}
-
 // TableName return table name
 func (scope *Scope) TableName() string {
 	if scope.Search != nil && len(scope.Search.tableName) > 0 {
@@ -1005,8 +997,11 @@ func (scope *Scope) handleHasOnePreload(field *StructField, conditions []interfa
 	preloadDB, preloadConditions := scope.generatePreloadDBWithConditions(conditions)
 
 	// find relations
-	query := fmt.Sprintf("%v IN (%v)", scope.toQueryCondition(relation.ForeignDBNames), toQueryMarks(primaryKeys))
-	values := toQueryValues(primaryKeys)
+	query := fmt.Sprintf(
+		"%v IN (%v)",
+		scope.toQueryCondition(relation.ForeignDBNames),
+		scope.Search.toQueryMarks(primaryKeys))
+	values := scope.Search.toQueryValues(primaryKeys)
 	if relation.PolymorphicType != "" {
 		query += fmt.Sprintf(" AND %v = ?", scope.Quote(relation.PolymorphicDBName))
 		values = append(values, relation.PolymorphicValue)
@@ -1062,8 +1057,12 @@ func (scope *Scope) handleHasManyPreload(field *StructField, conditions []interf
 	preloadDB, preloadConditions := scope.generatePreloadDBWithConditions(conditions)
 
 	// find relations
-	query := fmt.Sprintf("%v IN (%v)", scope.toQueryCondition(relation.ForeignDBNames), toQueryMarks(primaryKeys))
-	values := toQueryValues(primaryKeys)
+	query := fmt.Sprintf(
+		"%v IN (%v)",
+		scope.toQueryCondition(relation.ForeignDBNames),
+		scope.Search.toQueryMarks(primaryKeys),
+	)
+	values := scope.Search.toQueryValues(primaryKeys)
 	if relation.PolymorphicType != "" {
 		query += fmt.Sprintf(" AND %v = ?", scope.Quote(relation.PolymorphicDBName))
 		values = append(values, relation.PolymorphicValue)
@@ -1124,7 +1123,16 @@ func (scope *Scope) handleBelongsToPreload(field *StructField, conditions []inte
 
 	// find relations
 	results := field.makeSlice()
-	scope.Err(preloadDB.Where(fmt.Sprintf("%v IN (%v)", scope.toQueryCondition(relation.AssociationForeignDBNames), toQueryMarks(primaryKeys)), toQueryValues(primaryKeys)...).Find(results, preloadConditions...).Error)
+	scope.Err(
+		preloadDB.Where(
+			fmt.Sprintf(
+				"%v IN (%v)",
+				scope.toQueryCondition(relation.AssociationForeignDBNames),
+				scope.Search.toQueryMarks(primaryKeys)),
+			scope.Search.toQueryValues(primaryKeys)...,
+		).
+			Find(results, preloadConditions...).
+			Error)
 
 	// assign find results
 
@@ -1306,13 +1314,13 @@ func (scope *Scope) createCallback() {
 						scope.InstanceSet("gorm:blank_columns_with_default_value", blankColumnsWithDefaultValue)
 					} else if !field.IsPrimaryKey() || !field.IsBlank() {
 						columns.add(scope.Quote(field.DBName))
-						placeholders.add(scope.AddToVars(field.Value.Interface()))
+						placeholders.add(scope.Search.addToVars(field.Value.Interface()))
 					}
 				} else if field.Relationship != nil && field.Relationship.Kind == BELONGS_TO {
 					for _, foreignKey := range field.Relationship.ForeignDBNames {
 						if foreignField, ok := scope.FieldByName(foreignKey); ok && !scope.changeableField(foreignField) {
 							columns.add(scope.Quote(foreignField.DBName))
-							placeholders.add(scope.AddToVars(foreignField.Value.Interface()))
+							placeholders.add(scope.Search.addToVars(foreignField.Value.Interface()))
 						}
 					}
 				}
@@ -1528,18 +1536,18 @@ func (scope *Scope) updateCallback() {
 
 		if updateAttrs, ok := scope.InstanceGet("gorm:update_attrs"); ok {
 			for column, value := range updateAttrs.(map[string]interface{}) {
-				sqls = append(sqls, fmt.Sprintf("%v = %v", scope.Quote(column), scope.AddToVars(value)))
+				sqls = append(sqls, fmt.Sprintf("%v = %v", scope.Quote(column), scope.Search.addToVars(value)))
 			}
 		} else {
 			for _, field := range scope.Fields() {
 				if scope.changeableField(field) {
 					if !field.IsPrimaryKey() && field.IsNormal() {
-						sqls = append(sqls, fmt.Sprintf("%v = %v", scope.Quote(field.DBName), scope.AddToVars(field.Value.Interface())))
+						sqls = append(sqls, fmt.Sprintf("%v = %v", scope.Quote(field.DBName), scope.Search.addToVars(field.Value.Interface())))
 					} else if relationship := field.Relationship; relationship != nil && relationship.Kind == BELONGS_TO {
 						for _, foreignKey := range relationship.ForeignDBNames {
 							if foreignField, ok := scope.FieldByName(foreignKey); ok && !scope.changeableField(foreignField) {
 								sqls = append(sqls,
-									fmt.Sprintf("%v = %v", scope.Quote(foreignField.DBName), scope.AddToVars(foreignField.Value.Interface())))
+									fmt.Sprintf("%v = %v", scope.Quote(foreignField.DBName), scope.Search.addToVars(foreignField.Value.Interface())))
 							}
 						}
 					}
@@ -1557,7 +1565,7 @@ func (scope *Scope) updateCallback() {
 				"UPDATE %v SET %v%v%v",
 				scope.QuotedTableName(),
 				strings.Join(sqls, ", "),
-				addExtraSpaceIfExist(scope.Search.CombinedConditionSql(scope)),
+				addExtraSpaceIfExist(scope.Search.combinedConditionSql(scope)),
 				addExtraSpaceIfExist(extraOption),
 			)).Exec()
 		}
@@ -1756,15 +1764,15 @@ func (scope *Scope) deleteCallback() {
 			scope.Raw(fmt.Sprintf(
 				"UPDATE %v SET deleted_at=%v%v%v",
 				scope.QuotedTableName(),
-				scope.AddToVars(NowFunc()),
-				addExtraSpaceIfExist(scope.Search.CombinedConditionSql(scope)),
+				scope.Search.addToVars(NowFunc()),
+				addExtraSpaceIfExist(scope.Search.combinedConditionSql(scope)),
 				addExtraSpaceIfExist(extraOption),
 			)).Exec()
 		} else {
 			scope.Raw(fmt.Sprintf(
 				"DELETE FROM %v%v%v",
 				scope.QuotedTableName(),
-				addExtraSpaceIfExist(scope.Search.CombinedConditionSql(scope)),
+				addExtraSpaceIfExist(scope.Search.combinedConditionSql(scope)),
 				addExtraSpaceIfExist(extraOption),
 			)).Exec()
 		}

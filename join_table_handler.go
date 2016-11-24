@@ -156,16 +156,20 @@ func (s JoinTableHandler) JoinWith(handler JoinTableHandlerInterface, db *DBCon,
 				quotedForeignDBNames = append(quotedForeignDBNames, tableName+"."+dbName)
 			}
 
-			condString = fmt.Sprintf("%v IN (%v)", scope.toQueryCondition(quotedForeignDBNames), toQueryMarks(foreignFieldValues))
+			condString = fmt.Sprintf(
+				"%v IN (%v)",
+				scope.toQueryCondition(quotedForeignDBNames),
+				scope.Search.toQueryMarks(foreignFieldValues),
+			)
 
 			keys := scope.getColumnAsArray(foreignFieldNames, scope.Value)
-			values = append(values, toQueryValues(keys))
+			values = append(values, scope.Search.toQueryValues(keys))
 		} else {
 			condString = fmt.Sprint("1 <> 1")
 		}
 
 		return db.Joins(fmt.Sprintf("INNER JOIN %v ON %v", quotedTableName, strings.Join(joinConditions, " AND "))).
-			Where(condString, toQueryValues(foreignFieldValues)...)
+			Where(condString, scope.Search.toQueryValues(foreignFieldValues)...)
 	}
 
 	db.Error = errors.New("JOwrong source type for join table handler")

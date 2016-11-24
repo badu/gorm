@@ -101,9 +101,6 @@ type (
 		flags      uint16
 		Conditions SqlConditions
 		dialect    Dialect
-		offset     interface{}
-		limit      interface{}
-		group      string
 		tableName  string
 		SQL        string
 		SQLVars    []interface{}

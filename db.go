@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"sync"
+	"reflect"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -205,7 +207,7 @@ func (con *DBCon) LogMode(enable bool) *DBCon {
 
 // SingularTable use singular table by default
 func (con *DBCon) SingularTable(enable bool) {
-	modelStructsMap = newModelStructsMap()
+	modelStructsMap = &safeModelStructsMap{l: new(sync.RWMutex), m: make(map[reflect.Type]*ModelStruct)}
 	con.parent.singularTable = enable
 }
 
@@ -703,7 +705,7 @@ func (con *DBCon) clone(withoutSettings bool, withoutSearch bool) *DBCon {
 	}
 	if !withoutSearch {
 		if con.search == nil {
-			clone.search = &Search{limit: -1, offset: -1, Conditions: make(SqlConditions), dialect: con.parent.dialect}
+			clone.search = &Search{Conditions: make(SqlConditions), dialect: con.parent.dialect}
 		} else {
 			clone.search = con.search.Clone()
 		}

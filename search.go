@@ -22,22 +22,27 @@ const (
 	preload_query sqlConditionType = 8
 	Order_query   sqlConditionType = 9
 	omits_query   sqlConditionType = 10
+	group_query   sqlConditionType = 11
+	limit_query   sqlConditionType = 12
+	offset_query  sqlConditionType = 13
 
 	IS_UNSCOPED uint16 = 0
 	IS_RAW      uint16 = 1
 	IS_COUNTING uint16 = 2
 
-	HAS_SELECT  uint16 = 3
-	HAS_WHERE   uint16 = 4
-	HAS_NOT     uint16 = 5
-	HAS_OR      uint16 = 6
-	HAS_HAVING  uint16 = 7
-	HAS_JOINS   uint16 = 8
-	HAS_INIT    uint16 = 9
-	HAS_ASSIGN  uint16 = 10
-	HAS_PRELOAD uint16 = 11
-	HAS_ORDER   uint16 = 12
-	HAS_OMITS   uint16 = 13
+	HAS_SELECT          uint16 = 3
+	HAS_WHERE           uint16 = 4
+	HAS_NOT             uint16 = 5
+	HAS_OR              uint16 = 6
+	HAS_HAVING          uint16 = 7
+	HAS_JOINS           uint16 = 8
+	HAS_INIT            uint16 = 9
+	HAS_ASSIGN          uint16 = 10
+	HAS_PRELOAD         uint16 = 11
+	HAS_ORDER           uint16 = 12
+	HAS_OMITS           uint16 = 13
+	HAS_GROUP           uint16 = 14
+	HAS_OFFSET_OR_LIMIT uint16 = 15
 )
 
 // Expr generate raw SQL expression, for example:
@@ -46,7 +51,6 @@ func SqlExpr(expression interface{}, args ...interface{}) *SqlPair {
 	return &SqlPair{expression: expression, args: args}
 }
 
-//TODO : @Badu - move some pieces of code from Scope AddToVars, orderSQL, updatedAttrsWithValues
 //TODO : @Badu - make expr string bytes buffer, allow args to be added, allow bytes buffer to be written into
 //TODO : @Badu - before doing above, benchmark bytesbuffer versus string concat
 /**
@@ -141,9 +145,6 @@ func (s *Search) Clone() *Search {
 	for key, value := range s.Conditions {
 		clone.Conditions[key] = value
 	}
-	clone.offset = s.offset
-	clone.limit = s.limit
-	clone.group = s.group
 	clone.tableName = s.tableName
 	clone.dialect = s.dialect
 	return &clone
@@ -182,6 +183,32 @@ func (s *Search) Joins(query string, values ...interface{}) *Search {
 func (s *Search) Select(query interface{}, args ...interface{}) *Search {
 	s.addSqlCondition(Select_query, query, args...)
 	s.setFlag(HAS_SELECT)
+	return s
+}
+
+//TODO : @Badu - do the very same where we need only one instance (aka Singleton) - like select... (where getFirst is used)
+func (s *Search) Limit(limit interface{}) *Search {
+	s.Conditions[limit_query] = make([]SqlPair, 0, 0)
+	newPair := SqlPair{}
+	newPair.addExpressions(limit)
+	s.Conditions[limit_query] = append(s.Conditions[limit_query], newPair)
+
+	s.setFlag(HAS_OFFSET_OR_LIMIT)
+	return s
+}
+
+func (s *Search) Offset(offset interface{}) *Search {
+	s.Conditions[offset_query] = make([]SqlPair, 0, 0)
+	newPair := SqlPair{}
+	newPair.addExpressions(offset)
+	s.Conditions[offset_query] = append(s.Conditions[offset_query], newPair)
+	s.setFlag(HAS_OFFSET_OR_LIMIT)
+	return s
+}
+
+func (s *Search) Group(query string) *Search {
+	s.addSqlCondition(group_query, query, nil)
+	s.setFlag(HAS_GROUP)
 	return s
 }
 
@@ -229,6 +256,27 @@ func (s *Search) Assign(attrs ...interface{}) *Search {
 	return s
 }
 
+func (s *Search) Table(name string) *Search {
+	s.tableName = name
+	return s
+}
+
+func (s *Search) GetInitAttr() ([]interface{}, bool) {
+	pair := s.getFirst(Init_attrs)
+	if pair == nil {
+		return nil, false
+	}
+	return pair.args, true
+}
+
+func (s *Search) GetAssignAttr() ([]interface{}, bool) {
+	pair := s.getFirst(assign_attrs)
+	if pair == nil {
+		return nil, false
+	}
+	return pair.args, true
+}
+
 func (s *Search) Order(value interface{}, reorder ...bool) *Search {
 	if len(reorder) > 0 && reorder[0] {
 		//reseting existing entry
@@ -254,21 +302,6 @@ func (s *Search) Omit(columns ...string) *Search {
 	s.Conditions[omits_query] = append(s.Conditions[omits_query], newPair)
 	//fmt.Printf("Omit %d elements\n", s.numConditions(omits_query))
 	s.setFlag(HAS_OMITS)
-	return s
-}
-
-func (s *Search) Limit(limit interface{}) *Search {
-	s.limit = limit
-	return s
-}
-
-func (s *Search) Offset(offset interface{}) *Search {
-	s.offset = offset
-	return s
-}
-
-func (s *Search) Group(query string) *Search {
-	s.group = query
 	return s
 }
 
@@ -312,6 +345,14 @@ func (s *Search) hasHaving() bool {
 	return s.flags&(1<<HAS_HAVING) != 0
 }
 
+func (s *Search) hasGroup() bool {
+	return s.flags&(1<<HAS_GROUP) != 0
+}
+
+func (s *Search) hasOffsetOrLimit() bool {
+	return s.flags&(1<<HAS_OFFSET_OR_LIMIT) != 0
+}
+
 func (s *Search) setCounting() *Search {
 	s.flags = s.flags | (1 << IS_COUNTING)
 	return s
@@ -333,27 +374,6 @@ func (s *Search) isUnscoped() bool {
 func (s *Search) setUnscoped() *Search {
 	s.flags = s.flags | (1 << IS_UNSCOPED)
 	return s
-}
-
-func (s *Search) Table(name string) *Search {
-	s.tableName = name
-	return s
-}
-
-func (s *Search) GetInitAttr() ([]interface{}, bool) {
-	pair := s.getFirst(Init_attrs)
-	if pair == nil {
-		return nil, false
-	}
-	return pair.args, true
-}
-
-func (s *Search) GetAssignAttr() ([]interface{}, bool) {
-	pair := s.getFirst(assign_attrs)
-	if pair == nil {
-		return nil, false
-	}
-	return pair.args, true
 }
 
 func (s *Search) checkFieldIncluded(field *StructField) bool {
@@ -398,12 +418,12 @@ func (s *Search) checkFieldOmitted(field *StructField) bool {
 	return false
 }
 
-// AddToVars add value as sql's vars, used to prevent SQL injection
-func (s *Search) AddToVars(value interface{}) string {
+// addToVars add value as sql's vars, used to prevent SQL injection
+func (s *Search) addToVars(value interface{}) string {
 	if pair, ok := value.(*SqlPair); ok {
 		exp := pair.strExpr()
 		for _, arg := range pair.args {
-			exp = strings.Replace(exp, "?", s.AddToVars(arg), 1)
+			exp = strings.Replace(exp, "?", s.addToVars(arg), 1)
 		}
 		return exp
 	}
@@ -414,12 +434,12 @@ func (s *Search) AddToVars(value interface{}) string {
 func (s *Search) quoteIfPossible(str string) string {
 	// only match string like `name`, `users.name`
 	if regexp.MustCompile("^[a-zA-Z]+(\\.[a-zA-Z]+)*$").MatchString(str) {
-		return s.Quote(str)
+		return s.quote(str)
 	}
 	return str
 }
 
-func (s *Search) Quote(str string) string {
+func (s *Search) quote(str string) string {
 	if strings.Index(str, ".") != -1 {
 		newStrs := []string{}
 		for _, str := range strings.Split(str, ".") {
@@ -429,10 +449,6 @@ func (s *Search) Quote(str string) string {
 	}
 
 	return s.dialect.Quote(str)
-}
-
-func (s *Search) limitAndOffsetSQL() string {
-	return s.dialect.LimitAndOffsetSQL(s.limit, s.offset)
 }
 
 func (s *Search) orderSQL() string {
@@ -447,7 +463,7 @@ func (s *Search) orderSQL() string {
 		} else if pair, ok := orderPair.args[0].(*SqlPair); ok {
 			exp := pair.strExpr()
 			for _, arg := range pair.args {
-				exp = strings.Replace(exp, "?", s.AddToVars(arg), 1)
+				exp = strings.Replace(exp, "?", s.addToVars(arg), 1)
 			}
 			orders = append(orders, exp)
 		}
@@ -456,10 +472,10 @@ func (s *Search) orderSQL() string {
 }
 
 func (s *Search) groupSQL() string {
-	if len(s.group) == 0 {
+	if !s.hasGroup() {
 		return ""
 	}
-	return " GROUP BY " + s.group
+	return " GROUP BY " + s.Conditions[group_query][0].expression.(string)
 }
 
 func (s *Search) havingSQL(scope *Scope) string {
@@ -508,7 +524,7 @@ func (s *Search) whereSQL(scope *Scope) string {
 
 	if !scope.PrimaryKeyZero() {
 		for _, field := range scope.PKs() {
-			aStr := fmt.Sprintf("%v.%v = %v", quotedTableName, s.Quote(field.DBName), s.AddToVars(field.Value.Interface()))
+			aStr := fmt.Sprintf("%v.%v = %v", quotedTableName, s.quote(field.DBName), s.addToVars(field.Value.Interface()))
 			primaryConditions = append(primaryConditions, aStr)
 		}
 	}
@@ -578,14 +594,14 @@ func (s *Search) selectSQL(scope *Scope) string {
 			values := reflect.ValueOf(arg)
 			var tempMarks []string
 			for i := 0; i < values.Len(); i++ {
-				tempMarks = append(tempMarks, s.AddToVars(values.Index(i).Interface()))
+				tempMarks = append(tempMarks, s.addToVars(values.Index(i).Interface()))
 			}
 			str = strings.Replace(str, "?", strings.Join(tempMarks, ","), 1)
 		default:
 			if valuer, ok := interface{}(arg).(driver.Valuer); ok {
 				arg, _ = valuer.Value()
 			}
-			str = strings.Replace(str, "?", s.AddToVars(arg), 1)
+			str = strings.Replace(str, "?", s.addToVars(arg), 1)
 		}
 	}
 	return str
@@ -608,12 +624,12 @@ func (s *Search) buildWhereCondition(fromPair SqlPair, scope *Scope) string {
 	case string:
 		// if string is number
 		if regexp.MustCompile("^\\s*\\d+\\s*$").MatchString(expType) {
-			return fmt.Sprintf("(%v.%v = %v)", quotedTableName, quotedPKName, s.AddToVars(expType))
+			return fmt.Sprintf("(%v.%v = %v)", quotedTableName, quotedPKName, s.addToVars(expType))
 		} else if expType != "" {
 			str = fmt.Sprintf("(%v)", expType)
 		}
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, sql.NullInt64:
-		return fmt.Sprintf("(%v.%v = %v)", quotedTableName, quotedPKName, s.AddToVars(expType))
+		return fmt.Sprintf("(%v.%v = %v)", quotedTableName, quotedPKName, s.addToVars(expType))
 	case []int, []int8, []int16, []int32, []int64, []uint, []uint8, []uint16, []uint32, []uint64, []string, []interface{}:
 		str = fmt.Sprintf("(%v.%v IN (?))", quotedTableName, quotedPKName)
 		//TODO : @Badu - seems really bad "work around" (boiler plate logic)
@@ -622,9 +638,9 @@ func (s *Search) buildWhereCondition(fromPair SqlPair, scope *Scope) string {
 		var sqls []string
 		for key, value := range expType {
 			if value != nil {
-				sqls = append(sqls, fmt.Sprintf("(%v.%v = %v)", quotedTableName, s.Quote(key), s.AddToVars(value)))
+				sqls = append(sqls, fmt.Sprintf("(%v.%v = %v)", quotedTableName, s.quote(key), s.addToVars(value)))
 			} else {
-				sqls = append(sqls, fmt.Sprintf("(%v.%v IS NULL)", quotedTableName, s.Quote(key)))
+				sqls = append(sqls, fmt.Sprintf("(%v.%v IS NULL)", quotedTableName, s.quote(key)))
 			}
 		}
 		return strings.Join(sqls, " AND ")
@@ -633,7 +649,7 @@ func (s *Search) buildWhereCondition(fromPair SqlPair, scope *Scope) string {
 		newScope := scope.New(expType)
 		for _, field := range newScope.Fields() {
 			if !field.IsIgnored() && !field.IsBlank() {
-				sqls = append(sqls, fmt.Sprintf("(%v.%v = %v)", newScope.QuotedTableName(), s.Quote(field.DBName), s.AddToVars(field.Value.Interface())))
+				sqls = append(sqls, fmt.Sprintf("(%v.%v = %v)", newScope.QuotedTableName(), s.quote(field.DBName), s.addToVars(field.Value.Interface())))
 			}
 		}
 		return strings.Join(sqls, " AND ")
@@ -643,22 +659,22 @@ func (s *Search) buildWhereCondition(fromPair SqlPair, scope *Scope) string {
 		switch reflect.ValueOf(arg).Kind() {
 		case reflect.Slice: // For where("id in (?)", []int64{1,2})
 			if bytes, ok := arg.([]byte); ok {
-				str = strings.Replace(str, "?", s.AddToVars(bytes), 1)
+				str = strings.Replace(str, "?", s.addToVars(bytes), 1)
 			} else if values := reflect.ValueOf(arg); values.Len() > 0 {
 				var tempMarks []string
 				for i := 0; i < values.Len(); i++ {
-					tempMarks = append(tempMarks, s.AddToVars(values.Index(i).Interface()))
+					tempMarks = append(tempMarks, s.addToVars(values.Index(i).Interface()))
 				}
 				str = strings.Replace(str, "?", strings.Join(tempMarks, ","), 1)
 			} else {
-				str = strings.Replace(str, "?", s.AddToVars(SqlExpr("NULL")), 1)
+				str = strings.Replace(str, "?", s.addToVars(SqlExpr("NULL")), 1)
 			}
 		default:
 			if valuer, ok := interface{}(arg).(driver.Valuer); ok {
 				arg, _ = valuer.Value()
 			}
 
-			str = strings.Replace(str, "?", s.AddToVars(arg), 1)
+			str = strings.Replace(str, "?", s.addToVars(arg), 1)
 		}
 	}
 	return str
@@ -697,7 +713,7 @@ func (s *Search) buildNotCondition(fromPair SqlPair, scope *Scope) string {
 		var sqls []string
 		for key, value := range exprType {
 			if value != nil {
-				sqls = append(sqls, fmt.Sprintf("(%v.%v <> %v)", quotedTableName, scope.Quote(key), scope.AddToVars(value)))
+				sqls = append(sqls, fmt.Sprintf("(%v.%v <> %v)", quotedTableName, scope.Quote(key), s.addToVars(value)))
 			} else {
 				sqls = append(sqls, fmt.Sprintf("(%v.%v IS NOT NULL)", quotedTableName, scope.Quote(key)))
 			}
@@ -708,7 +724,7 @@ func (s *Search) buildNotCondition(fromPair SqlPair, scope *Scope) string {
 		var newScope = scope.New(exprType)
 		for _, field := range newScope.Fields() {
 			if !field.IsBlank() {
-				sqls = append(sqls, fmt.Sprintf("(%v.%v <> %v)", newScope.QuotedTableName(), scope.Quote(field.DBName), scope.AddToVars(field.Value.Interface())))
+				sqls = append(sqls, fmt.Sprintf("(%v.%v <> %v)", newScope.QuotedTableName(), scope.Quote(field.DBName), s.addToVars(field.Value.Interface())))
 			}
 		}
 		return strings.Join(sqls, " AND ")
@@ -718,41 +734,116 @@ func (s *Search) buildNotCondition(fromPair SqlPair, scope *Scope) string {
 		switch reflect.ValueOf(arg).Kind() {
 		case reflect.Slice: // For where("id in (?)", []int64{1,2})
 			if bytes, ok := arg.([]byte); ok {
-				str = strings.Replace(str, "?", scope.AddToVars(bytes), 1)
+				str = strings.Replace(str, "?", s.addToVars(bytes), 1)
 			} else if values := reflect.ValueOf(arg); values.Len() > 0 {
 				var tempMarks []string
 				for i := 0; i < values.Len(); i++ {
-					tempMarks = append(tempMarks, scope.AddToVars(values.Index(i).Interface()))
+					tempMarks = append(tempMarks, s.addToVars(values.Index(i).Interface()))
 				}
 				str = strings.Replace(str, "?", strings.Join(tempMarks, ","), 1)
 			} else {
-				str = strings.Replace(str, "?", scope.AddToVars(SqlExpr("NULL")), 1)
+				str = strings.Replace(str, "?", s.addToVars(SqlExpr("NULL")), 1)
 			}
 		default:
 			if scanner, ok := interface{}(arg).(driver.Valuer); ok {
 				arg, _ = scanner.Value()
 			}
-			str = strings.Replace(notEqualSQL, "?", scope.AddToVars(arg), 1)
+			str = strings.Replace(notEqualSQL, "?", s.addToVars(arg), 1)
 		}
 	}
 	return str
 }
 
 // CombinedConditionSql return combined condition sql
-func (s *Search) CombinedConditionSql(scope *Scope) string {
+func (s *Search) combinedConditionSql(scope *Scope) string {
 	//Attention : if we don't build joinSql first, joins will fail (it's mixing up the where clauses of the joins)
 	joinsSql := s.joinsSQL(scope)
 	whereSql := s.whereSQL(scope)
 	if s.IsRaw() {
 		whereSql = strings.TrimSuffix(strings.TrimPrefix(whereSql, "WHERE ("), ")")
 	}
-	return joinsSql + whereSql + s.groupSQL() + s.havingSQL(scope) + s.orderSQL() + s.limitAndOffsetSQL()
+	if s.hasOffsetOrLimit() {
+		limitValue := -1
+		offsetValue := -1
+
+		if len(s.Conditions[limit_query]) > 0 {
+			limitValue = s.Conditions[limit_query][0].args[0].(int)
+		}
+
+		if len(s.Conditions[offset_query]) > 0 {
+			offsetValue = s.Conditions[offset_query][0].args[0].(int)
+
+		}
+		limitAndOffsetSQL := s.dialect.LimitAndOffsetSQL(limitValue, offsetValue)
+		return joinsSql + whereSql + s.groupSQL() + s.havingSQL(scope) + s.orderSQL() + limitAndOffsetSQL
+	}
+	return joinsSql + whereSql + s.groupSQL() + s.havingSQL(scope) + s.orderSQL()
+
 }
 
 func (s *Search) prepareQuerySQL(scope *Scope) {
 	if s.IsRaw() {
-		scope.Raw(s.CombinedConditionSql(scope))
+		scope.Raw(s.combinedConditionSql(scope))
 	} else {
-		scope.Raw(fmt.Sprintf("SELECT %v FROM %v %v", s.selectSQL(scope), scope.QuotedTableName(), s.CombinedConditionSql(scope)))
+		scope.Raw(fmt.Sprintf("SELECT %v FROM %v %v", s.selectSQL(scope), scope.QuotedTableName(), s.combinedConditionSql(scope)))
 	}
+}
+
+func (s *Search) toQueryMarks(primaryValues [][]interface{}) string {
+	var results []string
+
+	for _, primaryValue := range primaryValues {
+		var marks []string
+		for range primaryValue {
+			marks = append(marks, "?")
+		}
+
+		if len(marks) > 1 {
+			results = append(results, fmt.Sprintf("(%v)", strings.Join(marks, ",")))
+		} else {
+			results = append(results, strings.Join(marks, ""))
+		}
+	}
+	return strings.Join(results, ",")
+}
+
+func (s *Search) toQueryValues(values [][]interface{}) []interface{} {
+	var results []interface{}
+	for _, value := range values {
+		for _, v := range value {
+			results = append(results, v)
+		}
+	}
+	return results
+}
+
+func (s *Search) toSearchableMap(attrs ...interface{}) interface{} {
+	var result interface{}
+	//TODO : @Badu - what happens to zero ? return nil, right? Return warning
+	if len(attrs) == 1 {
+		if attr, ok := attrs[0].(map[string]interface{}); ok {
+			result = attr
+		}
+
+		if attr, ok := attrs[0].(interface{}); ok {
+			result = attr
+		}
+	} else if len(attrs) > 1 {
+		if str, ok := attrs[0].(string); ok {
+			result = map[string]interface{}{str: attrs[1]}
+		}
+	}
+	return result
+}
+
+func (s *Search) toQueryCondition(columns StrSlice) string {
+	var newColumns []string
+	for _, column := range columns {
+		newColumns = append(newColumns, s.quote(column))
+	}
+
+	if len(columns) > 1 {
+		return fmt.Sprintf("(%v)", strings.Join(newColumns, ","))
+	}
+	return strings.Join(newColumns, ",")
 }

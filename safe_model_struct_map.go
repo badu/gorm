@@ -13,12 +13,9 @@ type (
 )
 
 var (
-	modelStructsMap = newModelStructsMap()
+	modelStructsMap = &safeModelStructsMap{l: new(sync.RWMutex), m: make(map[reflect.Type]*ModelStruct)}
 )
 
-func newModelStructsMap() *safeModelStructsMap {
-	return &safeModelStructsMap{l: new(sync.RWMutex), m: make(map[reflect.Type]*ModelStruct)}
-}
 
 func (s *safeModelStructsMap) Set(key reflect.Type, value *ModelStruct) {
 	s.l.Lock()

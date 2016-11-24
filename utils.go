@@ -52,34 +52,6 @@ func convertInterfaceToMap(values interface{}, withIgnoredField bool) map[string
 	return attrs
 }
 
-func toQueryMarks(primaryValues [][]interface{}) string {
-	var results []string
-
-	for _, primaryValue := range primaryValues {
-		var marks []string
-		for range primaryValue {
-			marks = append(marks, "?")
-		}
-
-		if len(marks) > 1 {
-			results = append(results, fmt.Sprintf("(%v)", strings.Join(marks, ",")))
-		} else {
-			results = append(results, strings.Join(marks, ""))
-		}
-	}
-	return strings.Join(results, ",")
-}
-
-func toQueryValues(values [][]interface{}) []interface{} {
-	var results []interface{}
-	for _, value := range values {
-		for _, v := range value {
-			results = append(results, v)
-		}
-	}
-	return results
-}
-
 func toSearchableMap(attrs ...interface{}) interface{} {
 	var result interface{}
 	//TODO : @Badu - what happens to zero ? return nil, right? Return warning
@@ -91,7 +63,7 @@ func toSearchableMap(attrs ...interface{}) interface{} {
 		if attr, ok := attrs[0].(interface{}); ok {
 			result = attr
 		}
-	}else if len(attrs) > 1 {
+	} else if len(attrs) > 1 {
 		if str, ok := attrs[0].(string); ok {
 			result = map[string]interface{}{str: attrs[1]}
 		}
@@ -178,7 +150,7 @@ func Open(dialectName string, args ...interface{}) (*DBCon, error) {
 		logger:   defaultLogger,
 		callback: &Callback{},
 		source:   source,
-		settings:   map[string]interface{}{},
+		settings: map[string]interface{}{},
 		sqli:     dbSQL,
 	}
 	//register all default callbacks

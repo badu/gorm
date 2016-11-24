@@ -47,7 +47,8 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
 
 ## 24.11.2016
 - [x] moved SQL related functions from Scope to Search struct
-
+- [x] Search struct replaced scope.AddToVars with addToVars , Scope AddToVars() method removed 
+- [x] slimmer Search struct : group, limit, offset gone 
 
 ## 23.11.2016
 - [x] file for expr struct - removed, replaced with SqlPair
