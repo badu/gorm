@@ -100,6 +100,7 @@ type (
 	Search struct {
 		flags      uint16
 		Conditions SqlConditions
+		dialect    Dialect
 		offset     interface{}
 		limit      interface{}
 		group      string

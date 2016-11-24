@@ -2,12 +2,10 @@ package gorm
 
 import (
 	"database/sql"
-	"database/sql/driver"
 	"errors"
 	"fmt"
 	"reflect"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -23,7 +21,7 @@ func (scope *Scope) IndirectValue() reflect.Value {
 
 // New create a new Scope without search information
 func (scope *Scope) New(value interface{}) *Scope {
-	return &Scope{con: scope.NewCon(), Search: &Search{Conditions: make(SqlConditions)}, Value: value}
+	return &Scope{con: scope.NewCon(), Search: &Search{Conditions: make(SqlConditions), dialect: scope.con.parent.dialect}, Value: value}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -217,7 +215,10 @@ func (scope *Scope) CallMethod(methodName string) {
 
 // AddToVars add value as sql's vars, used to prevent SQL injection
 func (scope *Scope) AddToVars(value interface{}) string {
-	return scope.Search.AddToVars(value, scope.Dialect())
+	if scope.Search.dialect == nil {
+		scope.Search.dialect = scope.con.parent.dialect
+	}
+	return scope.Search.AddToVars(value)
 }
 
 // TableName return table name
@@ -244,18 +245,6 @@ func (scope *Scope) QuotedTableName() string {
 	}
 
 	return scope.Quote(scope.TableName())
-}
-
-// CombinedConditionSql return combined condition sql
-func (scope *Scope) CombinedConditionSql() string {
-	//Attention : if we don't build joinSql first, joins will fail (it's mixing up the where clauses of the joins)
-	joinsSql := scope.joinsSQL()
-	whereSql := scope.whereSQL()
-	if scope.Search.IsRaw() {
-		whereSql = strings.TrimSuffix(strings.TrimPrefix(whereSql, "WHERE ("), ")")
-	}
-	return joinsSql + whereSql + scope.groupSQL() +
-		scope.havingSQL() + scope.orderSQL() + scope.limitAndOffsetSQL()
 }
 
 // Raw set raw sql
@@ -469,326 +458,6 @@ func (scope *Scope) scan(rows *sql.Rows, columns []string, fields StructFields) 
 	}
 }
 
-func (scope *Scope) primaryCondition(value interface{}) string {
-	return fmt.Sprintf("(%v.%v = %v)", scope.QuotedTableName(), scope.Quote(scope.PKName()), value)
-}
-
-func (scope *Scope) buildWhereCondition(fromPair SqlPair) string {
-	var str string
-
-	switch expType := fromPair.expression.(type) {
-	case string:
-		// if string is number
-		if regexp.MustCompile("^\\s*\\d+\\s*$").MatchString(expType) {
-			return scope.primaryCondition(scope.AddToVars(expType))
-		} else if expType != "" {
-			str = fmt.Sprintf("(%v)", expType)
-		}
-	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, sql.NullInt64:
-		return scope.primaryCondition(scope.AddToVars(expType))
-	case []int, []int8, []int16, []int32, []int64, []uint, []uint8, []uint16, []uint32, []uint64, []string, []interface{}:
-		str = fmt.Sprintf("(%v.%v IN (?))", scope.QuotedTableName(), scope.Quote(scope.PKName()))
-		//TODO : @Badu - seems really bad "work around" (boiler plate logic)
-		fromPair.args = []interface{}{expType}
-	case map[string]interface{}:
-		var sqls []string
-		for key, value := range expType {
-			if value != nil {
-				sqls = append(sqls, fmt.Sprintf("(%v.%v = %v)", scope.QuotedTableName(), scope.Quote(key), scope.AddToVars(value)))
-			} else {
-				sqls = append(sqls, fmt.Sprintf("(%v.%v IS NULL)", scope.QuotedTableName(), scope.Quote(key)))
-			}
-		}
-		return strings.Join(sqls, " AND ")
-	case interface{}:
-		var sqls []string
-		newScope := scope.New(expType)
-		for _, field := range newScope.Fields() {
-			if !field.IsIgnored() && !field.IsBlank() {
-				sqls = append(sqls, fmt.Sprintf("(%v.%v = %v)", newScope.QuotedTableName(), scope.Quote(field.DBName), scope.AddToVars(field.Value.Interface())))
-			}
-		}
-		return strings.Join(sqls, " AND ")
-	}
-
-	for _, arg := range fromPair.args {
-		switch reflect.ValueOf(arg).Kind() {
-		case reflect.Slice: // For where("id in (?)", []int64{1,2})
-			if bytes, ok := arg.([]byte); ok {
-				str = strings.Replace(str, "?", scope.AddToVars(bytes), 1)
-			} else if values := reflect.ValueOf(arg); values.Len() > 0 {
-				var tempMarks []string
-				for i := 0; i < values.Len(); i++ {
-					tempMarks = append(tempMarks, scope.AddToVars(values.Index(i).Interface()))
-				}
-				str = strings.Replace(str, "?", strings.Join(tempMarks, ","), 1)
-			} else {
-				str = strings.Replace(str, "?", scope.AddToVars(SqlExpr("NULL")), 1)
-			}
-		default:
-			if valuer, ok := interface{}(arg).(driver.Valuer); ok {
-				arg, _ = valuer.Value()
-			}
-
-			str = strings.Replace(str, "?", scope.AddToVars(arg), 1)
-		}
-	}
-	return str
-}
-
-func (scope *Scope) buildNotCondition(fromPair SqlPair) string {
-	var str string
-	var notEqualSQL string
-	var primaryKey = scope.PKName()
-
-	switch exprType := fromPair.expression.(type) {
-	case string:
-		// is number
-		if regexp.MustCompile("^\\s*\\d+\\s*$").MatchString(exprType) {
-			id, _ := strconv.Atoi(exprType)
-			return fmt.Sprintf("(%v <> %v)", scope.Quote(primaryKey), id)
-		} else if regexp.MustCompile("(?i) (=|<>|>|<|LIKE|IS|IN) ").MatchString(exprType) {
-			str = fmt.Sprintf(" NOT (%v) ", exprType)
-			notEqualSQL = fmt.Sprintf("NOT (%v)", exprType)
-		} else {
-			str = fmt.Sprintf("(%v.%v NOT IN (?))", scope.QuotedTableName(), scope.Quote(exprType))
-			notEqualSQL = fmt.Sprintf("(%v.%v <> ?)", scope.QuotedTableName(), scope.Quote(exprType))
-		}
-	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, sql.NullInt64:
-		return fmt.Sprintf("(%v.%v <> %v)", scope.QuotedTableName(), scope.Quote(primaryKey), exprType)
-	case []int, []int8, []int16, []int32, []int64, []uint, []uint8, []uint16, []uint32, []uint64, []string:
-		if reflect.ValueOf(exprType).Len() > 0 {
-			str = fmt.Sprintf("(%v.%v NOT IN (?))", scope.QuotedTableName(), scope.Quote(primaryKey))
-			//TODO : @Badu - seems really bad "work around" (boiler plate logic)
-			fromPair.args = []interface{}{exprType}
-		}
-		return ""
-	case map[string]interface{}:
-		var sqls []string
-		for key, value := range exprType {
-			if value != nil {
-				sqls = append(sqls, fmt.Sprintf("(%v.%v <> %v)", scope.QuotedTableName(), scope.Quote(key), scope.AddToVars(value)))
-			} else {
-				sqls = append(sqls, fmt.Sprintf("(%v.%v IS NOT NULL)", scope.QuotedTableName(), scope.Quote(key)))
-			}
-		}
-		return strings.Join(sqls, " AND ")
-	case interface{}:
-		var sqls []string
-		var newScope = scope.New(exprType)
-		for _, field := range newScope.Fields() {
-			if !field.IsBlank() {
-				sqls = append(sqls, fmt.Sprintf("(%v.%v <> %v)", newScope.QuotedTableName(), scope.Quote(field.DBName), scope.AddToVars(field.Value.Interface())))
-			}
-		}
-		return strings.Join(sqls, " AND ")
-	}
-
-	for _, arg := range fromPair.args {
-		switch reflect.ValueOf(arg).Kind() {
-		case reflect.Slice: // For where("id in (?)", []int64{1,2})
-			if bytes, ok := arg.([]byte); ok {
-				str = strings.Replace(str, "?", scope.AddToVars(bytes), 1)
-			} else if values := reflect.ValueOf(arg); values.Len() > 0 {
-				var tempMarks []string
-				for i := 0; i < values.Len(); i++ {
-					tempMarks = append(tempMarks, scope.AddToVars(values.Index(i).Interface()))
-				}
-				str = strings.Replace(str, "?", strings.Join(tempMarks, ","), 1)
-			} else {
-				str = strings.Replace(str, "?", scope.AddToVars(SqlExpr("NULL")), 1)
-			}
-		default:
-			if scanner, ok := interface{}(arg).(driver.Valuer); ok {
-				arg, _ = scanner.Value()
-			}
-			str = strings.Replace(notEqualSQL, "?", scope.AddToVars(arg), 1)
-		}
-	}
-	return str
-}
-
-func (scope *Scope) buildSelectQuery() string {
-	fromPair := scope.Search.getFirst(Select_query)
-	if fromPair == nil {
-		//error has occured in getting first item in slice
-		return ""
-	}
-	var str string
-	switch value := fromPair.expression.(type) {
-	case string:
-		str = value
-	case []string:
-		str = strings.Join(value, ", ")
-	}
-	for _, arg := range fromPair.args {
-		switch reflect.ValueOf(arg).Kind() {
-		case reflect.Slice:
-			values := reflect.ValueOf(arg)
-			var tempMarks []string
-			for i := 0; i < values.Len(); i++ {
-				tempMarks = append(tempMarks, scope.AddToVars(values.Index(i).Interface()))
-			}
-			str = strings.Replace(str, "?", strings.Join(tempMarks, ","), 1)
-		default:
-			if valuer, ok := interface{}(arg).(driver.Valuer); ok {
-				arg, _ = valuer.Value()
-			}
-			str = strings.Replace(str, "?", scope.AddToVars(arg), 1)
-		}
-	}
-	return str
-}
-
-func (scope *Scope) whereSQL() string {
-	var (
-		str                                            string
-		quotedTableName                                = scope.QuotedTableName()
-		primaryConditions, andConditions, orConditions []string
-	)
-
-	if !scope.Search.isUnscoped() && scope.GetModelStruct().HasColumn("deleted_at") {
-		aStr := fmt.Sprintf("%v.deleted_at IS NULL", quotedTableName)
-		primaryConditions = append(primaryConditions, aStr)
-	}
-
-	if !scope.PrimaryKeyZero() {
-		for _, field := range scope.PKs() {
-			aStr := fmt.Sprintf("%v.%v = %v", quotedTableName, scope.Quote(field.DBName), scope.AddToVars(field.Value.Interface()))
-			primaryConditions = append(primaryConditions, aStr)
-		}
-	}
-
-	for _, pair := range scope.Search.Conditions[Where_query] {
-		if aStr := scope.buildWhereCondition(pair); aStr != "" {
-			andConditions = append(andConditions, aStr)
-		}
-	}
-
-	for _, pair := range scope.Search.Conditions[or_query] {
-		if aStr := scope.buildWhereCondition(pair); aStr != "" {
-			orConditions = append(orConditions, aStr)
-		}
-	}
-
-	for _, pair := range scope.Search.Conditions[not_query] {
-		if aStr := scope.buildNotCondition(pair); aStr != "" {
-			andConditions = append(andConditions, aStr)
-		}
-	}
-
-	orSQL := strings.Join(orConditions, " OR ")
-	combinedSQL := strings.Join(andConditions, " AND ")
-	if len(combinedSQL) > 0 {
-		if len(orSQL) > 0 {
-			combinedSQL = combinedSQL + " OR " + orSQL
-		}
-	} else {
-		combinedSQL = orSQL
-	}
-
-	if len(primaryConditions) > 0 {
-		str = "WHERE " + strings.Join(primaryConditions, " AND ")
-		if len(combinedSQL) > 0 {
-			str = str + " AND (" + combinedSQL + ")"
-		}
-	} else if len(combinedSQL) > 0 {
-		str = "WHERE " + combinedSQL
-	}
-	return str
-}
-
-func (scope *Scope) selectSQL() string {
-	if !scope.Search.hasSelect() {
-		if scope.Search.hasJoins() {
-			return fmt.Sprintf("%v.*", scope.QuotedTableName())
-		}
-		return "*"
-	}
-	return scope.buildSelectQuery()
-}
-
-func (scope *Scope) orderSQL() string {
-	if !scope.Search.hasOrder() || scope.Search.isCounting() {
-		return ""
-	}
-
-	var orders []string
-	for _, orderPair := range scope.Search.Conditions[Order_query] {
-		if str, ok := orderPair.args[0].(string); ok {
-			orders = append(orders, scope.quoteIfPossible(str))
-		} else if pair, ok := orderPair.args[0].(*SqlPair); ok {
-			//TODO : @Badu - check when this is called
-			scope.con.toLog("other", fmt.Sprintf("??? %#v", pair))
-			//TODO : @Badu - duplicated code - AddToVars
-			exp := pair.strExpr()
-			for _, arg := range pair.args {
-				exp = strings.Replace(exp, "?", scope.AddToVars(arg), 1)
-			}
-			orders = append(orders, exp)
-		}
-	}
-	return " ORDER BY " + strings.Join(orders, ",")
-}
-
-func (scope *Scope) limitAndOffsetSQL() string {
-	return scope.Dialect().LimitAndOffsetSQL(scope.Search.limit, scope.Search.offset)
-}
-
-func (scope *Scope) groupSQL() string {
-	if len(scope.Search.group) == 0 {
-		return ""
-	}
-	return " GROUP BY " + scope.Search.group
-}
-
-func (scope *Scope) havingSQL() string {
-	if !scope.Search.hasHaving() {
-		return ""
-	}
-
-	var andConditions []string
-	for _, pair := range scope.Search.Conditions[having_query] {
-		if aStr := scope.buildWhereCondition(pair); aStr != "" {
-			andConditions = append(andConditions, aStr)
-		}
-	}
-	combinedSQL := strings.Join(andConditions, " AND ")
-
-	if len(combinedSQL) == 0 {
-		return ""
-	}
-
-	return " HAVING " + combinedSQL
-}
-
-func (scope *Scope) joinsSQL() string {
-	var joinConditions []string
-
-	for _, pair := range scope.Search.Conditions[joins_query] {
-		if aStr := scope.buildWhereCondition(pair); aStr != "" {
-			joinConditions = append(joinConditions, strings.TrimSuffix(strings.TrimPrefix(aStr, "("), ")"))
-		}
-	}
-
-	return strings.Join(joinConditions, " ") + " "
-}
-
-func (scope *Scope) prepareQuerySQL() {
-	if scope.Search.IsRaw() {
-		scope.Raw(scope.CombinedConditionSql())
-	} else {
-		scope.Raw(fmt.Sprintf("SELECT %v FROM %v %v", scope.selectSQL(), scope.QuotedTableName(), scope.CombinedConditionSql()))
-	}
-}
-
-func (scope *Scope) inlineCondition(values ...interface{}) *Scope {
-	if len(values) > 0 {
-		scope.Search.Where(values[0], values[1:]...)
-	}
-	return scope
-}
-
 func (scope *Scope) callCallbacks(funcs ScopedFuncs) *Scope {
 	for _, f := range funcs {
 		//was (*f)(scope) - but IDE went balistic
@@ -833,14 +502,14 @@ func (scope *Scope) updatedAttrsWithValues(value interface{}) (map[string]interf
 func (scope *Scope) row() *sql.Row {
 	defer scope.trace(NowFunc())
 	scope.callCallbacks(scope.con.parent.callback.rowQueries)
-	scope.prepareQuerySQL()
+	scope.Search.prepareQuerySQL(scope)
 	return scope.AsSQLDB().QueryRow(scope.Search.SQL, scope.Search.SQLVars...)
 }
 
 func (scope *Scope) rows() (*sql.Rows, error) {
 	defer scope.trace(NowFunc())
 	scope.callCallbacks(scope.con.parent.callback.rowQueries)
-	scope.prepareQuerySQL()
+	scope.Search.prepareQuerySQL(scope)
 	return scope.AsSQLDB().Query(scope.Search.SQL, scope.Search.SQLVars...)
 }
 
@@ -1103,7 +772,7 @@ func (scope *Scope) addIndex(unique bool, indexName string, column ...string) {
 		sqlCreate = "CREATE UNIQUE INDEX"
 	}
 
-	scope.Raw(fmt.Sprintf("%s %v ON %v(%v) %v", sqlCreate, indexName, scope.QuotedTableName(), strings.Join(columns, ", "), scope.whereSQL())).Exec()
+	scope.Raw(fmt.Sprintf("%s %v ON %v(%v) %v", sqlCreate, indexName, scope.QuotedTableName(), strings.Join(columns, ", "), scope.Search.whereSQL(scope))).Exec()
 }
 
 func (scope *Scope) addForeignKey(field string, dest string, onDelete string, onUpdate string) {
@@ -1888,7 +1557,7 @@ func (scope *Scope) updateCallback() {
 				"UPDATE %v SET %v%v%v",
 				scope.QuotedTableName(),
 				strings.Join(sqls, ", "),
-				addExtraSpaceIfExist(scope.CombinedConditionSql()),
+				addExtraSpaceIfExist(scope.Search.CombinedConditionSql(scope)),
 				addExtraSpaceIfExist(extraOption),
 			)).Exec()
 		}
@@ -1944,7 +1613,7 @@ func (scope *Scope) queryCallback() {
 		return
 	}
 
-	scope.prepareQuerySQL()
+	scope.Search.prepareQuerySQL(scope)
 
 	if !scope.HasError() {
 		scope.con.RowsAffected = 0
@@ -2088,14 +1757,14 @@ func (scope *Scope) deleteCallback() {
 				"UPDATE %v SET deleted_at=%v%v%v",
 				scope.QuotedTableName(),
 				scope.AddToVars(NowFunc()),
-				addExtraSpaceIfExist(scope.CombinedConditionSql()),
+				addExtraSpaceIfExist(scope.Search.CombinedConditionSql(scope)),
 				addExtraSpaceIfExist(extraOption),
 			)).Exec()
 		} else {
 			scope.Raw(fmt.Sprintf(
 				"DELETE FROM %v%v%v",
 				scope.QuotedTableName(),
-				addExtraSpaceIfExist(scope.CombinedConditionSql()),
+				addExtraSpaceIfExist(scope.Search.CombinedConditionSql(scope)),
 				addExtraSpaceIfExist(extraOption),
 			)).Exec()
 		}

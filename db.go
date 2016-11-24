@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 )
+
 ////////////////////////////////////////////////////////////////////////////////
 // "unscoped" methods
 ////////////////////////////////////////////////////////////////////////////////
@@ -144,6 +145,7 @@ func (con *DBCon) Preload(column string, conditions ...interface{}) *DBCon {
 	clone.search.Preload(column, conditions...)
 	return clone
 }
+
 ////////////////////////////////////////////////////////////////////////////////
 //
 ////////////////////////////////////////////////////////////////////////////////
@@ -232,21 +234,23 @@ func (con *DBCon) Scopes(funcs ...func(*DBCon) *DBCon) *DBCon {
 func (con *DBCon) First(out interface{}, where ...interface{}) *DBCon {
 	newScope := con.clone(false, false).NewScope(out)
 	newScope.Search.Limit(1)
-	return newScope.Set("gorm:order_by_primary_key", "ASC").
-		inlineCondition(where...).callCallbacks(con.parent.callback.queries).con
+	newScope.Set("gorm:order_by_primary_key", "ASC").Search.inlineCondition(where...)
+	return newScope.callCallbacks(con.parent.callback.queries).con
 }
 
 // Last find last record that match given conditions, order by primary key
 func (con *DBCon) Last(out interface{}, where ...interface{}) *DBCon {
 	newScope := con.clone(false, false).NewScope(out)
 	newScope.Search.Limit(1)
-	return newScope.Set("gorm:order_by_primary_key", "DESC").
-		inlineCondition(where...).callCallbacks(con.parent.callback.queries).con
+	newScope.Set("gorm:order_by_primary_key", "DESC").Search.inlineCondition(where...)
+	return newScope.callCallbacks(con.parent.callback.queries).con
 }
 
 // Find find records that match given conditions
 func (con *DBCon) Find(out interface{}, where ...interface{}) *DBCon {
-	return con.clone(false, false).NewScope(out).inlineCondition(where...).callCallbacks(con.parent.callback.queries).con
+	newScope := con.clone(false, false).NewScope(out)
+	newScope.Search.inlineCondition(where...)
+	return newScope.callCallbacks(con.parent.callback.queries).con
 }
 
 // Scan scan value to a struct
@@ -303,7 +307,9 @@ func (con *DBCon) FirstOrInit(out interface{}, where ...interface{}) *DBCon {
 		if !result.RecordNotFound() {
 			return result
 		}
-		c.NewScope(out).inlineCondition(where...).initialize()
+		newScope := c.NewScope(out)
+		newScope.Search.inlineCondition(where...)
+		newScope.initialize()
 	} else {
 		scope := c.NewScope(out)
 		args, argsOk := scope.Search.GetAssignAttr()
@@ -323,7 +329,9 @@ func (con *DBCon) FirstOrCreate(out interface{}, where ...interface{}) *DBCon {
 		if !result.RecordNotFound() {
 			return result
 		}
-		return c.NewScope(out).inlineCondition(where...).initialize().callCallbacks(c.parent.callback.creates).con
+		newScope := c.NewScope(out)
+		newScope.Search.inlineCondition(where...)
+		return newScope.initialize().callCallbacks(c.parent.callback.creates).con
 	} else if c.search.hasAssign() {
 		scope := c.NewScope(out)
 		args, argsOk := scope.Search.GetAssignAttr()
@@ -385,7 +393,9 @@ func (con *DBCon) Create(value interface{}) *DBCon {
 
 // Delete delete value match given conditions, if the value has primary key, then will including the primary key as condition
 func (con *DBCon) Delete(value interface{}, where ...interface{}) *DBCon {
-	return con.clone(false, false).NewScope(value).inlineCondition(where...).callCallbacks(con.parent.callback.deletes).con
+	scope := con.clone(false, false).NewScope(value)
+	scope.Search.inlineCondition(where...)
+	return scope.callCallbacks(con.parent.callback.deletes).con
 }
 
 // Exec execute raw sql
@@ -393,7 +403,7 @@ func (con *DBCon) Exec(sql string, values ...interface{}) *DBCon {
 	scope := con.clone(false, false).NewScope(nil)
 	newPair := SqlPair{expression: sql}
 	newPair.addExpressions(values...)
-	generatedSQL := scope.buildWhereCondition(newPair)
+	generatedSQL := scope.Search.buildWhereCondition(newPair, scope)
 	generatedSQL = strings.TrimSuffix(strings.TrimPrefix(generatedSQL, "("), ")")
 	scope.Raw(generatedSQL)
 	return scope.Exec().con
@@ -693,7 +703,7 @@ func (con *DBCon) clone(withoutSettings bool, withoutSearch bool) *DBCon {
 	}
 	if !withoutSearch {
 		if con.search == nil {
-			clone.search = &Search{limit: -1, offset: -1, Conditions: make(SqlConditions)}
+			clone.search = &Search{limit: -1, offset: -1, Conditions: make(SqlConditions), dialect: con.parent.dialect}
 		} else {
 			clone.search = con.search.Clone()
 		}
