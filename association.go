@@ -167,7 +167,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 	}
 
 	deletingPrimaryKeys := scope.getColumnAsArray(deletingResourcePrimaryFieldNames, values...)
-
+	//TODO : @Badu - switch
 	if relationship.Kind == MANY_TO_MANY {
 		// source value's foreign keys
 		for idx, foreignKey := range relationship.ForeignDBNames {

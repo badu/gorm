@@ -375,20 +375,18 @@ func (s *Search) setUnscoped() *Search {
 	s.flags = s.flags | (1 << IS_UNSCOPED)
 	return s
 }
-
+//TODO : @Badu - make field aware of "it's include or not"
 func (s *Search) checkFieldIncluded(field *StructField) bool {
 	for _, pair := range s.Conditions[Select_query] {
 		switch strs := pair.expression.(type) {
 		case string:
 			if field.GetName() == strs || field.DBName == strs {
-				//fmt.Printf("[str] Field %q included\n", strs)
 				return true
 			}
 
 		case []string:
 			for _, o := range strs {
 				if field.GetName() == o || field.DBName == o {
-					//fmt.Printf("[slice] Field %q included\n", o)
 					return true
 				}
 			}
@@ -396,7 +394,6 @@ func (s *Search) checkFieldIncluded(field *StructField) bool {
 
 		for _, pairArg := range pair.args {
 			if field.GetName() == pairArg || field.DBName == pairArg {
-				//fmt.Printf("[arg] Field %q included\n", pairArg)
 				return true
 			}
 		}
