@@ -89,6 +89,10 @@ func (scope *Scope) Log(v ...interface{}) {
 	scope.con.log(v...)
 }
 
+func (scope *Scope) Warn(v ...interface{}) {
+	scope.con.warnLog(v...)
+}
+
 // SkipLeft skip remaining callbacks
 func (scope *Scope) SkipLeft() {
 	scope.skipLeft = true
@@ -643,47 +647,55 @@ func (scope *Scope) shouldSaveAssociations() bool {
 func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
 	toScope := scope.con.NewScope(value)
 	//TODO : @Badu - boilerplate string
-	for _, foreignKey := range append(foreignKeys, toScope.typeName()+"Id", scope.typeName()+"Id") {
+	allKeys := append(foreignKeys, toScope.typeName()+"Id", scope.typeName()+"Id")
+	for _, foreignKey := range  allKeys {
 		fromField, _ := scope.FieldByName(foreignKey)
-		toField, _ := toScope.FieldByName(foreignKey)
-
-		if fromField != nil {
-			if relationship := fromField.Relationship; relationship != nil {
-				switch relationship.Kind {
-				case MANY_TO_MANY:
-					joinTableHandler := relationship.JoinTableHandler
-					scope.Err(joinTableHandler.JoinWith(joinTableHandler, toScope.con, scope.Value).Find(value).Error)
-				case BELONGS_TO:
-					query := toScope.con
-					for idx, foreignKey := range relationship.ForeignDBNames {
-						if field, ok := scope.FieldByName(foreignKey); ok {
-							query = query.Where(fmt.Sprintf("%v = ?", scope.Quote(relationship.AssociationForeignDBNames[idx])), field.Value.Interface())
-						}
-					}
-					scope.Err(query.Find(value).Error)
-				case HAS_MANY, HAS_ONE:
-					query := toScope.con
-					for idx, foreignKey := range relationship.ForeignDBNames {
-						if field, ok := scope.FieldByName(relationship.AssociationForeignDBNames[idx]); ok {
-							query = query.Where(fmt.Sprintf("%v = ?", scope.Quote(foreignKey)), field.Value.Interface())
-						}
-					}
-
-					if relationship.PolymorphicType != "" {
-						query = query.Where(fmt.Sprintf("%v = ?", scope.Quote(relationship.PolymorphicDBName)), relationship.PolymorphicValue)
-					}
-					scope.Err(query.Find(value).Error)
-				}
-			} else {
-				aStr := fmt.Sprintf("%v = ?", scope.Quote(toScope.PKName()))
-				scope.Err(toScope.con.Where(aStr, fromField.Value.Interface()).Find(value).Error)
+		//fail fast - from field is nil
+		if fromField == nil {
+			toField, _ := toScope.FieldByName(foreignKey)
+			if toField == nil {
+				//fail fast - continue : both fields are nil
+				continue
 			}
-			return scope
-		} else if toField != nil {
 			aStr := fmt.Sprintf("%v = ?", scope.Quote(toField.DBName))
 			scope.Err(toScope.con.Where(aStr, scope.PrimaryKeyValue()).Find(value).Error)
 			return scope
 		}
+
+		relationship := fromField.Relationship
+		//fail fast - relationship is nil
+		if relationship == nil {
+			aStr := fmt.Sprintf("%v = ?", scope.Quote(toScope.PKName()))
+			scope.Err(toScope.con.Where(aStr, fromField.Value.Interface()).Find(value).Error)
+			return scope
+		}
+		//now, fail fast is over
+		switch relationship.Kind {
+		case MANY_TO_MANY:
+			scope.Err(relationship.JoinTableHandler.JoinWith(relationship.JoinTableHandler, toScope.con, scope.Value).Find(value).Error)
+		case BELONGS_TO:
+			query := toScope.con
+			for idx, foreignKey := range relationship.ForeignDBNames {
+				if field, ok := scope.FieldByName(foreignKey); ok {
+					query = query.Where(fmt.Sprintf("%v = ?", scope.Quote(relationship.AssociationForeignDBNames[idx])), field.Value.Interface())
+				}
+			}
+			scope.Err(query.Find(value).Error)
+		case HAS_MANY, HAS_ONE:
+			query := toScope.con
+			for idx, foreignKey := range relationship.ForeignDBNames {
+				if field, ok := scope.FieldByName(relationship.AssociationForeignDBNames[idx]); ok {
+					query = query.Where(fmt.Sprintf("%v = ?", scope.Quote(foreignKey)), field.Value.Interface())
+				}
+			}
+
+			if relationship.PolymorphicType != "" {
+				query = query.Where(fmt.Sprintf("%v = ?", scope.Quote(relationship.PolymorphicDBName)), relationship.PolymorphicValue)
+			}
+			scope.Err(query.Find(value).Error)
+		}
+		return scope
+
 	}
 
 	scope.Err(fmt.Errorf("invalid association %v", foreignKeys))

@@ -7,10 +7,10 @@ import (
 )
 
 const (
-	poly_field_not_found_err string = "Relationship : polymorphic field %q not found on model struct %q"
-	fk_field_not_found_err   string = "Relationship [%q]: foreign key field %q not found on model struct %q"
-	afk_field_not_found_err  string = "Relationship [%q]: association foreign key field %q not found on model struct %q"
-	length_err               string = "Relationship [%q]: invalid foreign keys, should have same length"
+	poly_field_not_found_warn string = "rel : polymorphic field %q not found on model struct %q"
+	fk_field_not_found_warn string = "rel [%q]: foreign key field %q not found on model struct %q"
+	afk_field_not_found_warn string = "rel [%q]: association foreign key field %q not found on model struct %q"
+	length_err               string = "rel [%q]: invalid foreign keys, should have same length"
 	poly_type                string = "Type"
 )
 
@@ -34,11 +34,8 @@ func (r *Relationship) Poly(field *StructField, toModel *ModelStruct, fromScope,
 			}
 			polymorphicType.SetIsForeignKey()
 		} else {
-			errMsg := fmt.Sprintf(poly_field_not_found_err, polyFieldName, toModel.ModelType.Name())
-			toScope.Log(errMsg)
-			//TODO : @Badu - activate below
-			//fromScope.Err(errors.New(errMsg))
-			//return ""
+			errMsg := fmt.Sprintf(poly_field_not_found_warn, polyFieldName, toModel.ModelType.Name())
+			toScope.Warn(errMsg)
 		}
 	}
 	return modelName
@@ -84,11 +81,8 @@ func (r *Relationship) ManyToMany(field *StructField,
 			// join table foreign keys for source
 			r.ForeignDBNames.add(modelName + "_" + fkField.DBName)
 		} else {
-			//TODO : @Badu - activate below
-			errMsg := fmt.Sprintf(fk_field_not_found_err, "Many2Many", fk, fromModel.ModelType.Name())
-			toScope.Log(errMsg)
-			//fromScope.Err(errors.New(errMsg))
-			//return
+			errMsg := fmt.Sprintf(fk_field_not_found_warn, "Many2Many", fk, fromModel.ModelType.Name())
+			toScope.Warn(errMsg)
 		}
 	}
 
@@ -99,11 +93,8 @@ func (r *Relationship) ManyToMany(field *StructField,
 			// join table foreign keys for association
 			r.AssociationForeignDBNames.add(elemName + "_" + fkField.DBName)
 		} else {
-			errMsg := fmt.Sprintf(afk_field_not_found_err, "Many2Many", fk, toScope.GetModelStruct().ModelType.Name())
-			toScope.Log(errMsg)
-			//TODO : @Badu - activate below
-			//fromScope.Err(errors.New(errMsg))
-			//return
+			errMsg := fmt.Sprintf(afk_field_not_found_warn, "Many2Many", fk, toScope.GetModelStruct().ModelType.Name())
+			toScope.Warn(errMsg)
 		}
 	}
 
@@ -139,18 +130,12 @@ func (r *Relationship) HasMany(field *StructField,
 				r.ForeignFieldNames.add(foreignField.GetName())
 				r.ForeignDBNames.add(foreignField.DBName)
 			} else {
-				errMsg := fmt.Sprintf(afk_field_not_found_err, "HasMany", associationForeignKeys[idx], fromModel.ModelType.Name())
-				toScope.Log(errMsg)
-				//TODO : @Badu - activate below
-				//fromScope.Err(errors.New(errMsg))
-				//return
+				errMsg := fmt.Sprintf(afk_field_not_found_warn, "HasMany", associationForeignKeys[idx], fromModel.ModelType.Name())
+				toScope.Warn(errMsg)
 			}
 		} else {
-			errMsg := fmt.Sprintf(fk_field_not_found_err, "HasMany", foreignKey, fromModel.ModelType.Name())
-			toScope.Log(errMsg)
-			//TODO : @Badu - activate below
-			//fromScope.Err(errors.New(errMsg))
-			//return
+			errMsg := fmt.Sprintf(fk_field_not_found_warn, "HasMany", foreignKey, fromModel.ModelType.Name())
+			toScope.Warn(errMsg)
 		}
 	}
 
@@ -183,18 +168,12 @@ func (r *Relationship) HasOne(field *StructField,
 				r.ForeignFieldNames.add(foreignField.GetName())
 				r.ForeignDBNames.add(foreignField.DBName)
 			} else {
-				errMsg := fmt.Sprintf(afk_field_not_found_err, "HasOne fromModel", associationForeignKeys[idx], fromModel.ModelType.Name())
-				toScope.Log(errMsg)
-				//TODO : @Badu - activate below
-				//fromScope.Err(errors.New(errMsg))
-				//return true
+				errMsg := fmt.Sprintf(afk_field_not_found_warn, "HasOne fromModel", associationForeignKeys[idx], fromModel.ModelType.Name())
+				toScope.Warn(errMsg)
 			}
 		} else {
-			errMsg := fmt.Sprintf(fk_field_not_found_err, "HasOne toModel", foreignKey, fromModel.ModelType.Name())
-			toScope.Log(errMsg)
-			//TODO : @Badu - activate below
-			//fromScope.Err(errors.New(errMsg))
-			//return true
+			errMsg := fmt.Sprintf(fk_field_not_found_warn, "HasOne toModel", foreignKey, fromModel.ModelType.Name())
+			toScope.Warn(errMsg)
 		}
 	}
 
@@ -225,18 +204,12 @@ func (r *Relationship) BelongTo(field *StructField,
 				r.ForeignFieldNames.add(foreignField.GetName())
 				r.ForeignDBNames.add(foreignField.DBName)
 			} else {
-				errMsg := fmt.Sprintf(afk_field_not_found_err, "BelongTo", associationForeignKeys[idx], fromModel.ModelType.Name())
-				toScope.Log(errMsg)
-				//TODO : @Badu - activate below
-				//fromScope.Err(errors.New(errMsg))
-				//return true
+				errMsg := fmt.Sprintf(afk_field_not_found_warn, "BelongTo", associationForeignKeys[idx], fromModel.ModelType.Name())
+				toScope.Warn(errMsg)
 			}
 		} else {
-			errMsg := fmt.Sprintf(fk_field_not_found_err, "BelongTo", foreignKey, fromModel.ModelType.Name())
-			toScope.Log(errMsg)
-			//TODO : @Badu - activate below
-			//fromScope.Err(errors.New(errMsg))
-			//return true
+			errMsg := fmt.Sprintf(fk_field_not_found_warn, "BelongTo", foreignKey, fromModel.ModelType.Name())
+			toScope.Warn(errMsg)
 		}
 	}
 
@@ -279,11 +252,8 @@ func (r *Relationship) collectFKsAndAFKs(field *StructField,
 					}
 					associationForeignKeys.add(fkField.GetName())
 				} else {
-					errMsg := fmt.Sprintf(afk_field_not_found_err, "collectFKsAndAFKs", fkField, model.ModelType.Name())
-					scope.Log(errMsg)
-					//TODO : @Badu - activate below
-					//fromScope.Err(errors.New(errMsg))
-					//return nil, nil
+					errMsg := fmt.Sprintf(afk_field_not_found_warn, "collectFKsAndAFKs", fkField, model.ModelType.Name())
+					scope.Warn(errMsg)
 				}
 			}
 		}
@@ -301,11 +271,8 @@ func (r *Relationship) collectFKsAndAFKs(field *StructField,
 					if _, ok := model.FieldByName(afk); ok {
 						associationForeignKeys.add(afk)
 					} else {
-						errMsg := fmt.Sprintf(fk_field_not_found_err, "collectFKsAndAFKs", afk, model.ModelType.Name())
-						scope.Log(errMsg)
-						//TODO : @Badu - activate below
-						//fromScope.Err(errors.New(errMsg))
-						//return nil, nil
+						errMsg := fmt.Sprintf(fk_field_not_found_warn, "collectFKsAndAFKs", afk, model.ModelType.Name())
+						scope.Warn(errMsg)
 					}
 				}
 			}

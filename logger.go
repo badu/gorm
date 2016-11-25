@@ -46,10 +46,10 @@ func fileWithLineNum() string {
 		_, file, line, ok := runtime.Caller(i)
 		if ok && regexpTest.MatchString(file) {
 			//matching test files - we print that
-			return fmt.Sprintf("%v:%v", file, line)
+			return fmt.Sprintf("[%d] %v:%v", i, file, line)
 		} else if ok && !regexpSelf.MatchString(file) {
 			//otherwise
-			return fmt.Sprintf("%v:%v", file, line)
+			return fmt.Sprintf("[%d] %v:%v", i, file, line)
 		}
 	}
 	return ""

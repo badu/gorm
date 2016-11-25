@@ -81,7 +81,8 @@ type (
 
 		Search *Search
 		Value  interface{}
-
+		//TODO : @Badu - add Type of Value here to avoid "so much reflection" effect
+		//TODO : @Badu - use instanceID as timestamp + level or something
 		instanceID string
 		//cached version of cloned struct fields
 		fields *StructFields

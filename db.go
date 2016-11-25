@@ -693,7 +693,7 @@ func (con *DBCon) AddError(err error) error {
 			} else {
 				con.log(err)
 			}
-			fmt.Printf("ERROR ( %s ) : %v", fileWithLineNum(), err)
+			//fmt.Printf("ERROR ( %s ) : %v", fileWithLineNum(), err)
 			gormErrors := GormErrors(con.GetErrors())
 			gormErrors = gormErrors.Add(err)
 			if len(gormErrors.GetErrors()) > 1 {
@@ -705,7 +705,6 @@ func (con *DBCon) AddError(err error) error {
 	}
 	return err
 }
-
 // GetErrors get happened errors from the db
 func (con *DBCon) GetErrors() []error {
 	if errs, ok := con.Error.(errorsInterface); ok {
@@ -747,6 +746,14 @@ func (con *DBCon) clone(withoutSettings bool, withoutSearch bool) *DBCon {
 
 func (con *DBCon) toLog(v ...interface{}) {
 	con.logger.(logger).Print(v...)
+}
+
+func (con *DBCon) warnLog(v ...interface{}) {
+	if con != nil {
+		con.toLog(append([]interface{}{"warn", fileWithLineNum()}, v...)...)
+	}else{
+		fmt.Printf("Connection is NIL!")
+	}
 }
 
 func (con *DBCon) log(v ...interface{}) {

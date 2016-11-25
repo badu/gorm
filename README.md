@@ -26,6 +26,7 @@
 - There are so many checks all over the place, which show insecurity. For example, we know what's to know about a StructField - maybe it's best 
 to have the dereferenced pointer to the struct/slice kept inside. Same goes for Scope...
 - Set and Get, SetInstance and all that, should be nicer
+- As a general idea "fail fast" type of logic is missing in all the project
 
 # Last merge
 - #1242 - "Omit duplicates and zero-value ids in preload queries. Resolves #854 and #1054." 
@@ -50,6 +51,8 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
 - [x] utils, convertInterfaceToMap moved to Scope
 - [x] DBConFunc func(*DBCon) *DBCon
 - [x] benchmarks organized
+- [x] DBCon, Scope have Warn
+- [x] Scope related() fail fast logic
 
 ## 24.11.2016
 - [x] moved SQL related functions from Scope to Search struct

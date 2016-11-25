@@ -33,7 +33,6 @@ func (errs GormErrors) GetErrors() []error {
 	return errs
 }
 
-// Add add an error
 func (errs GormErrors) Add(newErrors ...error) GormErrors {
 	for _, err := range newErrors {
 		if errors, ok := err.(GormErrors); ok {
@@ -53,7 +52,7 @@ func (errs GormErrors) Add(newErrors ...error) GormErrors {
 	return errs
 }
 
-// Error format happened errors
+// Add add an error
 func (errs GormErrors) Error() string {
 	var errors = []string{}
 	for _, e := range errs {

@@ -134,7 +134,13 @@ func (s JoinTableHandler) JoinWith(handler JoinTableHandlerInterface, db *DBCon,
 	if s.Source.ModelType == scope.GetModelStruct().ModelType {
 		destinationTableName := db.NewScope(reflect.New(s.Destination.ModelType).Interface()).QuotedTableName()
 		for _, foreignKey := range s.Destination.ForeignKeys {
-			joinConditions = append(joinConditions, fmt.Sprintf("%v.%v = %v.%v", quotedTableName, scope.Quote(foreignKey.DBName), destinationTableName, scope.Quote(foreignKey.AssociationDBName)))
+			joinConditions = append(joinConditions,
+				fmt.Sprintf(
+					"%v.%v = %v.%v",
+					quotedTableName,
+					scope.Quote(foreignKey.DBName),
+					destinationTableName,
+					scope.Quote(foreignKey.AssociationDBName)))
 		}
 
 		var foreignDBNames StrSlice
@@ -168,10 +174,13 @@ func (s JoinTableHandler) JoinWith(handler JoinTableHandlerInterface, db *DBCon,
 			condString = fmt.Sprint("1 <> 1")
 		}
 
-		return db.Joins(fmt.Sprintf("INNER JOIN %v ON %v", quotedTableName, strings.Join(joinConditions, " AND "))).
+		return db.Joins(
+			fmt.Sprintf("INNER JOIN %v ON %v",
+				quotedTableName,
+				strings.Join(joinConditions, " AND "))).
 			Where(condString, scope.Search.toQueryValues(foreignFieldValues)...)
 	}
 
-	db.Error = errors.New("JOwrong source type for join table handler")
+	db.Error = errors.New("JOIN : wrong source type for join table handler")
 	return db
 }
