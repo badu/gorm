@@ -4,10 +4,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strings"
-	"time"
-	"sync"
 	"reflect"
+	"strings"
+	"sync"
+	"time"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -149,7 +149,7 @@ func (con *DBCon) Preload(column string, conditions ...interface{}) *DBCon {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-//
+// scoped and other methods
 ////////////////////////////////////////////////////////////////////////////////
 // Close close current db connection
 func (con *DBCon) Close() error {
@@ -223,8 +223,7 @@ func (con *DBCon) SingularTable(enable bool) {
 //     }
 //
 //     db.Scopes(AmountGreaterThan1000, OrderStatus([]string{"paid", "shipped"})).Find(&orders)
-//TODO : Badu - replace this - it's soooo ugly
-func (con *DBCon) Scopes(funcs ...func(*DBCon) *DBCon) *DBCon {
+func (con *DBCon) Scopes(funcs ...DBConFunc) *DBCon {
 	for _, f := range funcs {
 		//TODO : @Badu - assignment to method receiver propagates only to callees but not to callers
 		con = f(con)
@@ -314,9 +313,9 @@ func (con *DBCon) FirstOrInit(out interface{}, where ...interface{}) *DBCon {
 		newScope.initialize()
 	} else {
 		scope := c.NewScope(out)
-		args, argsOk := scope.Search.GetAssignAttr()
-		if argsOk {
-			scope.updatedAttrsWithValues(args)
+		args := scope.Search.getFirst(assign_attrs)
+		if args != nil {
+			scope.updatedAttrsWithValues(args.args)
 		} else {
 			//TODO : @Badu - warning ?
 		}
@@ -336,9 +335,9 @@ func (con *DBCon) FirstOrCreate(out interface{}, where ...interface{}) *DBCon {
 		return newScope.initialize().callCallbacks(c.parent.callback.creates).con
 	} else if c.search.hasAssign() {
 		scope := c.NewScope(out)
-		args, argsOk := scope.Search.GetAssignAttr()
-		if argsOk {
-			scope.InstanceSet("gorm:update_interface", args)
+		args := scope.Search.getFirst(assign_attrs)
+		if args != nil {
+			scope.InstanceSet("gorm:update_interface", args.args)
 		} else {
 			//TODO : @Badu - warning ?
 		}
@@ -349,7 +348,24 @@ func (con *DBCon) FirstOrCreate(out interface{}, where ...interface{}) *DBCon {
 
 // Update update attributes with callbacks
 func (con *DBCon) Update(attrs ...interface{}) *DBCon {
-	return con.Updates(toSearchableMap(attrs...), true)
+
+	var result interface{}
+	//TODO : @Badu - what happens to zero ? return nil, right? Return warning
+	if len(attrs) == 1 {
+		if attr, ok := attrs[0].(map[string]interface{}); ok {
+			result = attr
+		}
+
+		if attr, ok := attrs[0].(interface{}); ok {
+			result = attr
+		}
+	} else if len(attrs) > 1 {
+		if str, ok := attrs[0].(string); ok {
+			result = map[string]interface{}{str: attrs[1]}
+		}
+	}
+
+	return con.Updates(result, true)
 }
 
 // Updates update attributes with callbacks
@@ -362,7 +378,23 @@ func (con *DBCon) Updates(values interface{}, ignoreProtectedAttrs ...bool) *DBC
 
 // UpdateColumn update attributes without callbacks
 func (con *DBCon) UpdateColumn(attrs ...interface{}) *DBCon {
-	return con.UpdateColumns(toSearchableMap(attrs...))
+	var result interface{}
+	//TODO : @Badu - what happens to zero ? return nil, right? Return warning
+	if len(attrs) == 1 {
+		if attr, ok := attrs[0].(map[string]interface{}); ok {
+			result = attr
+		}
+
+		if attr, ok := attrs[0].(interface{}); ok {
+			result = attr
+		}
+	} else if len(attrs) > 1 {
+		if str, ok := attrs[0].(string); ok {
+			result = map[string]interface{}{str: attrs[1]}
+		}
+	}
+
+	return con.UpdateColumns(result)
 }
 
 // UpdateColumns update attributes without callbacks

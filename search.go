@@ -261,22 +261,6 @@ func (s *Search) Table(name string) *Search {
 	return s
 }
 
-func (s *Search) GetInitAttr() ([]interface{}, bool) {
-	pair := s.getFirst(Init_attrs)
-	if pair == nil {
-		return nil, false
-	}
-	return pair.args, true
-}
-
-func (s *Search) GetAssignAttr() ([]interface{}, bool) {
-	pair := s.getFirst(assign_attrs)
-	if pair == nil {
-		return nil, false
-	}
-	return pair.args, true
-}
-
 func (s *Search) Order(value interface{}, reorder ...bool) *Search {
 	if len(reorder) > 0 && reorder[0] {
 		//reseting existing entry
@@ -375,6 +359,7 @@ func (s *Search) setUnscoped() *Search {
 	s.flags = s.flags | (1 << IS_UNSCOPED)
 	return s
 }
+
 //TODO : @Badu - make field aware of "it's include or not"
 func (s *Search) checkFieldIncluded(field *StructField) bool {
 	for _, pair := range s.Conditions[Select_query] {
@@ -614,7 +599,7 @@ func (s *Search) buildWhereCondition(fromPair SqlPair, scope *Scope) string {
 	var (
 		str             string
 		quotedTableName = scope.QuotedTableName()
-		quotedPKName    = scope.Quote(scope.PKName())
+		quotedPKName    = s.quote(scope.PKName())
 	)
 
 	switch expType := fromPair.expression.(type) {
@@ -689,19 +674,19 @@ func (s *Search) buildNotCondition(fromPair SqlPair, scope *Scope) string {
 		// is number
 		if regexp.MustCompile("^\\s*\\d+\\s*$").MatchString(exprType) {
 			id, _ := strconv.Atoi(exprType)
-			return fmt.Sprintf("(%v <> %v)", scope.Quote(primaryKey), id)
+			return fmt.Sprintf("(%v <> %v)", s.quote(primaryKey), id)
 		} else if regexp.MustCompile("(?i) (=|<>|>|<|LIKE|IS|IN) ").MatchString(exprType) {
 			str = fmt.Sprintf(" NOT (%v) ", exprType)
 			notEqualSQL = fmt.Sprintf("NOT (%v)", exprType)
 		} else {
-			str = fmt.Sprintf("(%v.%v NOT IN (?))", quotedTableName, scope.Quote(exprType))
-			notEqualSQL = fmt.Sprintf("(%v.%v <> ?)", quotedTableName, scope.Quote(exprType))
+			str = fmt.Sprintf("(%v.%v NOT IN (?))", quotedTableName, s.quote(exprType))
+			notEqualSQL = fmt.Sprintf("(%v.%v <> ?)", quotedTableName, s.quote(exprType))
 		}
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, sql.NullInt64:
-		return fmt.Sprintf("(%v.%v <> %v)", quotedTableName, scope.Quote(primaryKey), exprType)
+		return fmt.Sprintf("(%v.%v <> %v)", quotedTableName, s.quote(primaryKey), exprType)
 	case []int, []int8, []int16, []int32, []int64, []uint, []uint8, []uint16, []uint32, []uint64, []string:
 		if reflect.ValueOf(exprType).Len() > 0 {
-			str = fmt.Sprintf("(%v.%v NOT IN (?))", quotedTableName, scope.Quote(primaryKey))
+			str = fmt.Sprintf("(%v.%v NOT IN (?))", quotedTableName, s.quote(primaryKey))
 			//TODO : @Badu - seems really bad "work around" (boiler plate logic)
 			fromPair.args = []interface{}{exprType}
 		}
@@ -710,9 +695,9 @@ func (s *Search) buildNotCondition(fromPair SqlPair, scope *Scope) string {
 		var sqls []string
 		for key, value := range exprType {
 			if value != nil {
-				sqls = append(sqls, fmt.Sprintf("(%v.%v <> %v)", quotedTableName, scope.Quote(key), s.addToVars(value)))
+				sqls = append(sqls, fmt.Sprintf("(%v.%v <> %v)", quotedTableName, s.quote(key), s.addToVars(value)))
 			} else {
-				sqls = append(sqls, fmt.Sprintf("(%v.%v IS NOT NULL)", quotedTableName, scope.Quote(key)))
+				sqls = append(sqls, fmt.Sprintf("(%v.%v IS NOT NULL)", quotedTableName, s.quote(key)))
 			}
 		}
 		return strings.Join(sqls, " AND ")
@@ -721,7 +706,7 @@ func (s *Search) buildNotCondition(fromPair SqlPair, scope *Scope) string {
 		var newScope = scope.New(exprType)
 		for _, field := range newScope.Fields() {
 			if !field.IsBlank() {
-				sqls = append(sqls, fmt.Sprintf("(%v.%v <> %v)", newScope.QuotedTableName(), scope.Quote(field.DBName), s.addToVars(field.Value.Interface())))
+				sqls = append(sqls, fmt.Sprintf("(%v.%v <> %v)", newScope.QuotedTableName(), s.quote(field.DBName), s.addToVars(field.Value.Interface())))
 			}
 		}
 		return strings.Join(sqls, " AND ")

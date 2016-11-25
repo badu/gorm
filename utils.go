@@ -21,56 +21,6 @@ func RegisterDialect(name string, dialect Dialect) {
 // Other utils functions
 //============================================
 
-func convertInterfaceToMap(values interface{}, withIgnoredField bool) map[string]interface{} {
-	var attrs = map[string]interface{}{}
-
-	switch value := values.(type) {
-	case map[string]interface{}:
-		return value
-	case []interface{}:
-		for _, v := range value {
-			for key, value := range convertInterfaceToMap(v, withIgnoredField) {
-				attrs[key] = value
-			}
-		}
-	case interface{}:
-		reflectValue := reflect.ValueOf(values)
-
-		switch reflectValue.Kind() {
-		case reflect.Map:
-			for _, key := range reflectValue.MapKeys() {
-				attrs[NamesMap.ToDBName(key.Interface().(string))] = reflectValue.MapIndex(key).Interface()
-			}
-		default:
-			for _, field := range (&Scope{Value: values}).Fields() {
-				if !field.IsBlank() && (withIgnoredField || !field.IsIgnored()) {
-					attrs[field.DBName] = field.Value.Interface()
-				}
-			}
-		}
-	}
-	return attrs
-}
-
-func toSearchableMap(attrs ...interface{}) interface{} {
-	var result interface{}
-	//TODO : @Badu - what happens to zero ? return nil, right? Return warning
-	if len(attrs) == 1 {
-		if attr, ok := attrs[0].(map[string]interface{}); ok {
-			result = attr
-		}
-
-		if attr, ok := attrs[0].(interface{}); ok {
-			result = attr
-		}
-	} else if len(attrs) > 1 {
-		if str, ok := attrs[0].(string); ok {
-			result = map[string]interface{}{str: attrs[1]}
-		}
-	}
-	return result
-}
-
 func equalAsString(a interface{}, b interface{}) bool {
 	return toString(a) == toString(b)
 }

@@ -96,7 +96,7 @@ type (
 	}
 	sqlCondition  []SqlPair
 	SqlConditions map[sqlConditionType]sqlCondition
-	//TODO : @Badu - pointer to DBCon is just to expose errors since they are related (Scope has a search inside)
+
 	Search struct {
 		flags      uint16
 		Conditions SqlConditions
@@ -105,6 +105,8 @@ type (
 		SQL        string
 		SQLVars    []interface{}
 	}
+
+	DBConFunc func(*DBCon) *DBCon
 
 	// DBCon contains information for current db connection
 	DBCon struct {

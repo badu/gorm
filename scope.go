@@ -21,7 +21,13 @@ func (scope *Scope) IndirectValue() reflect.Value {
 
 // New create a new Scope without search information
 func (scope *Scope) New(value interface{}) *Scope {
-	return &Scope{con: scope.NewCon(), Search: &Search{Conditions: make(SqlConditions), dialect: scope.con.parent.dialect}, Value: value}
+	return &Scope{
+		con: scope.NewCon(),
+		Search: &Search{
+			Conditions: make(SqlConditions),
+			dialect:    scope.con.parent.dialect,
+		},
+		Value: value}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -462,15 +468,46 @@ func (scope *Scope) callCallbacks(funcs ScopedFuncs) *Scope {
 	return scope
 }
 
+func (scope *Scope) convertInterfaceToMap(values interface{}, withIgnoredField bool) map[string]interface{} {
+	var attrs = map[string]interface{}{}
+
+	switch value := values.(type) {
+	case map[string]interface{}:
+		return value
+	case []interface{}:
+		for _, v := range value {
+			for key, value := range scope.convertInterfaceToMap(v, withIgnoredField) {
+				attrs[key] = value
+			}
+		}
+	case interface{}:
+		reflectValue := reflect.ValueOf(values)
+
+		switch reflectValue.Kind() {
+		case reflect.Map:
+			for _, key := range reflectValue.MapKeys() {
+				attrs[NamesMap.ToDBName(key.Interface().(string))] = reflectValue.MapIndex(key).Interface()
+			}
+		default:
+			for _, field := range (&Scope{Value: values}).Fields() {
+				if !field.IsBlank() && (withIgnoredField || !field.IsIgnored()) {
+					attrs[field.DBName] = field.Value.Interface()
+				}
+			}
+		}
+	}
+	return attrs
+}
+
 func (scope *Scope) updatedAttrsWithValues(value interface{}) (map[string]interface{}, bool) {
 	hasUpdate := false
 	if scope.IndirectValue().Kind() != reflect.Struct {
-		return convertInterfaceToMap(value, false), true
+		return scope.convertInterfaceToMap(value, false), true
 	}
 
 	results := map[string]interface{}{}
 
-	for key, value := range convertInterfaceToMap(value, true) {
+	for key, value := range scope.convertInterfaceToMap(value, true) {
 		if field, ok := scope.FieldByName(key); ok && scope.changeableField(field) {
 			if _, ok := value.(*SqlPair); ok {
 				hasUpdate = true
@@ -509,13 +546,13 @@ func (scope *Scope) initialize() *Scope {
 	for _, pair := range scope.Search.Conditions[Where_query] {
 		scope.updatedAttrsWithValues(pair.expression)
 	}
-	initArgs, ok := scope.Search.GetInitAttr()
-	if ok {
-		scope.updatedAttrsWithValues(initArgs)
+	initArgs := scope.Search.getFirst(Init_attrs)
+	if initArgs != nil {
+		scope.updatedAttrsWithValues(initArgs.args)
 	}
-	args, argsOk := scope.Search.GetAssignAttr()
-	if argsOk {
-		scope.updatedAttrsWithValues(args)
+	args := scope.Search.getFirst(assign_attrs)
+	if args != nil {
+		scope.updatedAttrsWithValues(args.args)
 	}
 	return scope
 }
@@ -672,24 +709,24 @@ func (scope *Scope) createJoinTable(field *StructField) {
 			var sqlTypes, primaryKeys []string
 			for idx, fieldName := range relationship.ForeignFieldNames {
 				if field, ok := scope.FieldByName(fieldName); ok {
-					foreignKeyStruct := field.clone()
-					foreignKeyStruct.unsetFlag(IS_PRIMARYKEY)
+					clonedField := field.clone()
+					clonedField.unsetFlag(IS_PRIMARYKEY)
 					//TODO : @Badu - document that you cannot use IS_JOINTABLE_FOREIGNKEY in conjunction with AUTO_INCREMENT
-					foreignKeyStruct.SetJoinTableFK("true")
-					foreignKeyStruct.UnsetIsAutoIncrement()
-					sqlTypes = append(sqlTypes, scope.Quote(relationship.ForeignDBNames[idx])+" "+scope.Dialect().DataTypeOf(foreignKeyStruct))
+					clonedField.SetJoinTableFK("true")
+					clonedField.UnsetIsAutoIncrement()
+					sqlTypes = append(sqlTypes, scope.Quote(relationship.ForeignDBNames[idx])+" "+scope.Dialect().DataTypeOf(clonedField))
 					primaryKeys = append(primaryKeys, scope.Quote(relationship.ForeignDBNames[idx]))
 				}
 			}
 
 			for idx, fieldName := range relationship.AssociationForeignFieldNames {
 				if field, ok := toScope.FieldByName(fieldName); ok {
-					foreignKeyStruct := field.clone()
-					foreignKeyStruct.unsetFlag(IS_PRIMARYKEY)
+					clonedField := field.clone()
+					clonedField.unsetFlag(IS_PRIMARYKEY)
 					//TODO : @Badu - document that you cannot use IS_JOINTABLE_FOREIGNKEY in conjunction with AUTO_INCREMENT
-					foreignKeyStruct.SetJoinTableFK("true")
-					foreignKeyStruct.UnsetIsAutoIncrement()
-					sqlTypes = append(sqlTypes, scope.Quote(relationship.AssociationForeignDBNames[idx])+" "+scope.Dialect().DataTypeOf(foreignKeyStruct))
+					clonedField.SetJoinTableFK("true")
+					clonedField.UnsetIsAutoIncrement()
+					sqlTypes = append(sqlTypes, scope.Quote(relationship.AssociationForeignDBNames[idx])+" "+scope.Dialect().DataTypeOf(clonedField))
 					primaryKeys = append(primaryKeys, scope.Quote(relationship.AssociationForeignDBNames[idx]))
 				}
 			}
@@ -792,7 +829,12 @@ func (scope *Scope) autoMigrate() *Scope {
 			if !scope.Dialect().HasColumn(tableName, field.DBName) {
 				if field.IsNormal() {
 					sqlTag := scope.Dialect().DataTypeOf(field)
-					scope.Raw(fmt.Sprintf("ALTER TABLE %v ADD %v %v;", quotedTableName, scope.Quote(field.DBName), sqlTag)).Exec()
+					scope.Raw(
+						fmt.Sprintf(
+							"ALTER TABLE %v ADD %v %v;",
+							quotedTableName,
+							scope.Quote(field.DBName),
+							sqlTag)).Exec()
 				}
 			}
 			scope.createJoinTable(field)
@@ -1318,7 +1360,8 @@ func (scope *Scope) createCallback() {
 					}
 				} else if field.Relationship != nil && field.Relationship.Kind == BELONGS_TO {
 					for _, foreignKey := range field.Relationship.ForeignDBNames {
-						if foreignField, ok := scope.FieldByName(foreignKey); ok && !scope.changeableField(foreignField) {
+						if foreignField, ok := scope.FieldByName(foreignKey); ok &&
+							!scope.changeableField(foreignField) {
 							columns.add(scope.Quote(foreignField.DBName))
 							placeholders.add(scope.Search.addToVars(foreignField.Value.Interface()))
 						}
@@ -1376,7 +1419,8 @@ func (scope *Scope) createCallback() {
 				}
 			}
 		} else {
-			if err := scope.AsSQLDB().QueryRow(scope.Search.SQL, scope.Search.SQLVars...).Scan(primaryField.Value.Addr().Interface()); scope.Err(err) == nil {
+			if err := scope.AsSQLDB().QueryRow(scope.Search.SQL, scope.Search.SQLVars...).
+				Scan(primaryField.Value.Addr().Interface()); scope.Err(err) == nil {
 				primaryField.unsetFlag(IS_BLANK)
 				scope.con.RowsAffected = 1
 			}
@@ -1465,7 +1509,10 @@ func (scope *Scope) saveAfterAssociationsCallback() {
 						}
 
 						if relationship.PolymorphicType != "" {
-							scope.Err(newScope.SetColumn(relationship.PolymorphicType, relationship.PolymorphicValue))
+							scope.Err(
+								newScope.SetColumn(
+									relationship.PolymorphicType,
+									relationship.PolymorphicValue))
 						}
 
 						scope.Err(newDB.Save(elem).Error)
@@ -1542,12 +1589,20 @@ func (scope *Scope) updateCallback() {
 			for _, field := range scope.Fields() {
 				if scope.changeableField(field) {
 					if !field.IsPrimaryKey() && field.IsNormal() {
-						sqls = append(sqls, fmt.Sprintf("%v = %v", scope.Quote(field.DBName), scope.Search.addToVars(field.Value.Interface())))
+						sqls = append(sqls,
+							fmt.Sprintf(
+								"%v = %v",
+								scope.Quote(field.DBName),
+								scope.Search.addToVars(field.Value.Interface())))
 					} else if relationship := field.Relationship; relationship != nil && relationship.Kind == BELONGS_TO {
 						for _, foreignKey := range relationship.ForeignDBNames {
-							if foreignField, ok := scope.FieldByName(foreignKey); ok && !scope.changeableField(foreignField) {
+							if foreignField, ok := scope.FieldByName(foreignKey); ok &&
+								!scope.changeableField(foreignField) {
 								sqls = append(sqls,
-									fmt.Sprintf("%v = %v", scope.Quote(foreignField.DBName), scope.Search.addToVars(foreignField.Value.Interface())))
+									fmt.Sprintf(
+										"%v = %v",
+										scope.Quote(foreignField.DBName),
+										scope.Search.addToVars(foreignField.Value.Interface())))
 							}
 						}
 					}
@@ -1725,7 +1780,10 @@ func (scope *Scope) preloadCallback() {
 				}
 
 				if !preloadedMap1[preloadKey] {
-					scope.Err(fmt.Errorf("can't preload field %s for %s", preloadField, currentScope.GetModelStruct().ModelType))
+					scope.Err(
+						fmt.Errorf("can't preload field %s for %s",
+							preloadField,
+							currentScope.GetModelStruct().ModelType))
 					return
 				}
 			}
