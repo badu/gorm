@@ -49,6 +49,7 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
 - [x] utils, removed toSearchableMap
 - [x] utils, convertInterfaceToMap moved to Scope
 - [x] DBConFunc func(*DBCon) *DBCon
+- [x] benchmarks organized
 
 ## 24.11.2016
 - [x] moved SQL related functions from Scope to Search struct
