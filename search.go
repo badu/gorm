@@ -146,7 +146,6 @@ func (s *Search) Clone() *Search {
 		clone.Conditions[key] = value
 	}
 	clone.tableName = s.tableName
-	clone.dialect = s.dialect
 	return &clone
 }
 
@@ -401,41 +400,22 @@ func (s *Search) checkFieldOmitted(field *StructField) bool {
 }
 
 // addToVars add value as sql's vars, used to prevent SQL injection
-func (s *Search) addToVars(value interface{}) string {
+func (s *Search) addToVars(value interface{}, dialect Dialect) string {
 	if pair, ok := value.(*SqlPair); ok {
 		exp := pair.strExpr()
 		for _, arg := range pair.args {
-			exp = strings.Replace(exp, "?", s.addToVars(arg), 1)
+			exp = strings.Replace(exp, "?", s.addToVars(arg, dialect), 1)
 		}
 		return exp
 	}
 	s.SQLVars = append(s.SQLVars, value)
-	return s.dialect.BindVar(len(s.SQLVars))
-}
-
-func (s *Search) quoteIfPossible(str string) string {
-	// only match string like `name`, `users.name`
-	if regexp.MustCompile("^[a-zA-Z]+(\\.[a-zA-Z]+)*$").MatchString(str) {
-		return s.quote(str)
-	}
-	return str
-}
-
-func (s *Search) quote(str string) string {
-	if strings.Index(str, ".") != -1 {
-		newStrs := []string{}
-		for _, str := range strings.Split(str, ".") {
-			newStrs = append(newStrs, s.dialect.Quote(str))
-		}
-		return strings.Join(newStrs, ".")
-	}
-
-	return s.dialect.Quote(str)
+	return dialect.BindVar(len(s.SQLVars))
 }
 
 func (s *Search) whereSQL(scope *Scope) string {
 	var (
 		str                                            string
+		dialect                                        = scope.con.parent.dialect
 		quotedTableName                                = scope.QuotedTableName()
 		primaryConditions, andConditions, orConditions []string
 	)
@@ -447,7 +427,7 @@ func (s *Search) whereSQL(scope *Scope) string {
 
 	if !scope.PrimaryKeyZero() {
 		for _, field := range scope.PKs() {
-			aStr := fmt.Sprintf("%v.%v = %v", quotedTableName, s.quote(field.DBName), s.addToVars(field.Value.Interface()))
+			aStr := fmt.Sprintf("%v.%v = %v", quotedTableName, Quote(field.DBName, dialect), s.addToVars(field.Value.Interface(), dialect))
 			primaryConditions = append(primaryConditions, aStr)
 		}
 	}
@@ -495,19 +475,20 @@ func (s *Search) buildWhereCondition(fromPair SqlPair, scope *Scope) string {
 	var (
 		str             string
 		quotedTableName = scope.QuotedTableName()
-		quotedPKName    = s.quote(scope.PKName())
+		dialect         = scope.con.parent.dialect
+		quotedPKName    = Quote(scope.PKName(), dialect)
 	)
 
 	switch expType := fromPair.expression.(type) {
 	case string:
 		// if string is number
 		if regexp.MustCompile("^\\s*\\d+\\s*$").MatchString(expType) {
-			return fmt.Sprintf("(%v.%v = %v)", quotedTableName, quotedPKName, s.addToVars(expType))
+			return fmt.Sprintf("(%v.%v = %v)", quotedTableName, quotedPKName, s.addToVars(expType, dialect))
 		} else if expType != "" {
 			str = fmt.Sprintf("(%v)", expType)
 		}
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, sql.NullInt64:
-		return fmt.Sprintf("(%v.%v = %v)", quotedTableName, quotedPKName, s.addToVars(expType))
+		return fmt.Sprintf("(%v.%v = %v)", quotedTableName, quotedPKName, s.addToVars(expType, dialect))
 	case []int, []int8, []int16, []int32, []int64, []uint, []uint8, []uint16, []uint32, []uint64, []string, []interface{}:
 		str = fmt.Sprintf("(%v.%v IN (?))", quotedTableName, quotedPKName)
 		//TODO : @Badu - seems really bad "work around" (boiler plate logic)
@@ -516,9 +497,9 @@ func (s *Search) buildWhereCondition(fromPair SqlPair, scope *Scope) string {
 		var sqls []string
 		for key, value := range expType {
 			if value != nil {
-				sqls = append(sqls, fmt.Sprintf("(%v.%v = %v)", quotedTableName, s.quote(key), s.addToVars(value)))
+				sqls = append(sqls, fmt.Sprintf("(%v.%v = %v)", quotedTableName, Quote(key, dialect), s.addToVars(value, dialect)))
 			} else {
-				sqls = append(sqls, fmt.Sprintf("(%v.%v IS NULL)", quotedTableName, s.quote(key)))
+				sqls = append(sqls, fmt.Sprintf("(%v.%v IS NULL)", quotedTableName, Quote(key, dialect)))
 			}
 		}
 		return strings.Join(sqls, " AND ")
@@ -527,7 +508,7 @@ func (s *Search) buildWhereCondition(fromPair SqlPair, scope *Scope) string {
 		newScope := scope.New(expType)
 		for _, field := range newScope.Fields() {
 			if !field.IsIgnored() && !field.IsBlank() {
-				sqls = append(sqls, fmt.Sprintf("(%v.%v = %v)", newScope.QuotedTableName(), s.quote(field.DBName), s.addToVars(field.Value.Interface())))
+				sqls = append(sqls, fmt.Sprintf("(%v.%v = %v)", newScope.QuotedTableName(), Quote(field.DBName, dialect), s.addToVars(field.Value.Interface(), dialect)))
 			}
 		}
 		return strings.Join(sqls, " AND ")
@@ -537,22 +518,22 @@ func (s *Search) buildWhereCondition(fromPair SqlPair, scope *Scope) string {
 		switch reflect.ValueOf(arg).Kind() {
 		case reflect.Slice: // For where("id in (?)", []int64{1,2})
 			if bytes, ok := arg.([]byte); ok {
-				str = strings.Replace(str, "?", s.addToVars(bytes), 1)
+				str = strings.Replace(str, "?", s.addToVars(bytes, dialect), 1)
 			} else if values := reflect.ValueOf(arg); values.Len() > 0 {
 				var tempMarks []string
 				for i := 0; i < values.Len(); i++ {
-					tempMarks = append(tempMarks, s.addToVars(values.Index(i).Interface()))
+					tempMarks = append(tempMarks, s.addToVars(values.Index(i).Interface(), dialect))
 				}
 				str = strings.Replace(str, "?", strings.Join(tempMarks, ","), 1)
 			} else {
-				str = strings.Replace(str, "?", s.addToVars(SqlExpr("NULL")), 1)
+				str = strings.Replace(str, "?", s.addToVars(SqlExpr("NULL"), dialect), 1)
 			}
 		default:
 			if valuer, ok := interface{}(arg).(driver.Valuer); ok {
 				arg, _ = valuer.Value()
 			}
 
-			str = strings.Replace(str, "?", s.addToVars(arg), 1)
+			str = strings.Replace(str, "?", s.addToVars(arg, dialect), 1)
 		}
 	}
 	return str
@@ -564,25 +545,26 @@ func (s *Search) buildNotCondition(fromPair SqlPair, scope *Scope) string {
 		notEqualSQL     string
 		primaryKey      = scope.PKName()
 		quotedTableName = scope.QuotedTableName()
+		dialect         = scope.con.parent.dialect
 	)
 	switch exprType := fromPair.expression.(type) {
 	case string:
 		// is number
 		if regexp.MustCompile("^\\s*\\d+\\s*$").MatchString(exprType) {
 			id, _ := strconv.Atoi(exprType)
-			return fmt.Sprintf("(%v <> %v)", s.quote(primaryKey), id)
+			return fmt.Sprintf("(%v <> %v)", Quote(primaryKey, dialect), id)
 		} else if regexp.MustCompile("(?i) (=|<>|>|<|LIKE|IS|IN) ").MatchString(exprType) {
 			str = fmt.Sprintf(" NOT (%v) ", exprType)
 			notEqualSQL = fmt.Sprintf("NOT (%v)", exprType)
 		} else {
-			str = fmt.Sprintf("(%v.%v NOT IN (?))", quotedTableName, s.quote(exprType))
-			notEqualSQL = fmt.Sprintf("(%v.%v <> ?)", quotedTableName, s.quote(exprType))
+			str = fmt.Sprintf("(%v.%v NOT IN (?))", quotedTableName, Quote(exprType, dialect))
+			notEqualSQL = fmt.Sprintf("(%v.%v <> ?)", quotedTableName, Quote(exprType, dialect))
 		}
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, sql.NullInt64:
-		return fmt.Sprintf("(%v.%v <> %v)", quotedTableName, s.quote(primaryKey), exprType)
+		return fmt.Sprintf("(%v.%v <> %v)", quotedTableName, Quote(primaryKey, dialect), exprType)
 	case []int, []int8, []int16, []int32, []int64, []uint, []uint8, []uint16, []uint32, []uint64, []string:
 		if reflect.ValueOf(exprType).Len() > 0 {
-			str = fmt.Sprintf("(%v.%v NOT IN (?))", quotedTableName, s.quote(primaryKey))
+			str = fmt.Sprintf("(%v.%v NOT IN (?))", quotedTableName, Quote(primaryKey, dialect))
 			//TODO : @Badu - seems really bad "work around" (boiler plate logic)
 			fromPair.args = []interface{}{exprType}
 		}
@@ -591,9 +573,9 @@ func (s *Search) buildNotCondition(fromPair SqlPair, scope *Scope) string {
 		var sqls []string
 		for key, value := range exprType {
 			if value != nil {
-				sqls = append(sqls, fmt.Sprintf("(%v.%v <> %v)", quotedTableName, s.quote(key), s.addToVars(value)))
+				sqls = append(sqls, fmt.Sprintf("(%v.%v <> %v)", quotedTableName, Quote(key, dialect), s.addToVars(value, dialect)))
 			} else {
-				sqls = append(sqls, fmt.Sprintf("(%v.%v IS NOT NULL)", quotedTableName, s.quote(key)))
+				sqls = append(sqls, fmt.Sprintf("(%v.%v IS NOT NULL)", quotedTableName, Quote(key, dialect)))
 			}
 		}
 		return strings.Join(sqls, " AND ")
@@ -602,7 +584,7 @@ func (s *Search) buildNotCondition(fromPair SqlPair, scope *Scope) string {
 		var newScope = scope.New(exprType)
 		for _, field := range newScope.Fields() {
 			if !field.IsBlank() {
-				sqls = append(sqls, fmt.Sprintf("(%v.%v <> %v)", newScope.QuotedTableName(), s.quote(field.DBName), s.addToVars(field.Value.Interface())))
+				sqls = append(sqls, fmt.Sprintf("(%v.%v <> %v)", newScope.QuotedTableName(), Quote(field.DBName, dialect), s.addToVars(field.Value.Interface(), dialect)))
 			}
 		}
 		return strings.Join(sqls, " AND ")
@@ -612,21 +594,21 @@ func (s *Search) buildNotCondition(fromPair SqlPair, scope *Scope) string {
 		switch reflect.ValueOf(arg).Kind() {
 		case reflect.Slice: // For where("id in (?)", []int64{1,2})
 			if bytes, ok := arg.([]byte); ok {
-				str = strings.Replace(str, "?", s.addToVars(bytes), 1)
+				str = strings.Replace(str, "?", s.addToVars(bytes, dialect), 1)
 			} else if values := reflect.ValueOf(arg); values.Len() > 0 {
 				var tempMarks []string
 				for i := 0; i < values.Len(); i++ {
-					tempMarks = append(tempMarks, s.addToVars(values.Index(i).Interface()))
+					tempMarks = append(tempMarks, s.addToVars(values.Index(i).Interface(), dialect))
 				}
 				str = strings.Replace(str, "?", strings.Join(tempMarks, ","), 1)
 			} else {
-				str = strings.Replace(str, "?", s.addToVars(SqlExpr("NULL")), 1)
+				str = strings.Replace(str, "?", s.addToVars(SqlExpr("NULL"), dialect), 1)
 			}
 		default:
 			if scanner, ok := interface{}(arg).(driver.Valuer); ok {
 				arg, _ = scanner.Value()
 			}
-			str = strings.Replace(notEqualSQL, "?", s.addToVars(arg), 1)
+			str = strings.Replace(notEqualSQL, "?", s.addToVars(arg, dialect), 1)
 		}
 	}
 	return str
@@ -634,6 +616,7 @@ func (s *Search) buildNotCondition(fromPair SqlPair, scope *Scope) string {
 
 // CombinedConditionSql return combined condition sql
 func (s *Search) combinedConditionSql(scope *Scope) string {
+	dialect := scope.con.parent.dialect
 	//Attention : if we don't build joinSql first, joins will fail (it's mixing up the where clauses of the joins)
 	//-= creating Joins =-
 	var joinConditions []string
@@ -681,11 +664,11 @@ func (s *Search) combinedConditionSql(scope *Scope) string {
 		var orders []string
 		for _, orderPair := range s.Conditions[Order_query] {
 			if str, ok := orderPair.args[0].(string); ok {
-				orders = append(orders, s.quoteIfPossible(str))
+				orders = append(orders, QuoteIfPossible(str, dialect))
 			} else if pair, ok := orderPair.args[0].(*SqlPair); ok {
 				exp := pair.strExpr()
 				for _, arg := range pair.args {
-					exp = strings.Replace(exp, "?", s.addToVars(arg), 1)
+					exp = strings.Replace(exp, "?", s.addToVars(arg, dialect), 1)
 				}
 				orders = append(orders, exp)
 			}
@@ -706,7 +689,7 @@ func (s *Search) combinedConditionSql(scope *Scope) string {
 			offsetValue = s.Conditions[offset_query][0].args[0].(int)
 
 		}
-		limitAndOffsetSQL := s.dialect.LimitAndOffsetSQL(limitValue, offsetValue)
+		limitAndOffsetSQL := dialect.LimitAndOffsetSQL(limitValue, offsetValue)
 		return joinsSql + whereSql + groupSQL + havingSQL + orderSQL + limitAndOffsetSQL
 	}
 	return joinsSql + whereSql + groupSQL + havingSQL + orderSQL
@@ -723,8 +706,8 @@ func (s *Search) prepareQuerySQL(scope *Scope) {
 			if fromPair == nil {
 				//error has occurred in getting first item in slice
 				scope.Warn(fmt.Errorf("Error : error has occurred in getting first item in slice for SELECT"))
-				selectSQL= ""
-			}else {
+				selectSQL = ""
+			} else {
 				switch value := fromPair.expression.(type) {
 				case string:
 					selectSQL = value
@@ -737,14 +720,14 @@ func (s *Search) prepareQuerySQL(scope *Scope) {
 						values := reflect.ValueOf(arg)
 						var tempMarks []string
 						for i := 0; i < values.Len(); i++ {
-							tempMarks = append(tempMarks, s.addToVars(values.Index(i).Interface()))
+							tempMarks = append(tempMarks, s.addToVars(values.Index(i).Interface(), scope.con.parent.dialect))
 						}
 						selectSQL = strings.Replace(selectSQL, "?", strings.Join(tempMarks, ","), 1)
 					default:
 						if valuer, ok := interface{}(arg).(driver.Valuer); ok {
 							arg, _ = valuer.Value()
 						}
-						selectSQL = strings.Replace(selectSQL, "?", s.addToVars(arg), 1)
+						selectSQL = strings.Replace(selectSQL, "?", s.addToVars(arg, scope.con.parent.dialect), 1)
 					}
 				}
 			}
@@ -756,63 +739,4 @@ func (s *Search) prepareQuerySQL(scope *Scope) {
 
 		scope.Raw(fmt.Sprintf("SELECT %v FROM %v %v", selectSQL, scope.QuotedTableName(), s.combinedConditionSql(scope)))
 	}
-}
-
-func (s *Search) toQueryMarks(primaryValues [][]interface{}) string {
-	var results []string
-
-	for _, primaryValue := range primaryValues {
-		var marks []string
-		for range primaryValue {
-			marks = append(marks, "?")
-		}
-
-		if len(marks) > 1 {
-			results = append(results, fmt.Sprintf("(%v)", strings.Join(marks, ",")))
-		} else {
-			results = append(results, strings.Join(marks, ""))
-		}
-	}
-	return strings.Join(results, ",")
-}
-
-func (s *Search) toQueryValues(values [][]interface{}) []interface{} {
-	var results []interface{}
-	for _, value := range values {
-		for _, v := range value {
-			results = append(results, v)
-		}
-	}
-	return results
-}
-
-func (s *Search) toSearchableMap(attrs ...interface{}) interface{} {
-	var result interface{}
-	//TODO : @Badu - what happens to zero ? return nil, right? Return warning
-	if len(attrs) == 1 {
-		if attr, ok := attrs[0].(map[string]interface{}); ok {
-			result = attr
-		}
-
-		if attr, ok := attrs[0].(interface{}); ok {
-			result = attr
-		}
-	} else if len(attrs) > 1 {
-		if str, ok := attrs[0].(string); ok {
-			result = map[string]interface{}{str: attrs[1]}
-		}
-	}
-	return result
-}
-
-func (s *Search) toQueryCondition(columns StrSlice) string {
-	var newColumns []string
-	for _, column := range columns {
-		newColumns = append(newColumns, s.quote(column))
-	}
-
-	if len(columns) > 1 {
-		return fmt.Sprintf("(%v)", strings.Join(newColumns, ","))
-	}
-	return strings.Join(newColumns, ",")
 }

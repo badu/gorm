@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
 )
 
@@ -48,6 +49,209 @@ func addExtraSpaceIfExist(str string) string {
 	return ""
 }
 
+//quotes a field - called almost everywhere - using inline advantage
+func Quote(field string, dialect Dialect) string {
+	//TODO : investigate there is no faster way to check for period rune
+	if strings.Index(field, ".") != -1 {
+		newStrs := []string{}
+		//TODO : @Badu - investigate optimize - Split + Join = Replace ?
+		for _, str := range strings.Split(field, ".") {
+			newStrs = append(newStrs, dialect.Quote(str))
+		}
+		return strings.Join(newStrs, ".")
+	}
+	return dialect.Quote(field)
+}
+//using inline advantage
+func QuoteIfPossible(str string, dialect Dialect) string {
+	// only match string like `name`, `users.name`
+	if regexp.MustCompile("^[a-zA-Z]+(\\.[a-zA-Z]+)*$").MatchString(str) {
+		return Quote(str, dialect)
+	}
+	return str
+}
+
+//using inline advantage
+func toQueryCondition(columns StrSlice, dialect Dialect) string {
+	var newColumns []string
+	for _, column := range columns {
+		newColumns = append(newColumns, Quote(column, dialect))
+	}
+
+	if len(columns) > 1 {
+		return fmt.Sprintf("(%v)", strings.Join(newColumns, ","))
+	}
+	return strings.Join(newColumns, ",")
+}
+//using inline advantage
+func toQueryMarks(primaryValues [][]interface{}) string {
+	var results []string
+
+	for _, primaryValue := range primaryValues {
+		var marks []string
+		for range primaryValue {
+			marks = append(marks, "?")
+		}
+
+		if len(marks) > 1 {
+			results = append(results, fmt.Sprintf("(%v)", strings.Join(marks, ",")))
+		} else {
+			results = append(results, strings.Join(marks, ""))
+		}
+	}
+	return strings.Join(results, ",")
+}
+//using inline advantage
+func toQueryValues(values [][]interface{}) []interface{} {
+	var results []interface{}
+	for _, value := range values {
+		for _, v := range value {
+			results = append(results, v)
+		}
+	}
+	return results
+}
+//using inline advantage
+func generatePreloadDBWithConditions(preloadDB *DBCon,conditions []interface{}) (*DBCon, []interface{}) {
+	var (
+		preloadConditions []interface{}
+	)
+
+	for _, condition := range conditions {
+		if scopes, ok := condition.(func(*DBCon) *DBCon); ok {
+			preloadDB = scopes(preloadDB)
+		} else {
+			preloadConditions = append(preloadConditions, condition)
+		}
+	}
+
+	return preloadDB, preloadConditions
+}
+//using inline advantage
+func getColumnAsArray(columns StrSlice, values ...interface{}) [][]interface{} {
+	var results [][]interface{}
+	for _, value := range values {
+		indirectValue := reflect.ValueOf(value)
+		for indirectValue.Kind() == reflect.Ptr {
+			indirectValue = indirectValue.Elem()
+		}
+		switch indirectValue.Kind() {
+		case reflect.Slice:
+			for i := 0; i < indirectValue.Len(); i++ {
+				var result []interface{}
+				var object = indirectValue.Index(i)
+				for object.Kind() == reflect.Ptr {
+					object = object.Elem()
+				}
+				var hasValue = false
+				for _, column := range columns {
+					field := object.FieldByName(column)
+					if hasValue || !reflect.DeepEqual(field.Interface(), reflect.Zero(field.Type()).Interface()) {
+						hasValue = true
+					}
+					result = append(result, field.Interface())
+				}
+
+				if hasValue {
+					results = append(results, result)
+				}
+			}
+		case reflect.Struct:
+			var result []interface{}
+			var hasValue = false
+			for _, column := range columns {
+				field := indirectValue.FieldByName(column)
+				if hasValue || !reflect.DeepEqual(field.Interface(), reflect.Zero(field.Type()).Interface()) {
+					hasValue = true
+				}
+				result = append(result, field.Interface())
+			}
+			if hasValue {
+				results = append(results, result)
+			}
+		}
+	}
+	return results
+}
+//using inline advantage
+//returns the scope of a slice or struct column
+func getColumnAsScope(column string, scope *Scope) *Scope {
+	indirectScopeValue := scope.IndirectValue()
+
+	switch indirectScopeValue.Kind() {
+	case reflect.Slice:
+		if fieldStruct, ok := scope.GetModelStruct().ModelType.FieldByName(column); ok {
+			fieldType := fieldStruct.Type
+			if fieldType.Kind() == reflect.Slice || fieldType.Kind() == reflect.Ptr {
+				fieldType = fieldType.Elem()
+			}
+
+			resultsMap := map[interface{}]bool{}
+			results := reflect.New(reflect.SliceOf(reflect.PtrTo(fieldType))).Elem()
+
+			for i := 0; i < indirectScopeValue.Len(); i++ {
+				reflectValue := indirectScopeValue.Index(i)
+				for reflectValue.Kind() == reflect.Ptr {
+					reflectValue = reflectValue.Elem()
+				}
+
+				fieldRef := reflectValue.FieldByName(column)
+				for fieldRef.Kind() == reflect.Ptr {
+					fieldRef = fieldRef.Elem()
+				}
+
+				if fieldRef.Kind() == reflect.Slice {
+					for j := 0; j < fieldRef.Len(); j++ {
+						if elem := fieldRef.Index(j); elem.CanAddr() && resultsMap[elem.Addr()] != true {
+							resultsMap[elem.Addr()] = true
+							results = reflect.Append(results, elem.Addr())
+						}
+					}
+				} else if fieldRef.CanAddr() && resultsMap[fieldRef.Addr()] != true {
+					resultsMap[fieldRef.Addr()] = true
+					results = reflect.Append(results, fieldRef.Addr())
+				}
+			}
+			return scope.New(results.Interface())
+		}
+	case reflect.Struct:
+		if field := indirectScopeValue.FieldByName(column); field.CanAddr() {
+			return scope.New(field.Addr().Interface())
+		}
+	}
+	return nil
+}
+//using inline advantage
+func convertInterfaceToMap(values interface{}, withIgnoredField bool) map[string]interface{} {
+	var attrs = map[string]interface{}{}
+
+	switch value := values.(type) {
+	case map[string]interface{}:
+		return value
+	case []interface{}:
+		for _, v := range value {
+			for key, value := range convertInterfaceToMap(v, withIgnoredField) {
+				attrs[key] = value
+			}
+		}
+	case interface{}:
+		reflectValue := reflect.ValueOf(values)
+
+		switch reflectValue.Kind() {
+		case reflect.Map:
+			for _, key := range reflectValue.MapKeys() {
+				attrs[NamesMap.ToDBName(key.Interface().(string))] = reflectValue.MapIndex(key).Interface()
+			}
+		default:
+			for _, field := range (&Scope{Value: values}).Fields() {
+				if !field.IsBlank() && (withIgnoredField || !field.IsIgnored()) {
+					attrs[field.DBName] = field.Value.Interface()
+				}
+			}
+		}
+	}
+	return attrs
+}
 // Open initialize a new db connection, need to import driver first, e.g:
 //
 //     import _ "github.com/go-sql-driver/mysql"

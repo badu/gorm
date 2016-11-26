@@ -3,6 +3,7 @@ package tests
 import (
 	"testing"
 	"time"
+	"gorm"
 )
 
 func TestCustomizeColumn(t *testing.T) {
@@ -75,7 +76,7 @@ func TestManyToManyWithCustomizedColumn(t *testing.T) {
 
 	var person1 CustomizePerson
 	scope := TestDB.NewScope(nil)
-	if err := TestDB.Preload("Accounts").First(&person1, scope.Quote("idPerson")+" = ?", person.IdPerson).Error; err != nil {
+	if err := TestDB.Preload("Accounts").First(&person1, gorm.Quote("idPerson", scope.Dialect())+" = ?", person.IdPerson).Error; err != nil {
 		t.Errorf("no error should happen when preloading customized column many2many relations, but got %v", err)
 	}
 

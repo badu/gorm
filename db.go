@@ -771,7 +771,7 @@ func (con *DBCon) clone(withoutSettings bool, withoutSearch bool) *DBCon {
 	}
 	if !withoutSearch {
 		if con.search == nil {
-			clone.search = &Search{Conditions: make(SqlConditions), dialect: con.parent.dialect}
+			clone.search = &Search{Conditions: make(SqlConditions)}
 		} else {
 			clone.search = con.search.Clone()
 		}

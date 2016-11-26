@@ -106,7 +106,6 @@ type (
 	Search struct {
 		flags      uint16
 		Conditions SqlConditions
-		dialect    Dialect
 		tableName  string
 		SQL        string
 		SQLVars    []interface{}

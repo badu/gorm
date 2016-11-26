@@ -15,7 +15,6 @@
 - [ ] put back PrimaryField() of Scope shadow of PK() with Warning "deprecated"
 - [ ] put back PrimaryFields() of Scope shadow of PKs() with Warning "deprecated"
 - [ ] put back SQLDB() of Scope shadow of AsSQLDB() with Warning "deprecated"
-- [ ] go back to inline functions where needed (I've made an honest mistake :) )
 
 # Comments and thoughts
 - Generated SQL let's the SQL engine cast : SELECT * FROM aTable WHERE id = '1' (id being int). I think it's a bad practice and it should be fixed
@@ -53,6 +52,7 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
 - [x] rearranged Search prepareQuerySQL to have fewer calls
 - [x] Scope's instanceID is now uint64 and holds the pointer address of that Scope 
 - [x] replace current method of keeping data Set / SetInstance / Get
+- [x] switch back to some inline function : getColumnAsArray, generatePreloadDBWithConditions, toQueryValues, toQueryMarks, toQueryCondition, QuoteIfPossible, Quote
 
 ## 25.11.2016
 - [x] utils, removed toSearchableMap

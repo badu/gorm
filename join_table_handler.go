@@ -6,16 +6,19 @@ import (
 	"reflect"
 	"strings"
 )
+
 //implementation of JoinTableHandlerInterface
 // SourceForeignKeys return source foreign keys
 func (s *JoinTableHandler) SourceForeignKeys() []JoinTableForeignKey {
 	return s.Source.ForeignKeys
 }
+
 //implementation of JoinTableHandlerInterface
 // DestinationForeignKeys return destination foreign keys
 func (s *JoinTableHandler) DestinationForeignKeys() []JoinTableForeignKey {
 	return s.Destination.ForeignKeys
 }
+
 //implementation of JoinTableHandlerInterface
 // Setup initialize a default join table handler
 func (s *JoinTableHandler) Setup(
@@ -39,6 +42,7 @@ func (s *JoinTableHandler) Setup(
 		})
 	}
 }
+
 //implementation of JoinTableHandlerInterface
 // Table return join table's table name
 func (s JoinTableHandler) Table(db *DBCon) string {
@@ -68,6 +72,7 @@ func (s JoinTableHandler) getSearchMap(db *DBCon, sources ...interface{}) map[st
 	}
 	return values
 }
+
 //implementation of JoinTableHandlerInterface
 // Add create relationship in join table for source and destination
 func (s JoinTableHandler) Add(handler JoinTableHandlerInterface, db *DBCon, source interface{}, destination interface{}) error {
@@ -76,10 +81,12 @@ func (s JoinTableHandler) Add(handler JoinTableHandlerInterface, db *DBCon, sour
 
 	var assignColumns, binVars, conditions []string
 	var values []interface{}
+	//because we're using it in a for, we're getting it once
+	dialect := scope.con.parent.dialect
 	for key, value := range searchMap {
-		assignColumns = append(assignColumns, scope.Quote(key))
+		assignColumns = append(assignColumns, Quote(key, dialect))
 		binVars = append(binVars, `?`)
-		conditions = append(conditions, fmt.Sprintf("%v = ?", scope.Quote(key)))
+		conditions = append(conditions, fmt.Sprintf("%v = ?", Quote(key, dialect)))
 		values = append(values, value)
 	}
 
@@ -87,7 +94,7 @@ func (s JoinTableHandler) Add(handler JoinTableHandlerInterface, db *DBCon, sour
 		values = append(values, value)
 	}
 
-	quotedTable := scope.Quote(handler.Table(db))
+	quotedTable := Quote(handler.Table(db), dialect)
 	sql := fmt.Sprintf(
 		"INSERT INTO %v (%v) SELECT %v %v WHERE NOT EXISTS (SELECT * FROM %v WHERE %v)",
 		quotedTable,
@@ -100,10 +107,12 @@ func (s JoinTableHandler) Add(handler JoinTableHandlerInterface, db *DBCon, sour
 
 	return db.Exec(sql, values...).Error
 }
+
 //implementation of JoinTableHandlerInterface
 func (s *JoinTableHandler) SetTable(name string) {
 	s.TableName = name
 }
+
 //implementation of JoinTableHandlerInterface
 // Delete delete relationship in join table for sources
 func (s JoinTableHandler) Delete(handler JoinTableHandlerInterface, db *DBCon, sources ...interface{}) error {
@@ -111,22 +120,26 @@ func (s JoinTableHandler) Delete(handler JoinTableHandlerInterface, db *DBCon, s
 		scope      = db.NewScope(nil)
 		conditions []string
 		values     []interface{}
+		//because we're using it in a for, we're getting it once
+		scopeDialect = scope.con.parent.dialect
 	)
 
 	for key, value := range s.getSearchMap(db, sources...) {
-		conditions = append(conditions, fmt.Sprintf("%v = ?", scope.Quote(key)))
+		conditions = append(conditions, fmt.Sprintf("%v = ?", Quote(key, scopeDialect)))
 		values = append(values, value)
 	}
 
 	return db.Table(handler.Table(db)).Where(strings.Join(conditions, " AND "), values...).Delete("").Error
 }
+
 //implementation of JoinTableHandlerInterface
 // JoinWith query with `Join` conditions
 func (s JoinTableHandler) JoinWith(handler JoinTableHandlerInterface, db *DBCon, source interface{}) *DBCon {
 	var (
 		scope           = db.NewScope(source)
 		tableName       = handler.Table(db)
-		quotedTableName = scope.Quote(tableName)
+		dialect         = scope.con.parent.dialect
+		quotedTableName = Quote(tableName, dialect)
 		joinConditions  []string
 		values          []interface{}
 	)
@@ -138,9 +151,9 @@ func (s JoinTableHandler) JoinWith(handler JoinTableHandlerInterface, db *DBCon,
 				fmt.Sprintf(
 					"%v.%v = %v.%v",
 					quotedTableName,
-					scope.Quote(foreignKey.DBName),
+					Quote(foreignKey.DBName, dialect),
 					destinationTableName,
-					scope.Quote(foreignKey.AssociationDBName)))
+					Quote(foreignKey.AssociationDBName, dialect)))
 		}
 
 		var foreignDBNames StrSlice
@@ -153,7 +166,7 @@ func (s JoinTableHandler) JoinWith(handler JoinTableHandlerInterface, db *DBCon,
 			}
 		}
 
-		foreignFieldValues := scope.getColumnAsArray(foreignFieldNames, scope.Value)
+		foreignFieldValues := getColumnAsArray(foreignFieldNames, scope.Value)
 
 		var condString string
 		if len(foreignFieldValues) > 0 {
@@ -164,12 +177,12 @@ func (s JoinTableHandler) JoinWith(handler JoinTableHandlerInterface, db *DBCon,
 
 			condString = fmt.Sprintf(
 				"%v IN (%v)",
-				scope.toQueryCondition(quotedForeignDBNames),
-				scope.Search.toQueryMarks(foreignFieldValues),
+				toQueryCondition(quotedForeignDBNames, dialect),
+				toQueryMarks(foreignFieldValues),
 			)
 
-			keys := scope.getColumnAsArray(foreignFieldNames, scope.Value)
-			values = append(values, scope.Search.toQueryValues(keys))
+			keys := getColumnAsArray(foreignFieldNames, scope.Value)
+			values = append(values, toQueryValues(keys))
 		} else {
 			condString = fmt.Sprint("1 <> 1")
 		}
@@ -178,7 +191,7 @@ func (s JoinTableHandler) JoinWith(handler JoinTableHandlerInterface, db *DBCon,
 			fmt.Sprintf("INNER JOIN %v ON %v",
 				quotedTableName,
 				strings.Join(joinConditions, " AND "))).
-			Where(condString, scope.Search.toQueryValues(foreignFieldValues)...)
+			Where(condString, toQueryValues(foreignFieldValues)...)
 	}
 
 	db.Error = errors.New("JOIN : wrong source type for join table handler")
