@@ -49,11 +49,11 @@ func (s JoinTableHandler) Table(db *DBCon) string {
 	return s.TableName
 }
 
-func (s JoinTableHandler) getSearchMap(db *DBCon, sources ...interface{}) map[string]interface{} {
+func (s JoinTableHandler) getSearchMap(con *DBCon, sources ...interface{}) map[string]interface{} {
 	values := map[string]interface{}{}
 
 	for _, source := range sources {
-		scope := db.NewScope(source)
+		scope := con.NewScope(source)
 		modelType := scope.GetModelStruct().ModelType
 
 		if s.Source.ModelType == modelType {
@@ -75,9 +75,9 @@ func (s JoinTableHandler) getSearchMap(db *DBCon, sources ...interface{}) map[st
 
 //implementation of JoinTableHandlerInterface
 // Add create relationship in join table for source and destination
-func (s JoinTableHandler) Add(handler JoinTableHandlerInterface, db *DBCon, source interface{}, destination interface{}) error {
-	scope := db.NewScope("")
-	searchMap := s.getSearchMap(db, source, destination)
+func (s JoinTableHandler) Add(handler JoinTableHandlerInterface, con *DBCon, source interface{}, destination interface{}) error {
+	scope := con.NewScope("")
+	searchMap := s.getSearchMap(con, source, destination)
 
 	var assignColumns, binVars, conditions []string
 	var values []interface{}
@@ -94,18 +94,18 @@ func (s JoinTableHandler) Add(handler JoinTableHandlerInterface, db *DBCon, sour
 		values = append(values, value)
 	}
 
-	quotedTable := Quote(handler.Table(db), dialect)
+	quotedTable := Quote(handler.Table(con), dialect)
 	sql := fmt.Sprintf(
 		"INSERT INTO %v (%v) SELECT %v %v WHERE NOT EXISTS (SELECT * FROM %v WHERE %v)",
 		quotedTable,
 		strings.Join(assignColumns, ","),
 		strings.Join(binVars, ","),
-		scope.Dialect().SelectFromDummyTable(),
+		con.parent.dialect.SelectFromDummyTable(),
 		quotedTable,
 		strings.Join(conditions, " AND "),
 	)
 
-	return db.Exec(sql, values...).Error
+	return con.Exec(sql, values...).Error
 }
 
 //implementation of JoinTableHandlerInterface
@@ -115,29 +115,29 @@ func (s *JoinTableHandler) SetTable(name string) {
 
 //implementation of JoinTableHandlerInterface
 // Delete delete relationship in join table for sources
-func (s JoinTableHandler) Delete(handler JoinTableHandlerInterface, db *DBCon, sources ...interface{}) error {
+func (s JoinTableHandler) Delete(handler JoinTableHandlerInterface, con *DBCon, sources ...interface{}) error {
 	var (
-		scope      = db.NewScope(nil)
+		scope      = con.NewScope(nil)
 		conditions []string
 		values     []interface{}
 		//because we're using it in a for, we're getting it once
 		scopeDialect = scope.con.parent.dialect
 	)
 
-	for key, value := range s.getSearchMap(db, sources...) {
+	for key, value := range s.getSearchMap(con, sources...) {
 		conditions = append(conditions, fmt.Sprintf("%v = ?", Quote(key, scopeDialect)))
 		values = append(values, value)
 	}
 
-	return db.Table(handler.Table(db)).Where(strings.Join(conditions, " AND "), values...).Delete("").Error
+	return con.Table(handler.Table(con)).Where(strings.Join(conditions, " AND "), values...).Delete("").Error
 }
 
 //implementation of JoinTableHandlerInterface
 // JoinWith query with `Join` conditions
-func (s JoinTableHandler) JoinWith(handler JoinTableHandlerInterface, db *DBCon, source interface{}) *DBCon {
+func (s JoinTableHandler) JoinWith(handler JoinTableHandlerInterface, con *DBCon, source interface{}) *DBCon {
 	var (
-		scope           = db.NewScope(source)
-		tableName       = handler.Table(db)
+		scope           = con.NewScope(source)
+		tableName       = handler.Table(con)
 		dialect         = scope.con.parent.dialect
 		quotedTableName = Quote(tableName, dialect)
 		joinConditions  []string
@@ -145,7 +145,7 @@ func (s JoinTableHandler) JoinWith(handler JoinTableHandlerInterface, db *DBCon,
 	)
 
 	if s.Source.ModelType == scope.GetModelStruct().ModelType {
-		destinationTableName := db.NewScope(reflect.New(s.Destination.ModelType).Interface()).QuotedTableName()
+		destinationTableName := con.NewScope(reflect.New(s.Destination.ModelType).Interface()).QuotedTableName()
 		for _, foreignKey := range s.Destination.ForeignKeys {
 			joinConditions = append(joinConditions,
 				fmt.Sprintf(
@@ -187,13 +187,13 @@ func (s JoinTableHandler) JoinWith(handler JoinTableHandlerInterface, db *DBCon,
 			condString = fmt.Sprint("1 <> 1")
 		}
 
-		return db.Joins(
+		return con.Joins(
 			fmt.Sprintf("INNER JOIN %v ON %v",
 				quotedTableName,
 				strings.Join(joinConditions, " AND "))).
 			Where(condString, toQueryValues(foreignFieldValues)...)
 	}
 
-	db.Error = errors.New("JOIN : wrong source type for join table handler")
-	return db
+	con.Error = errors.New("JOIN : wrong source type for join table handler")
+	return con
 }

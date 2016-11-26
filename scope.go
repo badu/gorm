@@ -21,9 +21,9 @@ func (scope *Scope) IndirectValue() reflect.Value {
 }
 
 // New create a new Scope without search information
-func (scope *Scope) New(value interface{}) *Scope {
+func (scope *Scope) NewScope(value interface{}) *Scope {
 	return &Scope{
-		con:    scope.NewCon(),
+		con:    scope.con.cloneCon(true),
 		Search: &Search{Conditions: make(SqlConditions)},
 		Value:  value}
 }
@@ -66,32 +66,6 @@ func (scope *Scope) InstanceGet(settingType uint64) (interface{}, bool) {
 ////////////////////////////////////////////////////////////////////////////////
 // Scope DB
 ////////////////////////////////////////////////////////////////////////////////
-
-// Con return scope's connection
-func (scope *Scope) Con() *DBCon {
-	return scope.con
-}
-
-// NewCon create a new Con without search information
-func (scope *Scope) NewCon() *DBCon {
-	//fail fast
-	if scope.con == nil {
-		return nil
-	}
-	db := scope.con.clone(true, true)
-	return db
-}
-
-// SQLDB return *sql.DB
-func (scope *Scope) AsSQLDB() sqlInterf {
-	return scope.con.sqli
-}
-
-// Dialect get dialect
-func (scope *Scope) Dialect() Dialect {
-	return scope.con.parent.dialect
-}
-
 // Err add error to Scope
 func (scope *Scope) Err(err error) error {
 	if err != nil {
@@ -286,7 +260,7 @@ func (scope *Scope) Exec() *Scope {
 		defer scope.trace(NowFunc())
 	}
 	if !scope.HasError() {
-		result, err := scope.AsSQLDB().Exec(scope.Search.SQL, scope.Search.SQLVars...)
+		result, err := scope.con.sqli.Exec(scope.Search.SQL, scope.Search.SQLVars...)
 		if scope.Err(err) == nil {
 			count, err := result.RowsAffected()
 			if scope.Err(err) == nil {
@@ -299,7 +273,8 @@ func (scope *Scope) Exec() *Scope {
 
 // Begin start a transaction
 func (scope *Scope) Begin() *Scope {
-	if db, ok := scope.AsSQLDB().(sqlDb); ok {
+
+	if db, ok := scope.con.sqli.(sqlDb); ok {
 		//parent db implements Begin() -> call Begin()
 		if tx, err := db.Begin(); err == nil {
 			//TODO : @Badu - maybe the parent should do so, since it's owner of db.db
@@ -382,17 +357,17 @@ func (scope *Scope) callMethod(methodName string, reflectValue reflect.Value) {
 		case func(*Scope):
 			method(scope)
 		case func(*DBCon):
-			newDB := scope.NewCon()
-			method(newDB)
-			scope.Err(newDB.Error)
+			newCon := scope.con.cloneCon(true)
+			method(newCon)
+			scope.Err(newCon.Error)
 		case func() error:
 			scope.Err(method())
 		case func(*Scope) error:
 			scope.Err(method(scope))
 		case func(*DBCon) error:
-			newDB := scope.NewCon()
-			scope.Err(method(newDB))
-			scope.Err(newDB.Error)
+			newCon := scope.con.cloneCon(true)
+			scope.Err(method(newCon))
+			scope.Err(newCon.Error)
 		default:
 			scope.Err(fmt.Errorf("unsupported function %v", methodName))
 		}
@@ -493,7 +468,7 @@ func (scope *Scope) row() *sql.Row {
 	}
 	scope.callCallbacks(scope.con.parent.callback.rowQueries)
 	scope.Search.prepareQuerySQL(scope)
-	return scope.AsSQLDB().QueryRow(scope.Search.SQL, scope.Search.SQLVars...)
+	return scope.con.sqli.QueryRow(scope.Search.SQL, scope.Search.SQLVars...)
 }
 
 func (scope *Scope) rows() (*sql.Rows, error) {
@@ -503,7 +478,7 @@ func (scope *Scope) rows() (*sql.Rows, error) {
 	}
 	scope.callCallbacks(scope.con.parent.callback.rowQueries)
 	scope.Search.prepareQuerySQL(scope)
-	return scope.AsSQLDB().Query(scope.Search.SQL, scope.Search.SQLVars...)
+	return scope.con.sqli.Query(scope.Search.SQL, scope.Search.SQLVars...)
 }
 
 func (scope *Scope) initialize() *Scope {
@@ -710,9 +685,9 @@ func (scope *Scope) createJoinTable(field *StructField) {
 				}
 			}
 
-			scope.Err(scope.NewCon().Exec(fmt.Sprintf("CREATE TABLE %v (%v, PRIMARY KEY (%v)) %s", Quote(joinTable, dialect), strings.Join(sqlTypes, ","), strings.Join(primaryKeys, ","), scope.getTableOptions())).Error)
+			scope.Err(scope.con.cloneCon(true).Exec(fmt.Sprintf("CREATE TABLE %v (%v, PRIMARY KEY (%v)) %s", Quote(joinTable, dialect), strings.Join(sqlTypes, ","), strings.Join(primaryKeys, ","), scope.getTableOptions())).Error)
 		}
-		scope.NewCon().Table(joinTable).AutoMigrate(joinTableHandler)
+		scope.con.cloneCon(true).Table(joinTable).AutoMigrate(joinTableHandler)
 	}
 }
 
@@ -859,11 +834,11 @@ func (scope *Scope) autoIndex() *Scope {
 	}
 
 	for name, columns := range indexes {
-		scope.NewCon().Model(scope.Value).AddIndex(name, columns...)
+		scope.con.cloneCon(true).Model(scope.Value).AddIndex(name, columns...)
 	}
 
 	for name, columns := range uniqueIndexes {
-		scope.NewCon().Model(scope.Value).AddUniqueIndex(name, columns...)
+		scope.con.cloneCon(true).Model(scope.Value).AddUniqueIndex(name, columns...)
 	}
 
 	return scope
@@ -899,7 +874,7 @@ func (scope *Scope) handleHasOnePreload(field *StructField, conditions []interfa
 	}
 
 	// preload conditions
-	preloadDB, preloadConditions := generatePreloadDBWithConditions(scope.NewCon(), conditions)
+	preloadDB, preloadConditions := generatePreloadDBWithConditions(scope.con.cloneCon(true), conditions)
 	dialect := scope.con.parent.dialect
 	// find relations
 	query := fmt.Sprintf(
@@ -959,7 +934,7 @@ func (scope *Scope) handleHasManyPreload(field *StructField, conditions []interf
 	}
 
 	// preload conditions
-	preloadDB, preloadConditions := generatePreloadDBWithConditions(scope.NewCon(), conditions)
+	preloadDB, preloadConditions := generatePreloadDBWithConditions(scope.con.cloneCon(true), conditions)
 	dialect := scope.con.parent.dialect
 	// find relations
 	query := fmt.Sprintf(
@@ -1018,7 +993,7 @@ func (scope *Scope) handleBelongsToPreload(field *StructField, conditions []inte
 	relation := field.Relationship
 
 	// preload conditions
-	preloadDB, preloadConditions := generatePreloadDBWithConditions(scope.NewCon(), conditions)
+	preloadDB, preloadConditions := generatePreloadDBWithConditions(scope.con.cloneCon(true), conditions)
 
 	// get relations's primary keys
 	primaryKeys := getColumnAsArray(relation.ForeignFieldNames, scope.Value)
@@ -1082,10 +1057,10 @@ func (scope *Scope) handleManyToManyPreload(field *StructField, conditions []int
 	}
 
 	// preload conditions
-	preloadDB, preloadConditions := generatePreloadDBWithConditions(scope.NewCon(), conditions)
+	preloadDB, preloadConditions := generatePreloadDBWithConditions(scope.con.cloneCon(true), conditions)
 
 	// generate query with join table
-	newScope := scope.New(reflect.New(fieldType).Interface())
+	newScope := scope.NewScope(reflect.New(fieldType).Interface())
 	preloadDB = preloadDB.Table(newScope.TableName()).Model(newScope.Value).Select("*")
 	preloadDB = joinTableHandler.JoinWith(joinTableHandler, preloadDB, scope.Value)
 
@@ -1105,7 +1080,7 @@ func (scope *Scope) handleManyToManyPreload(field *StructField, conditions []int
 	for rows.Next() {
 		var (
 			elem   = reflect.New(fieldType).Elem()
-			fields = scope.New(elem.Addr().Interface()).Fields()
+			fields = scope.NewScope(elem.Addr().Interface()).Fields()
 		)
 
 		// register foreign keys in join tables
@@ -1274,7 +1249,7 @@ func (scope *Scope) createCallback() {
 
 		// execute create sql
 		if lastInsertIDReturningSuffix == "" || primaryField == nil {
-			if result, err := scope.AsSQLDB().Exec(scope.Search.SQL, scope.Search.SQLVars...); scope.Err(err) == nil {
+			if result, err := scope.con.sqli.Exec(scope.Search.SQL, scope.Search.SQLVars...); scope.Err(err) == nil {
 				// set rows affected count
 				scope.con.RowsAffected, _ = result.RowsAffected()
 
@@ -1286,7 +1261,7 @@ func (scope *Scope) createCallback() {
 				}
 			}
 		} else {
-			if err := scope.AsSQLDB().QueryRow(scope.Search.SQL, scope.Search.SQLVars...).
+			if err := scope.con.sqli.QueryRow(scope.Search.SQL, scope.Search.SQLVars...).
 				Scan(primaryField.Value.Addr().Interface()); scope.Err(err) == nil {
 				primaryField.unsetFlag(IS_BLANK)
 				scope.con.RowsAffected = 1
@@ -1302,7 +1277,7 @@ func (scope *Scope) forceReloadAfterCreateCallback() {
 		if !yes {
 			fmt.Errorf("ERROR in forceReloadAfterCreateCallback : blankColumnsWithDefaultValue IS NOT StrSlice!\n")
 		}
-		db := scope.Con().New().Table(scope.TableName()).Select(sSlice.slice())
+		db := scope.con.cloneCon(true).Table(scope.TableName()).Select(sSlice.slice())
 		for _, field := range scope.Fields() {
 			if field.IsPrimaryKey() && !field.IsBlank() {
 				db = db.Where(fmt.Sprintf("%v = ?", field.DBName), field.Value.Interface())
@@ -1334,12 +1309,12 @@ func (scope *Scope) saveBeforeAssociationsCallback() {
 		if scope.changeableField(field) && !field.IsBlank() && !field.IsIgnored() {
 			if ok, relationship := scope.saveFieldAsAssociation(field); ok && relationship.Kind == BELONGS_TO {
 				fieldValue := field.Value.Addr().Interface()
-				scope.Err(scope.NewCon().Save(fieldValue).Error)
+				scope.Err(scope.con.cloneCon(true).Save(fieldValue).Error)
 				if relationship.ForeignFieldNames.len() != 0 {
 					// set value's foreign key
 					for idx, fieldName := range relationship.ForeignFieldNames {
 						associationForeignName := relationship.AssociationForeignDBNames[idx]
-						if foreignField, ok := scope.New(fieldValue).FieldByName(associationForeignName); ok {
+						if foreignField, ok := scope.NewScope(fieldValue).FieldByName(associationForeignName); ok {
 							scope.Err(scope.SetColumn(fieldName, foreignField.Value.Interface()))
 						}
 					}
@@ -1362,9 +1337,10 @@ func (scope *Scope) saveAfterAssociationsCallback() {
 				switch value.Kind() {
 				case reflect.Slice:
 					for i := 0; i < value.Len(); i++ {
-						newDB := scope.NewCon()
+						//TODO : @Badu - cloneCon without copy, then NewScope which clone's con - but with copy
+						newCon := scope.con.cloneCon(true)
 						elem := value.Index(i).Addr().Interface()
-						newScope := newDB.NewScope(elem)
+						newScope := newCon.NewScope(elem)
 
 						if relationship.JoinTableHandler == nil && relationship.ForeignFieldNames.len() != 0 {
 							for idx, fieldName := range relationship.ForeignFieldNames {
@@ -1382,15 +1358,15 @@ func (scope *Scope) saveAfterAssociationsCallback() {
 									relationship.PolymorphicValue))
 						}
 
-						scope.Err(newDB.Save(elem).Error)
+						scope.Err(newCon.Save(elem).Error)
 
 						if joinTableHandler := relationship.JoinTableHandler; joinTableHandler != nil {
-							scope.Err(joinTableHandler.Add(joinTableHandler, newDB, scope.Value, newScope.Value))
+							scope.Err(joinTableHandler.Add(joinTableHandler, newCon, scope.Value, newScope.Value))
 						}
 					}
 				default:
 					elem := value.Addr().Interface()
-					newScope := scope.New(elem)
+					newScope := scope.NewScope(elem)
 					if relationship.ForeignFieldNames.len() != 0 {
 						for idx, fieldName := range relationship.ForeignFieldNames {
 							associationForeignName := relationship.AssociationForeignDBNames[idx]
@@ -1403,7 +1379,7 @@ func (scope *Scope) saveAfterAssociationsCallback() {
 					if relationship.PolymorphicType != "" {
 						scope.Err(newScope.SetColumn(relationship.PolymorphicType, relationship.PolymorphicValue))
 					}
-					scope.Err(scope.NewCon().Save(elem).Error)
+					scope.Err(scope.con.cloneCon(true).Save(elem).Error)
 				}
 			}
 		}
@@ -1557,7 +1533,7 @@ func (scope *Scope) queryCallback() {
 			scope.Search.SQL += addExtraSpaceIfExist(fmt.Sprint(str))
 		}
 
-		if rows, err := scope.AsSQLDB().Query(scope.Search.SQL, scope.Search.SQLVars...); scope.Err(err) == nil {
+		if rows, err := scope.con.sqli.Query(scope.Search.SQL, scope.Search.SQLVars...); scope.Err(err) == nil {
 			defer rows.Close()
 
 			columns, _ := rows.Columns()
@@ -1569,7 +1545,7 @@ func (scope *Scope) queryCallback() {
 					elem = reflect.New(resultType).Elem()
 				}
 
-				scope.scan(rows, columns, scope.New(elem.Addr().Interface()).Fields())
+				scope.scan(rows, columns, scope.NewScope(elem.Addr().Interface()).Fields())
 
 				if isSlice {
 					if isPtr {

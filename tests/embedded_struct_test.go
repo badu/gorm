@@ -4,7 +4,8 @@ import "testing"
 
 func TestPrefixColumnNameForEmbeddedStruct(t *testing.T) {
 	t.Log("65) TestPrefixColumnNameForEmbeddedStruct")
-	dialect := TestDB.NewScope(&EngadgetPost{}).Dialect()
+	TestDB.NewScope(&EngadgetPost{})
+	dialect := TestDB.Dialect()
 	if !dialect.HasColumn(TestDB.NewScope(&EngadgetPost{}).TableName(), "author_name") || !dialect.HasColumn(TestDB.NewScope(&EngadgetPost{}).TableName(), "author_email") {
 		t.Errorf("should has prefix for embedded columns")
 	}

@@ -13,7 +13,7 @@ func TestCustomizeColumn(t *testing.T) {
 	TestDB.AutoMigrate(&CustomizeColumn{})
 
 	scope := TestDB.NewScope(&CustomizeColumn{})
-	if !scope.Dialect().HasColumn(scope.TableName(), col) {
+	if !TestDB.Dialect().HasColumn(scope.TableName(), col) {
 		t.Errorf("CustomizeColumn should have column %s", col)
 	}
 
@@ -75,8 +75,8 @@ func TestManyToManyWithCustomizedColumn(t *testing.T) {
 	}
 
 	var person1 CustomizePerson
-	scope := TestDB.NewScope(nil)
-	if err := TestDB.Preload("Accounts").First(&person1, gorm.Quote("idPerson", scope.Dialect())+" = ?", person.IdPerson).Error; err != nil {
+	TestDB.NewScope(nil)
+	if err := TestDB.Preload("Accounts").First(&person1, gorm.Quote("idPerson", TestDB.Dialect())+" = ?", person.IdPerson).Error; err != nil {
 		t.Errorf("no error should happen when preloading customized column many2many relations, but got %v", err)
 	}
 

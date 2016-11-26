@@ -43,7 +43,7 @@ func (association *Association) Replace(values ...interface{}) *Association {
 		relationship = association.field.Relationship
 		scope        = association.scope
 		field        = association.field.Value
-		newDB        = scope.NewCon()
+		newCon = scope.con.cloneCon(true)
 		dialect      = scope.con.parent.dialect
 	)
 
@@ -60,12 +60,12 @@ func (association *Association) Replace(values ...interface{}) *Association {
 			for _, foreignKey := range relationship.ForeignDBNames {
 				foreignKeyMap[foreignKey] = nil
 			}
-			association.setErr(newDB.Model(scope.Value).UpdateColumn(foreignKeyMap).Error)
+			association.setErr(newCon.Model(scope.Value).UpdateColumn(foreignKeyMap).Error)
 		}
 	} else {
 		// Polymorphic Relations
 		if relationship.PolymorphicDBName != "" {
-			newDB = newDB.Where(
+			newCon = newCon.Where(
 				fmt.Sprintf(
 					"%v = ?",
 					Quote(relationship.PolymorphicDBName, dialect),
@@ -78,7 +78,7 @@ func (association *Association) Replace(values ...interface{}) *Association {
 			var associationForeignFieldNames, associationForeignDBNames StrSlice
 			if relationship.Kind == MANY_TO_MANY {
 				// if many to many relations, get association fields name from association foreign keys
-				associationScope := scope.New(field.Interface())
+				associationScope := scope.NewScope(field.Interface())
 				for idx, dbName := range relationship.AssociationForeignFieldNames {
 					if field, ok := associationScope.FieldByName(dbName); ok {
 						associationForeignFieldNames.add(field.GetStructName())
@@ -87,7 +87,7 @@ func (association *Association) Replace(values ...interface{}) *Association {
 				}
 			} else {
 				// If has one/many relations, use primary keys
-				for _, field := range scope.New(field.Interface()).PKs() {
+				for _, field := range scope.NewScope(field.Interface()).PKs() {
 					associationForeignFieldNames.add(field.GetStructName())
 					associationForeignDBNames.add(field.DBName)
 				}
@@ -101,7 +101,7 @@ func (association *Association) Replace(values ...interface{}) *Association {
 					toQueryCondition(associationForeignDBNames, dialect),
 					toQueryMarks(newPrimaryKeys),
 				)
-				newDB = newDB.Where(sql, toQueryValues(newPrimaryKeys)...)
+				newCon = newCon.Where(sql, toQueryValues(newPrimaryKeys)...)
 			}
 		}
 		//TODO : @Badu - use switch
@@ -116,7 +116,7 @@ func (association *Association) Replace(values ...interface{}) *Association {
 			}
 
 			if sourcePrimaryKeys := getColumnAsArray(sourceForeignFieldNames, scope.Value); len(sourcePrimaryKeys) > 0 {
-				newDB = newDB.Where(
+				newCon = newCon.Where(
 					fmt.Sprintf(
 						"%v IN (%v)",
 						toQueryCondition(relationship.ForeignDBNames, dialect),
@@ -125,7 +125,7 @@ func (association *Association) Replace(values ...interface{}) *Association {
 					toQueryValues(sourcePrimaryKeys)...,
 				)
 
-				association.setErr(relationship.JoinTableHandler.Delete(relationship.JoinTableHandler, newDB, relationship))
+				association.setErr(relationship.JoinTableHandler.Delete(relationship.JoinTableHandler, newCon, relationship))
 			}
 		} else if relationship.Kind == HAS_ONE || relationship.Kind == HAS_MANY {
 			// has_one or has_many relations, set foreign key to be nil (TODO or delete them?)
@@ -134,12 +134,12 @@ func (association *Association) Replace(values ...interface{}) *Association {
 			for idx, foreignKey := range relationship.ForeignDBNames {
 				foreignKeyMap[foreignKey] = nil
 				if field, ok := scope.FieldByName(relationship.AssociationForeignFieldNames[idx]); ok {
-					newDB = newDB.Where(fmt.Sprintf("%v = ?", Quote(foreignKey, dialect)), field.Value.Interface())
+					newCon = newCon.Where(fmt.Sprintf("%v = ?", Quote(foreignKey, dialect)), field.Value.Interface())
 				}
 			}
 
 			fieldValue := association.field.Interface()
-			association.setErr(newDB.Model(fieldValue).UpdateColumn(foreignKeyMap).Error)
+			association.setErr(newCon.Model(fieldValue).UpdateColumn(foreignKeyMap).Error)
 		}
 	}
 	return association
@@ -155,7 +155,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 		relationship = association.field.Relationship
 		scope        = association.scope
 		field        = association.field.Value
-		newDB        = scope.NewCon()
+		newCon = scope.con.cloneCon(true)
 		dialect      = scope.con.parent.dialect
 	)
 
@@ -164,7 +164,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 	}
 
 	var deletingResourcePrimaryFieldNames, deletingResourcePrimaryDBNames StrSlice
-	for _, field := range scope.New(field.Interface()).PKs() {
+	for _, field := range scope.NewScope(field.Interface()).PKs() {
 		deletingResourcePrimaryFieldNames.add(field.GetStructName())
 		deletingResourcePrimaryDBNames.add(field.DBName)
 	}
@@ -176,7 +176,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 		// source value's foreign keys
 		for idx, foreignKey := range relationship.ForeignDBNames {
 			if field, ok := scope.FieldByName(relationship.ForeignFieldNames[idx]); ok {
-				newDB = newDB.Where(
+				newCon = newCon.Where(
 					fmt.Sprintf(
 						"%v = ?",
 						Quote(foreignKey, dialect),
@@ -186,7 +186,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 		}
 
 		// get association's foreign fields name
-		var associationScope = scope.New(field.Interface())
+		var associationScope = scope.NewScope(field.Interface())
 		var associationForeignFieldNames StrSlice
 		for _, associationDBName := range relationship.AssociationForeignFieldNames {
 			if field, ok := associationScope.FieldByName(associationDBName); ok {
@@ -201,9 +201,9 @@ func (association *Association) Delete(values ...interface{}) *Association {
 			toQueryCondition(relationship.AssociationForeignDBNames, dialect),
 			toQueryMarks(deletingPrimaryKeys),
 		)
-		newDB = newDB.Where(sql, toQueryValues(deletingPrimaryKeys)...)
+		newCon = newCon.Where(sql, toQueryValues(deletingPrimaryKeys)...)
 
-		association.setErr(relationship.JoinTableHandler.Delete(relationship.JoinTableHandler, newDB, relationship))
+		association.setErr(relationship.JoinTableHandler.Delete(relationship.JoinTableHandler, newCon, relationship))
 	} else {
 		var foreignKeyMap = map[string]interface{}{}
 		for _, foreignKey := range relationship.ForeignDBNames {
@@ -213,7 +213,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 		if relationship.Kind == BELONGS_TO {
 			// find with deleting relation's foreign keys
 			primaryKeys := getColumnAsArray(relationship.AssociationForeignFieldNames, values...)
-			newDB = newDB.Where(
+			newCon = newCon.Where(
 				fmt.Sprintf(
 					"%v IN (%v)",
 					toQueryCondition(relationship.ForeignDBNames, dialect),
@@ -224,7 +224,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 
 			// set foreign key to be null if there are some records affected
 			modelValue := scope.GetModelStruct().Interface()
-			if results := newDB.Model(modelValue).UpdateColumn(foreignKeyMap); results.Error == nil {
+			if results := newCon.Model(modelValue).UpdateColumn(foreignKeyMap); results.Error == nil {
 				if results.RowsAffected > 0 {
 					scope.updatedAttrsWithValues(foreignKeyMap)
 				}
@@ -234,7 +234,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 		} else if relationship.Kind == HAS_ONE || relationship.Kind == HAS_MANY {
 			// find all relations
 			primaryKeys := getColumnAsArray(relationship.AssociationForeignFieldNames, scope.Value)
-			newDB = newDB.Where(
+			newCon = newCon.Where(
 				fmt.Sprintf(
 					"%v IN (%v)",
 					toQueryCondition(relationship.ForeignDBNames, dialect),
@@ -244,7 +244,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 			)
 
 			// only include those deleting relations
-			newDB = newDB.Where(
+			newCon = newCon.Where(
 				fmt.Sprintf(
 					"%v IN (%v)",
 					toQueryCondition(deletingResourcePrimaryDBNames, dialect),
@@ -255,7 +255,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 
 			// set matched relation's foreign key to be null
 			fieldValue := association.field.Interface()
-			association.setErr(newDB.Model(fieldValue).UpdateColumn(foreignKeyMap).Error)
+			association.setErr(newCon.Model(fieldValue).UpdateColumn(foreignKeyMap).Error)
 		}
 	}
 
@@ -306,7 +306,7 @@ func (association *Association) Count() int {
 		relationship = association.field.Relationship
 		scope        = association.scope
 		fieldValue   = association.field.Value.Interface()
-		query        = scope.Con()
+		query        = scope.con
 		dialect      = scope.con.parent.dialect
 	)
 	//TODO : @Badu - use switch
@@ -338,7 +338,7 @@ func (association *Association) Count() int {
 		query = query.Where(
 			fmt.Sprintf(
 				"%v.%v = ?",
-				scope.New(fieldValue).QuotedTableName(),
+				scope.NewScope(fieldValue).QuotedTableName(),
 				Quote(relationship.PolymorphicDBName, dialect),
 			),
 			relationship.PolymorphicValue,
@@ -367,8 +367,8 @@ func (association *Association) saveAssociations(values ...interface{}) *Associa
 
 		// value has to been saved for many2many
 		if relationship.Kind == MANY_TO_MANY {
-			if scope.New(reflectValue.Interface()).PrimaryKeyZero() {
-				association.setErr(scope.NewCon().Save(reflectValue.Interface()).Error)
+			if scope.NewScope(reflectValue.Interface()).PrimaryKeyZero() {
+				association.setErr(scope.con.cloneCon(true).Save(reflectValue.Interface()).Error)
 			}
 		}
 
@@ -395,13 +395,13 @@ func (association *Association) saveAssociations(values ...interface{}) *Associa
 			association.setErr(
 				relationship.JoinTableHandler.Add(
 					relationship.JoinTableHandler,
-					scope.NewCon(),
+					scope.con.cloneCon(true),
 					scope.Value,
 					reflectValue.Interface(),
 				),
 			)
 		} else {
-			association.setErr(scope.NewCon().Select(field.GetStructName()).Save(scope.Value).Error)
+			association.setErr(scope.con.cloneCon(true).Select(field.GetStructName()).Save(scope.Value).Error)
 
 			if setFieldBackToValue {
 				reflectValue.Elem().Set(field.Value)

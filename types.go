@@ -117,15 +117,17 @@ type (
 	DBCon struct {
 		parent   *DBCon
 		dialect  Dialect
-		Value    interface{}
 		settings map[uint64]interface{}
+		//TODO : @Badu - both have Value and search to go since they are present in Scope
+		Value    interface{}
+		search       *Search
+
 
 		Error error
 
-		callback *Callback
 		sqli     sqlInterf
 
-		search       *Search
+
 		RowsAffected int64
 
 		logMode int
@@ -133,6 +135,8 @@ type (
 
 		singularTable bool
 		source        string
+
+		callback *Callback
 	}
 	//declared to allow existing code to run, dbcon.Open(...) db = &gorm.DB{*dbcon}
 	DB struct {

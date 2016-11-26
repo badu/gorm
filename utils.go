@@ -212,11 +212,11 @@ func getColumnAsScope(column string, scope *Scope) *Scope {
 					results = reflect.Append(results, fieldRef.Addr())
 				}
 			}
-			return scope.New(results.Interface())
+			return scope.NewScope(results.Interface())
 		}
 	case reflect.Struct:
 		if field := indirectScopeValue.FieldByName(column); field.CanAddr() {
-			return scope.New(field.Addr().Interface())
+			return scope.NewScope(field.Addr().Interface())
 		}
 	}
 	return nil

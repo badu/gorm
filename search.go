@@ -505,7 +505,7 @@ func (s *Search) buildWhereCondition(fromPair SqlPair, scope *Scope) string {
 		return strings.Join(sqls, " AND ")
 	case interface{}:
 		var sqls []string
-		newScope := scope.New(expType)
+		newScope := scope.NewScope(expType)
 		for _, field := range newScope.Fields() {
 			if !field.IsIgnored() && !field.IsBlank() {
 				sqls = append(sqls, fmt.Sprintf("(%v.%v = %v)", newScope.QuotedTableName(), Quote(field.DBName, dialect), s.addToVars(field.Value.Interface(), dialect)))
@@ -581,7 +581,7 @@ func (s *Search) buildNotCondition(fromPair SqlPair, scope *Scope) string {
 		return strings.Join(sqls, " AND ")
 	case interface{}:
 		var sqls []string
-		var newScope = scope.New(exprType)
+		var newScope = scope.NewScope(exprType)
 		for _, field := range newScope.Fields() {
 			if !field.IsBlank() {
 				sqls = append(sqls, fmt.Sprintf("(%v.%v <> %v)", newScope.QuotedTableName(), Quote(field.DBName, dialect), s.addToVars(field.Value.Interface(), dialect)))
