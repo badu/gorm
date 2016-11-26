@@ -15,7 +15,6 @@
 - [ ] put back PrimaryField() of Scope shadow of PK() with Warning "deprecated"
 - [ ] put back PrimaryFields() of Scope shadow of PKs() with Warning "deprecated"
 - [ ] put back SQLDB() of Scope shadow of AsSQLDB() with Warning "deprecated"
-- [ ] replace current method of keeping data Set / SetInstance / Get
 - [ ] go back to inline functions where needed (I've made an honest mistake :) )
 
 # Comments and thoughts
@@ -53,6 +52,7 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
 - [x] rearranged Search combinedConditionSql to have fewer calls
 - [x] rearranged Search prepareQuerySQL to have fewer calls
 - [x] Scope's instanceID is now uint64 and holds the pointer address of that Scope 
+- [x] replace current method of keeping data Set / SetInstance / Get
 
 ## 25.11.2016
 - [x] utils, removed toSearchableMap

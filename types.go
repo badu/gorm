@@ -15,25 +15,23 @@ const (
 	TAG_GORM        string = "gorm"
 	DEFAULT_ID_NAME string = "id"
 
-	UPDATE_COLUMN_SETTING      gormSetting = 1
-	INSERT_OPT_SETTING         gormSetting = 2
-	DELETE_OPT_SETTING         gormSetting = 3
-	ORDER_BY_PK_SETTING        gormSetting = 4
-	TABLE_OPT_SETTING          gormSetting = 5
-	QUERY_DEST_SETTING         gormSetting = 6
-	QUERY_OPT_SETTING          gormSetting = 7
-	SAVE_ASSOC_SETTING         gormSetting = 8
-	UPDATE_OPT_SETTING         gormSetting = 9
-	UPDATE_INTERF_SETTING      gormSetting = 10
-	IGNORE_PROTEC_SETTING      gormSetting = 11
-	UPDATE_ATTRS_SETTING       gormSetting = 12
-	STARTED_TX_SETTING         gormSetting = 13
-	BLANK_COLS_DEFAULT_SETTING gormSetting = 14
+	UPDATE_COLUMN_SETTING      uint64 = 1
+	INSERT_OPT_SETTING         uint64 = 2
+	DELETE_OPT_SETTING         uint64 = 3
+	ORDER_BY_PK_SETTING        uint64 = 4
+	TABLE_OPT_SETTING          uint64 = 5
+	QUERY_DEST_SETTING         uint64 = 6
+	QUERY_OPT_SETTING          uint64 = 7
+	SAVE_ASSOC_SETTING         uint64 = 8
+	UPDATE_OPT_SETTING         uint64 = 9
+	UPDATE_INTERF_SETTING      uint64 = 10
+	IGNORE_PROTEC_SETTING      uint64 = 11
+	UPDATE_ATTRS_SETTING       uint64 = 12
+	STARTED_TX_SETTING         uint64 = 13
+	BLANK_COLS_DEFAULT_SETTING uint64 = 14
 )
 
 type (
-	gormSetting uint64
-
 	Uint8Map map[uint8]string
 	//since there is no other way of embedding a map
 	TagSettings struct {
@@ -121,7 +119,7 @@ type (
 		parent   *DBCon
 		dialect  Dialect
 		Value    interface{}
-		settings map[string]interface{}
+		settings map[uint64]interface{}
 
 		Error error
 
@@ -300,8 +298,6 @@ type (
 		// CurrentDatabase return current database name
 		CurrentDatabase() string
 	}
-
-
 )
 
 var (
@@ -324,7 +320,8 @@ var (
 
 	defaultLogger = Logger{log.New(os.Stdout, "\r\n", 0)}
 
-	settingsMap = map[string]gormSetting{
+	//reverse map to allow external settings
+	settingsMap = map[string]uint64{
 		"gorm:update_column":                    UPDATE_COLUMN_SETTING,
 		"gorm:insert_option":                    INSERT_OPT_SETTING,
 		"gorm:update_option":                    UPDATE_OPT_SETTING,

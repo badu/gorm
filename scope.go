@@ -36,34 +36,34 @@ func (scope *Scope) New(value interface{}) *Scope {
 ////////////////////////////////////////////////////////////////////////////////
 
 // Set set value by name
-func (scope *Scope) Set(name string, value interface{}) *Scope {
-	scope.con.InstanceSet(name, value)
+func (scope *Scope) Set(settingType uint64, value interface{}) *Scope {
+	scope.con.instanceSet(settingType, value)
 	return scope
 }
 
 // Get get setting by name
-func (scope *Scope) Get(name string) (interface{}, bool) {
-	return scope.con.Get(name)
+func (scope *Scope) Get(settingType uint64) (interface{}, bool) {
+	return scope.con.get(settingType)
 }
 
 // InstanceSet set instance setting for current operation,
 // but not for operations in callbacks,
 // like saving associations callback
-func (scope *Scope) InstanceSet(name string, value interface{}) *Scope {
+func (scope *Scope) InstanceSet(settingType uint64, value interface{}) *Scope {
 	if scope.instanceID <= 0 {
 		//gets the pointer of self and convert it to uint64 - it's unique enough, since no two scopes can share same address
 		scope.instanceID = *(*uint64)(unsafe.Pointer(&scope))
 	}
-	return scope.Set(fmt.Sprintf("%s%d", name, scope.instanceID), value)
+	return scope.Set(scope.instanceID+settingType, value)
 }
 
 // InstanceGet get instance setting from current operation
-func (scope *Scope) InstanceGet(name string) (interface{}, bool) {
+func (scope *Scope) InstanceGet(settingType uint64) (interface{}, bool) {
 	if scope.instanceID <= 0 {
 		//gets the pointer of self and convert it to uint64 - it's unique enough, since no two scopes can share same address
 		scope.instanceID = *(*uint64)(unsafe.Pointer(&scope))
 	}
-	return scope.Get(fmt.Sprintf("%s%d", name, scope.instanceID))
+	return scope.Get(scope.instanceID + settingType)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -216,9 +216,9 @@ func (scope *Scope) FieldByName(name string) (*StructField, bool) {
 // SetColumn to set the column's value, column could be field or field's name/dbname
 func (scope *Scope) SetColumn(column interface{}, value interface{}) error {
 	var updateAttrs = map[string]interface{}{}
-	if attrs, ok := scope.InstanceGet("gorm:update_attrs"); ok {
+	if attrs, ok := scope.InstanceGet(UPDATE_ATTRS_SETTING); ok {
 		updateAttrs = attrs.(map[string]interface{})
-		defer scope.InstanceSet("gorm:update_attrs", updateAttrs)
+		defer scope.InstanceSet(UPDATE_ATTRS_SETTING, updateAttrs)
 	}
 	//TODO : @Badu - make switch .(type)
 	if field, ok := column.(*StructField); ok {
@@ -322,7 +322,7 @@ func (scope *Scope) Begin() *Scope {
 			//TODO : @Badu - maybe the parent should do so, since it's owner of db.db
 			//parent db.db implements Exec(), Prepare(), Query() and QueryRow()
 			scope.con.sqli = interface{}(tx).(sqlInterf)
-			scope.InstanceSet("gorm:started_transaction", true)
+			scope.InstanceSet(STARTED_TX_SETTING, true)
 		}
 	}
 	return scope
@@ -330,7 +330,7 @@ func (scope *Scope) Begin() *Scope {
 
 // CommitOrRollback commit current transaction if no error happened, otherwise will rollback it
 func (scope *Scope) CommitOrRollback() *Scope {
-	if _, ok := scope.InstanceGet("gorm:started_transaction"); ok {
+	if _, ok := scope.InstanceGet(STARTED_TX_SETTING); ok {
 		if db, ok := scope.con.sqli.(sqlTx); ok {
 			if scope.HasError() {
 				//orm.db implements Commit() and Rollback() -> call Rollback()
@@ -345,9 +345,6 @@ func (scope *Scope) CommitOrRollback() *Scope {
 	return scope
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// moved here from model_struct.go
-////////////////////////////////////////////////////////////////////////////////
 // GetModelStruct get value's model struct, relationships based on struct and tag definition
 func (scope *Scope) GetModelStruct() *ModelStruct {
 	var modelStruct ModelStruct
@@ -652,7 +649,7 @@ func (scope *Scope) changeableField(field *StructField) bool {
 }
 
 func (scope *Scope) shouldSaveAssociations() bool {
-	if saveAssociations, ok := scope.Get("gorm:save_associations"); ok {
+	if saveAssociations, ok := scope.Get(SAVE_ASSOC_SETTING); ok {
 		if v, ok := saveAssociations.(bool); ok && !v {
 			return false
 		}
@@ -723,7 +720,7 @@ func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
 
 // getTableOptions return the table options string or an empty string if the table options does not exist
 func (scope *Scope) getTableOptions() string {
-	tableOptions, ok := scope.Get("gorm:table_options")
+	tableOptions, ok := scope.Get(TABLE_OPT_SETTING)
 	if !ok {
 		return ""
 	}
@@ -1386,7 +1383,7 @@ func (scope *Scope) createCallback() {
 				if field.IsNormal() {
 					if field.IsBlank() && field.HasDefaultValue() {
 						blankColumnsWithDefaultValue.add(scope.Quote(field.DBName))
-						scope.InstanceSet("gorm:blank_columns_with_default_value", blankColumnsWithDefaultValue)
+						scope.InstanceSet(BLANK_COLS_DEFAULT_SETTING, blankColumnsWithDefaultValue)
 					} else if !field.IsPrimaryKey() || !field.IsBlank() {
 						columns.add(scope.Quote(field.DBName))
 						placeholders.add(scope.Search.addToVars(field.Value.Interface()))
@@ -1410,7 +1407,7 @@ func (scope *Scope) createCallback() {
 			extraOption     string
 		)
 
-		if str, ok := scope.Get("gorm:insert_option"); ok {
+		if str, ok := scope.Get(INSERT_OPT_SETTING); ok {
 			extraOption = fmt.Sprint(str)
 		}
 
@@ -1463,7 +1460,7 @@ func (scope *Scope) createCallback() {
 
 // forceReloadAfterCreateCallback will reload columns that having default value, and set it back to current object
 func (scope *Scope) forceReloadAfterCreateCallback() {
-	if blankColumnsWithDefaultValue, ok := scope.InstanceGet("gorm:blank_columns_with_default_value"); ok {
+	if blankColumnsWithDefaultValue, ok := scope.InstanceGet(BLANK_COLS_DEFAULT_SETTING); ok {
 		sSlice, yes := blankColumnsWithDefaultValue.(StrSlice)
 		if !yes {
 			fmt.Errorf("ERROR in forceReloadAfterCreateCallback : blankColumnsWithDefaultValue IS NOT StrSlice!\n")
@@ -1581,9 +1578,9 @@ func (scope *Scope) saveAfterAssociationsCallback() {
 //============================================
 // assignUpdatingAttributesCallback assign updating attributes to model
 func (scope *Scope) assignUpdatingAttributesCallback() {
-	if attrs, ok := scope.InstanceGet("gorm:update_interface"); ok {
+	if attrs, ok := scope.InstanceGet(UPDATE_INTERF_SETTING); ok {
 		if updateMaps, hasUpdate := scope.updatedAttrsWithValues(attrs); hasUpdate {
-			scope.InstanceSet("gorm:update_attrs", updateMaps)
+			scope.InstanceSet(UPDATE_ATTRS_SETTING, updateMaps)
 		} else {
 			scope.SkipLeft()
 		}
@@ -1592,7 +1589,7 @@ func (scope *Scope) assignUpdatingAttributesCallback() {
 
 // beforeUpdateCallback will invoke `BeforeSave`, `BeforeUpdate` method before updating
 func (scope *Scope) beforeUpdateCallback() {
-	if _, ok := scope.Get("gorm:update_column"); !ok {
+	if _, ok := scope.Get(UPDATE_COLUMN_SETTING); !ok {
 		if !scope.HasError() {
 			scope.CallMethod("BeforeSave")
 		}
@@ -1604,7 +1601,7 @@ func (scope *Scope) beforeUpdateCallback() {
 
 // updateTimeStampForUpdateCallback will set `UpdatedAt` when updating
 func (scope *Scope) updateTimeStampForUpdateCallback() {
-	if _, ok := scope.Get("gorm:update_column"); !ok {
+	if _, ok := scope.Get(UPDATE_COLUMN_SETTING); !ok {
 		scope.SetColumn("UpdatedAt", NowFunc())
 	}
 }
@@ -1614,7 +1611,7 @@ func (scope *Scope) updateCallback() {
 	if !scope.HasError() {
 		var sqls []string
 
-		if updateAttrs, ok := scope.InstanceGet("gorm:update_attrs"); ok {
+		if updateAttrs, ok := scope.InstanceGet(UPDATE_ATTRS_SETTING); ok {
 			for column, value := range updateAttrs.(map[string]interface{}) {
 				sqls = append(sqls, fmt.Sprintf("%v = %v", scope.Quote(column), scope.Search.addToVars(value)))
 			}
@@ -1644,7 +1641,7 @@ func (scope *Scope) updateCallback() {
 		}
 
 		var extraOption string
-		if str, ok := scope.Get("gorm:update_option"); ok {
+		if str, ok := scope.Get(UPDATE_OPT_SETTING); ok {
 			extraOption = fmt.Sprint(str)
 		}
 
@@ -1662,7 +1659,7 @@ func (scope *Scope) updateCallback() {
 
 // afterUpdateCallback will invoke `AfterUpdate`, `AfterSave` method after updating
 func (scope *Scope) afterUpdateCallback() {
-	if _, ok := scope.Get("gorm:update_column"); !ok {
+	if _, ok := scope.Get(UPDATE_COLUMN_SETTING); !ok {
 		if !scope.HasError() {
 			scope.CallMethod("AfterUpdate")
 		}
@@ -1687,13 +1684,13 @@ func (scope *Scope) queryCallback() {
 		results        = scope.IndirectValue()
 	)
 
-	if orderBy, ok := scope.Get("gorm:order_by_primary_key"); ok {
+	if orderBy, ok := scope.Get(ORDER_BY_PK_SETTING); ok {
 		if primaryField := scope.PK(); primaryField != nil {
 			scope.Search.Order(fmt.Sprintf("%v.%v %v", scope.QuotedTableName(), scope.Quote(primaryField.DBName), orderBy))
 		}
 	}
 
-	if value, ok := scope.Get("gorm:query_destination"); ok {
+	if value, ok := scope.Get(QUERY_DEST_SETTING); ok {
 		results = reflect.Indirect(reflect.ValueOf(value))
 	}
 
@@ -1715,7 +1712,7 @@ func (scope *Scope) queryCallback() {
 
 	if !scope.HasError() {
 		scope.con.RowsAffected = 0
-		if str, ok := scope.Get("gorm:query_option"); ok {
+		if str, ok := scope.Get(QUERY_OPT_SETTING); ok {
 			scope.Search.SQL += addExtraSpaceIfExist(fmt.Sprint(str))
 		}
 
@@ -1849,7 +1846,7 @@ func (scope *Scope) beforeDeleteCallback() {
 func (scope *Scope) deleteCallback() {
 	if !scope.HasError() {
 		var extraOption string
-		if str, ok := scope.Get("gorm:delete_option"); ok {
+		if str, ok := scope.Get(DELETE_OPT_SETTING); ok {
 			extraOption = fmt.Sprint(str)
 		}
 

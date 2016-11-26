@@ -1509,11 +1509,11 @@ func TestHstore(t *testing.T) {
 
 func TestSetAndGet(t *testing.T) {
 	t.Log("20) TestSetAndGet")
-	if value, ok := TestDB.Set("hello", "world").Get("hello"); !ok {
-		t.Errorf("Should be able to get setting after set")
+	if value, ok := TestDB.Set("gorm:save_associations", true).Get("gorm:save_associations"); !ok {
+		t.Errorf("Should be able to get setting 'gorm:save_associations' after set")
 	} else {
-		if value.(string) != "world" {
-			t.Errorf("Setted value should not be changed")
+		if !value.(bool) {
+			t.Errorf("Setted value should be TRUE")
 		}
 	}
 

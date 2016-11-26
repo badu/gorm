@@ -10,22 +10,43 @@ import (
 	"time"
 )
 
-// Set set setting by name, which could be used in callbacks, will clone a new db, and update its setting
-func (con *DBCon) Set(name string, value interface{}) *DBCon {
-	return con.clone(false, false).InstanceSet(name, value)
+func (con *DBCon) set(settintType uint64, value interface{}) *DBCon {
+	return con.clone(false, false).instanceSet(settintType, value)
 }
 
 // InstantSet instant set setting, will affect current db
-func (con *DBCon) InstanceSet(name string, value interface{}) *DBCon {
-	con.settings[name] = value
+func (con *DBCon) instanceSet(settintType uint64, value interface{}) *DBCon {
+	con.settings[settintType] = value
 	return con
+}
+
+func (con *DBCon) get(settingType uint64) (interface{}, bool) {
+	value, ok := con.settings[settingType]
+	return value, ok
+}
+
+// Set set setting by name, which could be used in callbacks, will clone a new db, and update its setting
+func (con *DBCon) Set(name string, value interface{}) *DBCon {
+	clone := con.clone(false, false)
+	settingType, ok := settingsMap[name]
+	if ok {
+		clone.instanceSet(settingType, value)
+	} else {
+		clone.AddError(fmt.Errorf("Setting %q not declared. Can't set!", name))
+	}
+	return clone
 }
 
 // Get get setting by name
 func (con *DBCon) Get(name string) (interface{}, bool) {
-	value, ok := con.settings[name]
-	return value, ok
+	settingType, has := settingsMap[name]
+	if has {
+		value, ok := con.get(settingType)
+		return value, ok
+	}
+	return nil, false
 }
+
 ////////////////////////////////////////////////////////////////////////////////
 // "unscoped" methods
 ////////////////////////////////////////////////////////////////////////////////
@@ -251,7 +272,7 @@ func (con *DBCon) Scopes(funcs ...DBConFunc) *DBCon {
 func (con *DBCon) First(out interface{}, where ...interface{}) *DBCon {
 	newScope := con.clone(false, false).NewScope(out)
 	newScope.Search.Limit(1)
-	newScope.Set("gorm:order_by_primary_key", "ASC")
+	newScope.Set(ORDER_BY_PK_SETTING, "ASC")
 	if len(where) > 0 {
 		newScope.Search.Where(where[0], where[1:]...)
 	}
@@ -262,7 +283,7 @@ func (con *DBCon) First(out interface{}, where ...interface{}) *DBCon {
 func (con *DBCon) Last(out interface{}, where ...interface{}) *DBCon {
 	newScope := con.clone(false, false).NewScope(out)
 	newScope.Search.Limit(1)
-	newScope.Set("gorm:order_by_primary_key", "DESC")
+	newScope.Set(ORDER_BY_PK_SETTING, "DESC")
 	if len(where) > 0 {
 		newScope.Search.Where(where[0], where[1:]...)
 	}
@@ -280,7 +301,7 @@ func (con *DBCon) Find(out interface{}, where ...interface{}) *DBCon {
 
 // Scan scan value to a struct
 func (con *DBCon) Scan(dest interface{}) *DBCon {
-	return con.clone(false, false).NewScope(con.Value).Set("gorm:query_destination", dest).callCallbacks(con.parent.callback.queries).con
+	return con.clone(false, false).NewScope(con.Value).Set(QUERY_DEST_SETTING, dest).callCallbacks(con.parent.callback.queries).con
 }
 
 // Row return `*sql.Row` with given conditions
@@ -365,7 +386,7 @@ func (con *DBCon) FirstOrCreate(out interface{}, where ...interface{}) *DBCon {
 		scope := c.NewScope(out)
 		args := scope.Search.getFirst(assign_attrs)
 		if args != nil {
-			scope.InstanceSet("gorm:update_interface", args.args)
+			scope.InstanceSet(UPDATE_INTERF_SETTING, args.args)
 		} else {
 			//TODO : @Badu - warning ?
 		}
@@ -399,8 +420,8 @@ func (con *DBCon) Update(attrs ...interface{}) *DBCon {
 // Updates update attributes with callbacks
 func (con *DBCon) Updates(values interface{}, ignoreProtectedAttrs ...bool) *DBCon {
 	return con.clone(false, false).NewScope(con.Value).
-		Set("gorm:ignore_protected_attrs", len(ignoreProtectedAttrs) > 0).
-		InstanceSet("gorm:update_interface", values).
+		Set(IGNORE_PROTEC_SETTING, len(ignoreProtectedAttrs) > 0).
+		InstanceSet(UPDATE_INTERF_SETTING, values).
 		callCallbacks(con.parent.callback.updates).con
 }
 
@@ -428,9 +449,9 @@ func (con *DBCon) UpdateColumn(attrs ...interface{}) *DBCon {
 // UpdateColumns update attributes without callbacks
 func (con *DBCon) UpdateColumns(values interface{}) *DBCon {
 	return con.clone(false, false).NewScope(con.Value).
-		Set("gorm:update_column", true).
-		Set("gorm:save_associations", false).
-		InstanceSet("gorm:update_interface", values).
+		Set(UPDATE_COLUMN_SETTING, true).
+		Set(SAVE_ASSOC_SETTING, false).
+		InstanceSet(UPDATE_INTERF_SETTING, values).
 		callCallbacks(con.parent.callback.updates).con
 }
 
@@ -718,6 +739,7 @@ func (con *DBCon) AddError(err error) error {
 	}
 	return err
 }
+
 // GetErrors get happened errors from the db
 func (con *DBCon) GetErrors() []error {
 	if errs, ok := con.Error.(errorsInterface); ok {
@@ -738,7 +760,7 @@ func (con *DBCon) clone(withoutSettings bool, withoutSearch bool) *DBCon {
 		parent:   con.parent,
 		logger:   con.logger,
 		logMode:  con.logMode,
-		settings: map[string]interface{}{},
+		settings: map[uint64]interface{}{},
 		Value:    con.Value,
 		Error:    con.Error,
 	}
@@ -764,7 +786,7 @@ func (con *DBCon) toLog(v ...interface{}) {
 func (con *DBCon) warnLog(v ...interface{}) {
 	if con != nil {
 		con.toLog(append([]interface{}{"warn", fileWithLineNum()}, v...)...)
-	}else{
+	} else {
 		fmt.Printf("Connection is NIL!")
 	}
 }
