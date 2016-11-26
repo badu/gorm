@@ -10,6 +10,22 @@ import (
 	"time"
 )
 
+// Set set setting by name, which could be used in callbacks, will clone a new db, and update its setting
+func (con *DBCon) Set(name string, value interface{}) *DBCon {
+	return con.clone(false, false).InstanceSet(name, value)
+}
+
+// InstantSet instant set setting, will affect current db
+func (con *DBCon) InstanceSet(name string, value interface{}) *DBCon {
+	con.settings[name] = value
+	return con
+}
+
+// Get get setting by name
+func (con *DBCon) Get(name string) (interface{}, bool) {
+	value, ok := con.settings[name]
+	return value, ok
+}
 ////////////////////////////////////////////////////////////////////////////////
 // "unscoped" methods
 ////////////////////////////////////////////////////////////////////////////////
@@ -660,23 +676,6 @@ func (con *DBCon) Association(column string) *Association {
 	}
 
 	return &Association{Error: err}
-}
-
-// Set set setting by name, which could be used in callbacks, will clone a new db, and update its setting
-func (con *DBCon) Set(name string, value interface{}) *DBCon {
-	return con.clone(false, false).InstantSet(name, value)
-}
-
-// InstantSet instant set setting, will affect current db
-func (con *DBCon) InstantSet(name string, value interface{}) *DBCon {
-	con.settings[name] = value
-	return con
-}
-
-// Get get setting by name
-func (con *DBCon) Get(name string) (value interface{}, ok bool) {
-	value, ok = con.settings[name]
-	return
 }
 
 // SetJoinTableHandler set a model's join table handler for a relation

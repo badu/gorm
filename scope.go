@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unsafe"
 )
 
 // IndirectValue return scope's reflect value's indirect value
@@ -36,7 +37,7 @@ func (scope *Scope) New(value interface{}) *Scope {
 
 // Set set value by name
 func (scope *Scope) Set(name string, value interface{}) *Scope {
-	scope.con.InstantSet(name, value)
+	scope.con.InstanceSet(name, value)
 	return scope
 }
 
@@ -45,25 +46,24 @@ func (scope *Scope) Get(name string) (interface{}, bool) {
 	return scope.con.Get(name)
 }
 
-// InstanceID get InstanceID for scope
-func (scope *Scope) InstanceID() string {
-	if scope.instanceID == "" {
-		//TODO : @Badu - aren't there all sort of better ways???
-		scope.instanceID = fmt.Sprintf("%v%v", &scope, &scope.con)
-	}
-	return scope.instanceID
-}
-
 // InstanceSet set instance setting for current operation,
 // but not for operations in callbacks,
 // like saving associations callback
 func (scope *Scope) InstanceSet(name string, value interface{}) *Scope {
-	return scope.Set(name+scope.InstanceID(), value)
+	if scope.instanceID <= 0 {
+		//gets the pointer of self and convert it to uint64 - it's unique enough, since no two scopes can share same address
+		scope.instanceID = *(*uint64)(unsafe.Pointer(&scope))
+	}
+	return scope.Set(fmt.Sprintf("%s%d", name, scope.instanceID), value)
 }
 
 // InstanceGet get instance setting from current operation
 func (scope *Scope) InstanceGet(name string) (interface{}, bool) {
-	return scope.Get(name + scope.InstanceID())
+	if scope.instanceID <= 0 {
+		//gets the pointer of self and convert it to uint64 - it's unique enough, since no two scopes can share same address
+		scope.instanceID = *(*uint64)(unsafe.Pointer(&scope))
+	}
+	return scope.Get(fmt.Sprintf("%s%d", name, scope.instanceID))
 }
 
 ////////////////////////////////////////////////////////////////////////////////

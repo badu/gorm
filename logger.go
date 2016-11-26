@@ -97,7 +97,7 @@ func (logger Logger) Print(values ...interface{}) {
 			}
 
 			var formattedValuesLength = len(formattedValues)
-			for index, value := range sqlRegexp.Split(values[3].(string), -1) {
+			for index, value := range regexp.MustCompile(`(\$\d+)|\?`).Split(values[3].(string), -1) {
 				sql += value
 				if index < formattedValuesLength {
 					sql += formattedValues[index]

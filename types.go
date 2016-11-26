@@ -5,7 +5,6 @@ import (
 	"log"
 	"os"
 	"reflect"
-	"regexp"
 	"time"
 )
 
@@ -15,9 +14,26 @@ const (
 	TAG_SQL         string = "sql"
 	TAG_GORM        string = "gorm"
 	DEFAULT_ID_NAME string = "id"
+
+	UPDATE_COLUMN_SETTING      gormSetting = 1
+	INSERT_OPT_SETTING         gormSetting = 2
+	DELETE_OPT_SETTING         gormSetting = 3
+	ORDER_BY_PK_SETTING        gormSetting = 4
+	TABLE_OPT_SETTING          gormSetting = 5
+	QUERY_DEST_SETTING         gormSetting = 6
+	QUERY_OPT_SETTING          gormSetting = 7
+	SAVE_ASSOC_SETTING         gormSetting = 8
+	UPDATE_OPT_SETTING         gormSetting = 9
+	UPDATE_INTERF_SETTING      gormSetting = 10
+	IGNORE_PROTEC_SETTING      gormSetting = 11
+	UPDATE_ATTRS_SETTING       gormSetting = 12
+	STARTED_TX_SETTING         gormSetting = 13
+	BLANK_COLS_DEFAULT_SETTING gormSetting = 14
 )
 
 type (
+	gormSetting uint64
+
 	Uint8Map map[uint8]string
 	//since there is no other way of embedding a map
 	TagSettings struct {
@@ -26,16 +42,13 @@ type (
 	// StructField model field's struct definition
 	//TODO : @Badu - a StructField should support multiple relationships
 	StructField struct {
-		flags  uint16
-		DBName string
-		Names  []string
-
-		tagSettings TagSettings
-
-		Struct reflect.StructField
-		Value  reflect.Value
-		Type   reflect.Type
-
+		flags        uint16
+		DBName       string
+		Names        []string
+		tagSettings  TagSettings
+		Struct       reflect.StructField
+		Value        reflect.Value
+		Type         reflect.Type
 		Relationship *Relationship
 	}
 
@@ -67,27 +80,21 @@ type (
 
 	// ModelStruct model definition
 	ModelStruct struct {
-		//keeper of the fields, a safe map (aliases) and slice
-		fieldsMap fieldsMap
-		//collected from fields.fields, so we won't iterate all the time
-		cachedPrimaryFields StructFields
+		fieldsMap           fieldsMap    //keeper of the fields, a safe map (aliases) and slice
+		cachedPrimaryFields StructFields //collected from fields.fields, so we won't iterate all the time
 		ModelType           reflect.Type
 		defaultTableName    string
 	}
 
 	// Scope contain current operation's information when you perform any operation on the database
 	Scope struct {
-		con *DBCon
-
-		Search *Search
-		Value  interface{}
+		con        *DBCon
+		Search     *Search
+		instanceID uint64
+		fields     *StructFields //cached version of cloned struct fields
+		skipLeft   bool          //skip left remaining callbacks
+		Value      interface{}
 		//TODO : @Badu - add Type of Value here to avoid "so much reflection" effect
-		//TODO : @Badu - use instanceID as timestamp + level or something
-		instanceID string
-		//cached version of cloned struct fields
-		fields *StructFields
-		//skip left remaining callbacks
-		skipLeft bool
 	}
 
 	sqlConditionType uint16
@@ -293,6 +300,8 @@ type (
 		// CurrentDatabase return current database name
 		CurrentDatabase() string
 	}
+
+
 )
 
 var (
@@ -315,5 +324,20 @@ var (
 
 	defaultLogger = Logger{log.New(os.Stdout, "\r\n", 0)}
 
-	sqlRegexp = regexp.MustCompile(`(\$\d+)|\?`)
+	settingsMap = map[string]gormSetting{
+		"gorm:update_column":                    UPDATE_COLUMN_SETTING,
+		"gorm:insert_option":                    INSERT_OPT_SETTING,
+		"gorm:update_option":                    UPDATE_OPT_SETTING,
+		"gorm:delete_option":                    DELETE_OPT_SETTING,
+		"gorm:table_options":                    TABLE_OPT_SETTING,
+		"gorm:query_option":                     QUERY_OPT_SETTING,
+		"gorm:order_by_primary_key":             ORDER_BY_PK_SETTING,
+		"gorm:query_destination":                QUERY_DEST_SETTING,
+		"gorm:save_associations":                SAVE_ASSOC_SETTING,
+		"gorm:update_interface":                 UPDATE_INTERF_SETTING,
+		"gorm:ignore_protected_attrs":           IGNORE_PROTEC_SETTING,
+		"gorm:update_attrs":                     UPDATE_ATTRS_SETTING,
+		"gorm:started_transaction":              STARTED_TX_SETTING,
+		"gorm:blank_columns_with_default_value": BLANK_COLS_DEFAULT_SETTING,
+	}
 )
