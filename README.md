@@ -53,6 +53,7 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
 - [x] Scope's instanceID is now uint64 and holds the pointer address of that Scope 
 - [x] replace current method of keeping data Set / SetInstance / Get
 - [x] switch back to some inline function : getColumnAsArray, generatePreloadDBWithConditions, toQueryValues, toQueryMarks, toQueryCondition, QuoteIfPossible, Quote
+- [x] moved Value from DBCon struct to Search struct (temporary)
 
 ## 25.11.2016
 - [x] utils, removed toSearchableMap

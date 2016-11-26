@@ -109,6 +109,7 @@ type (
 		tableName  string
 		SQL        string
 		SQLVars    []interface{}
+		Value      interface{} //TODO : @Badu - moved here from DBCon - in the end should use Scope's Value
 	}
 
 	DBConFunc func(*DBCon) *DBCon
@@ -118,15 +119,12 @@ type (
 		parent   *DBCon
 		dialect  Dialect
 		settings map[uint64]interface{}
-		//TODO : @Badu - both have Value and search to go since they are present in Scope
-		Value    interface{}
-		search       *Search
-
+		//TODO : @Badu - search have to go since they are present in Scope
+		search *Search
 
 		Error error
 
-		sqli     sqlInterf
-
+		sqli sqlInterf
 
 		RowsAffected int64
 

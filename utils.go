@@ -252,6 +252,19 @@ func convertInterfaceToMap(values interface{}, withIgnoredField bool) map[string
 	}
 	return attrs
 }
+//using inline advantage
+func newCon(con *DBCon) *DBCon {
+	clone := DBCon{
+		sqli:     con.sqli,
+		parent:   con.parent,
+		logger:   con.logger,
+		logMode:  con.logMode,
+		settings: map[uint64]interface{}{},
+		Error:    con.Error,
+	}
+	return &clone
+}
+
 // Open initialize a new db connection, need to import driver first, e.g:
 //
 //     import _ "github.com/go-sql-driver/mysql"

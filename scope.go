@@ -23,7 +23,7 @@ func (scope *Scope) IndirectValue() reflect.Value {
 // New create a new Scope without search information
 func (scope *Scope) NewScope(value interface{}) *Scope {
 	return &Scope{
-		con:    scope.con.cloneCon(true),
+		con:    newCon(scope.con),
 		Search: &Search{Conditions: make(SqlConditions)},
 		Value:  value}
 }
@@ -357,7 +357,7 @@ func (scope *Scope) callMethod(methodName string, reflectValue reflect.Value) {
 		case func(*Scope):
 			method(scope)
 		case func(*DBCon):
-			newCon := scope.con.cloneCon(true)
+			newCon := newCon(scope.con)
 			method(newCon)
 			scope.Err(newCon.Error)
 		case func() error:
@@ -365,7 +365,7 @@ func (scope *Scope) callMethod(methodName string, reflectValue reflect.Value) {
 		case func(*Scope) error:
 			scope.Err(method(scope))
 		case func(*DBCon) error:
-			newCon := scope.con.cloneCon(true)
+			newCon := newCon(scope.con)
 			scope.Err(method(newCon))
 			scope.Err(newCon.Error)
 		default:
@@ -685,9 +685,9 @@ func (scope *Scope) createJoinTable(field *StructField) {
 				}
 			}
 
-			scope.Err(scope.con.cloneCon(true).Exec(fmt.Sprintf("CREATE TABLE %v (%v, PRIMARY KEY (%v)) %s", Quote(joinTable, dialect), strings.Join(sqlTypes, ","), strings.Join(primaryKeys, ","), scope.getTableOptions())).Error)
+			scope.Err(newCon(scope.con).Exec(fmt.Sprintf("CREATE TABLE %v (%v, PRIMARY KEY (%v)) %s", Quote(joinTable, dialect), strings.Join(sqlTypes, ","), strings.Join(primaryKeys, ","), scope.getTableOptions())).Error)
 		}
-		scope.con.cloneCon(true).Table(joinTable).AutoMigrate(joinTableHandler)
+		newCon(scope.con).Table(joinTable).AutoMigrate(joinTableHandler)
 	}
 }
 
@@ -834,11 +834,11 @@ func (scope *Scope) autoIndex() *Scope {
 	}
 
 	for name, columns := range indexes {
-		scope.con.cloneCon(true).Model(scope.Value).AddIndex(name, columns...)
+		newCon(scope.con).Model(scope.Value).AddIndex(name, columns...)
 	}
 
 	for name, columns := range uniqueIndexes {
-		scope.con.cloneCon(true).Model(scope.Value).AddUniqueIndex(name, columns...)
+		newCon(scope.con).Model(scope.Value).AddUniqueIndex(name, columns...)
 	}
 
 	return scope
@@ -874,7 +874,7 @@ func (scope *Scope) handleHasOnePreload(field *StructField, conditions []interfa
 	}
 
 	// preload conditions
-	preloadDB, preloadConditions := generatePreloadDBWithConditions(scope.con.cloneCon(true), conditions)
+	preloadDB, preloadConditions := generatePreloadDBWithConditions(newCon(scope.con), conditions)
 	dialect := scope.con.parent.dialect
 	// find relations
 	query := fmt.Sprintf(
@@ -934,7 +934,7 @@ func (scope *Scope) handleHasManyPreload(field *StructField, conditions []interf
 	}
 
 	// preload conditions
-	preloadDB, preloadConditions := generatePreloadDBWithConditions(scope.con.cloneCon(true), conditions)
+	preloadDB, preloadConditions := generatePreloadDBWithConditions(newCon(scope.con), conditions)
 	dialect := scope.con.parent.dialect
 	// find relations
 	query := fmt.Sprintf(
@@ -993,7 +993,7 @@ func (scope *Scope) handleBelongsToPreload(field *StructField, conditions []inte
 	relation := field.Relationship
 
 	// preload conditions
-	preloadDB, preloadConditions := generatePreloadDBWithConditions(scope.con.cloneCon(true), conditions)
+	preloadDB, preloadConditions := generatePreloadDBWithConditions(newCon(scope.con), conditions)
 
 	// get relations's primary keys
 	primaryKeys := getColumnAsArray(relation.ForeignFieldNames, scope.Value)
@@ -1057,7 +1057,7 @@ func (scope *Scope) handleManyToManyPreload(field *StructField, conditions []int
 	}
 
 	// preload conditions
-	preloadDB, preloadConditions := generatePreloadDBWithConditions(scope.con.cloneCon(true), conditions)
+	preloadDB, preloadConditions := generatePreloadDBWithConditions(newCon(scope.con), conditions)
 
 	// generate query with join table
 	newScope := scope.NewScope(reflect.New(fieldType).Interface())
@@ -1277,7 +1277,7 @@ func (scope *Scope) forceReloadAfterCreateCallback() {
 		if !yes {
 			fmt.Errorf("ERROR in forceReloadAfterCreateCallback : blankColumnsWithDefaultValue IS NOT StrSlice!\n")
 		}
-		db := scope.con.cloneCon(true).Table(scope.TableName()).Select(sSlice.slice())
+		db := newCon(scope.con).Table(scope.TableName()).Select(sSlice.slice())
 		for _, field := range scope.Fields() {
 			if field.IsPrimaryKey() && !field.IsBlank() {
 				db = db.Where(fmt.Sprintf("%v = ?", field.DBName), field.Value.Interface())
@@ -1309,7 +1309,7 @@ func (scope *Scope) saveBeforeAssociationsCallback() {
 		if scope.changeableField(field) && !field.IsBlank() && !field.IsIgnored() {
 			if ok, relationship := scope.saveFieldAsAssociation(field); ok && relationship.Kind == BELONGS_TO {
 				fieldValue := field.Value.Addr().Interface()
-				scope.Err(scope.con.cloneCon(true).Save(fieldValue).Error)
+				scope.Err(newCon(scope.con).Save(fieldValue).Error)
 				if relationship.ForeignFieldNames.len() != 0 {
 					// set value's foreign key
 					for idx, fieldName := range relationship.ForeignFieldNames {
@@ -1338,7 +1338,7 @@ func (scope *Scope) saveAfterAssociationsCallback() {
 				case reflect.Slice:
 					for i := 0; i < value.Len(); i++ {
 						//TODO : @Badu - cloneCon without copy, then NewScope which clone's con - but with copy
-						newCon := scope.con.cloneCon(true)
+						newCon := newCon(scope.con)
 						elem := value.Index(i).Addr().Interface()
 						newScope := newCon.NewScope(elem)
 
@@ -1379,7 +1379,7 @@ func (scope *Scope) saveAfterAssociationsCallback() {
 					if relationship.PolymorphicType != "" {
 						scope.Err(newScope.SetColumn(relationship.PolymorphicType, relationship.PolymorphicValue))
 					}
-					scope.Err(scope.con.cloneCon(true).Save(elem).Error)
+					scope.Err(newCon(scope.con).Save(elem).Error)
 				}
 			}
 		}

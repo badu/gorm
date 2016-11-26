@@ -11,7 +11,7 @@ import (
 )
 
 func (con *DBCon) set(settintType uint64, value interface{}) *DBCon {
-	return con.cloneCon(false).instanceSet(settintType, value)
+	return con.clone().instanceSet(settintType, value)
 }
 
 // InstantSet instant set setting, will affect current db
@@ -27,7 +27,7 @@ func (con *DBCon) get(settingType uint64) (interface{}, bool) {
 
 // Set set setting by name, which could be used in callbacks, will clone a new db, and update its setting
 func (con *DBCon) Set(name string, value interface{}) *DBCon {
-	clone := con.cloneCon(false)
+	clone := con.clone()
 	settingType, ok := settingsMap[name]
 	if ok {
 		clone.instanceSet(settingType, value)
@@ -53,7 +53,7 @@ func (con *DBCon) Get(name string) (interface{}, bool) {
 // Where return a new relation, filter records with given conditions, accepts `map`, `struct` or `string` as conditions
 // Note : no scope
 func (con *DBCon) Where(query interface{}, args ...interface{}) *DBCon {
-	clone := con.cloneCon(false)
+	clone := con.clone()
 	clone.search.Where(query, args...)
 	return clone
 }
@@ -61,7 +61,7 @@ func (con *DBCon) Where(query interface{}, args ...interface{}) *DBCon {
 // Or filter records that match before conditions or this one, similar to `Where`
 // Note : no scope
 func (con *DBCon) Or(query interface{}, args ...interface{}) *DBCon {
-	clone := con.cloneCon(false)
+	clone := con.clone()
 	clone.search.Or(query, args...)
 	return clone
 }
@@ -69,7 +69,7 @@ func (con *DBCon) Or(query interface{}, args ...interface{}) *DBCon {
 // Not filter records that don't match current conditions, similar to `Where`
 // Note : no scope
 func (con *DBCon) Not(query interface{}, args ...interface{}) *DBCon {
-	clone := con.cloneCon(false)
+	clone := con.clone()
 	clone.search.Not(query, args...)
 	return clone
 }
@@ -77,7 +77,7 @@ func (con *DBCon) Not(query interface{}, args ...interface{}) *DBCon {
 // Limit specify the number of records to be retrieved
 //Note : no scope
 func (con *DBCon) Limit(limit interface{}) *DBCon {
-	clone := con.cloneCon(false)
+	clone := con.clone()
 	clone.search.Limit(limit)
 	return clone
 }
@@ -85,7 +85,7 @@ func (con *DBCon) Limit(limit interface{}) *DBCon {
 // Offset specify the number of records to skip before starting to return the records
 // Note : no scope
 func (con *DBCon) Offset(offset interface{}) *DBCon {
-	clone := con.cloneCon(false)
+	clone := con.clone()
 	clone.search.Offset(offset)
 	return clone
 }
@@ -96,7 +96,7 @@ func (con *DBCon) Offset(offset interface{}) *DBCon {
 //     db.Order(gorm.Expr("name = ? DESC", "first")) // sql expression
 // Note : no scope
 func (con *DBCon) Order(value interface{}, reorder ...bool) *DBCon {
-	clone := con.cloneCon(false)
+	clone := con.clone()
 	clone.search.Order(value, reorder...)
 	return clone
 }
@@ -105,7 +105,7 @@ func (con *DBCon) Order(value interface{}, reorder ...bool) *DBCon {
 // When creating/updating, specify fields that you want to save to database
 // Note : no scope
 func (con *DBCon) Select(query interface{}, args ...interface{}) *DBCon {
-	clone := con.cloneCon(false)
+	clone := con.clone()
 	clone.search.Select(query, args...)
 	return clone
 }
@@ -113,7 +113,7 @@ func (con *DBCon) Select(query interface{}, args ...interface{}) *DBCon {
 // Omit specify fields that you want to ignore when saving to database for creating, updating
 // Note : no scope
 func (con *DBCon) Omit(columns ...string) *DBCon {
-	clone := con.cloneCon(false)
+	clone := con.clone()
 	clone.search.Omit(columns...)
 	return clone
 }
@@ -121,7 +121,7 @@ func (con *DBCon) Omit(columns ...string) *DBCon {
 // Group specify the group method on the find
 // Note : no scope
 func (con *DBCon) Group(query string) *DBCon {
-	clone := con.cloneCon(false)
+	clone := con.clone()
 	clone.search.Group(query)
 	return clone
 }
@@ -129,7 +129,7 @@ func (con *DBCon) Group(query string) *DBCon {
 // Having specify HAVING conditions for GROUP BY
 // Note : no scope
 func (con *DBCon) Having(query string, values ...interface{}) *DBCon {
-	clone := con.cloneCon(false)
+	clone := con.clone()
 	clone.search.Having(query, values...)
 	return clone
 }
@@ -138,7 +138,7 @@ func (con *DBCon) Having(query string, values ...interface{}) *DBCon {
 //     db.Joins("JOIN emails ON emails.user_id = users.id AND emails.email = ?", "user@example.org").Find(&user)
 //Note:no scope
 func (con *DBCon) Joins(query string, args ...interface{}) *DBCon {
-	clone := con.cloneCon(false)
+	clone := con.clone()
 	clone.search.Joins(query, args...)
 	return clone
 }
@@ -146,7 +146,7 @@ func (con *DBCon) Joins(query string, args ...interface{}) *DBCon {
 // Unscoped return all record including deleted record, refer Soft Delete
 // Note : no scope (as the name says)
 func (con *DBCon) Unscoped() *DBCon {
-	clone := con.cloneCon(false)
+	clone := con.clone()
 	clone.search.setUnscoped()
 	return clone
 }
@@ -154,7 +154,7 @@ func (con *DBCon) Unscoped() *DBCon {
 // Attrs initialize struct with argument if record not found with `FirstOrInit` or `FirstOrCreate`
 // Note : no scope
 func (con *DBCon) Attrs(attrs ...interface{}) *DBCon {
-	clone := con.cloneCon(false)
+	clone := con.clone()
 	clone.search.Attrs(attrs...)
 	return clone
 }
@@ -162,7 +162,7 @@ func (con *DBCon) Attrs(attrs ...interface{}) *DBCon {
 // Assign assign result with argument regardless it is found or not with `FirstOrInit` or `FirstOrCreate`
 // Note : no scope
 func (con *DBCon) Assign(attrs ...interface{}) *DBCon {
-	clone := con.cloneCon(false)
+	clone := con.clone()
 	clone.search.Assign(attrs...)
 	return clone
 }
@@ -171,7 +171,7 @@ func (con *DBCon) Assign(attrs ...interface{}) *DBCon {
 //    db.Raw("SELECT name, age FROM users WHERE name = ?", 3).Scan(&result)
 // Note : no scope
 func (con *DBCon) Raw(sql string, values ...interface{}) *DBCon {
-	clone := con.cloneCon(false)
+	clone := con.clone()
 	clone.search.SetRaw().Where(sql, values...)
 	return clone
 }
@@ -180,7 +180,7 @@ func (con *DBCon) Raw(sql string, values ...interface{}) *DBCon {
 //    db.Preload("Orders", "state NOT IN (?)", "cancelled").Find(&users)
 // Note : no scope
 func (con *DBCon) Preload(column string, conditions ...interface{}) *DBCon {
-	clone := con.cloneCon(false)
+	clone := con.clone()
 	clone.search.Preload(column, conditions...)
 	return clone
 }
@@ -206,8 +206,8 @@ func (con *DBCon) Dialect() Dialect {
 // NewScope create a scope for current operation
 func (con *DBCon) NewScope(value interface{}) *Scope {
 	//TODO : @Badu - if NewScope of Scope would be the same with this, we fail
-	conClone := con.cloneCon(false)
-	conClone.Value = value
+	conClone := con.clone()
+	conClone.search.Value = value
 	//TODO : @Badu - this is the point where connection passes over the search to scope
 	return &Scope{con: conClone, Search: conClone.search.Clone(), Value: value}
 }
@@ -298,23 +298,23 @@ func (con *DBCon) Find(out interface{}, where ...interface{}) *DBCon {
 
 // Scan scan value to a struct
 func (con *DBCon) Scan(dest interface{}) *DBCon {
-	return con.NewScope(con.Value).Set(QUERY_DEST_SETTING, dest).callCallbacks(con.parent.callback.queries).con
+	return con.NewScope(con.search.Value).Set(QUERY_DEST_SETTING, dest).callCallbacks(con.parent.callback.queries).con
 }
 
 // Row return `*sql.Row` with given conditions
 func (con *DBCon) Row() *sql.Row {
-	return con.NewScope(con.Value).row()
+	return con.NewScope(con.search.Value).row()
 }
 
 // Rows return `*sql.Rows` with given conditions
 func (con *DBCon) Rows() (*sql.Rows, error) {
-	return con.NewScope(con.Value).rows()
+	return con.NewScope(con.search.Value).rows()
 }
 
 // ScanRows scan `*sql.Rows` to give struct
 func (con *DBCon) ScanRows(rows *sql.Rows, result interface{}) error {
 	var (
-		clone        = con.cloneCon(false)
+		clone        = con.clone()
 		scope        = clone.NewScope(result)
 		columns, err = rows.Columns()
 	)
@@ -330,22 +330,22 @@ func (con *DBCon) ScanRows(rows *sql.Rows, result interface{}) error {
 //     var ages []int64
 //     db.Find(&users).Pluck("age", &ages)
 func (con *DBCon) Pluck(column string, value interface{}) *DBCon {
-	return con.NewScope(con.Value).pluck(column, value).con
+	return con.NewScope(con.search.Value).pluck(column, value).con
 }
 
 // Count get how many records for a model
 func (con *DBCon) Count(value interface{}) *DBCon {
-	return con.NewScope(con.Value).count(value).con
+	return con.NewScope(con.search.Value).count(value).con
 }
 
 // Related get related associations
 func (con *DBCon) Related(value interface{}, foreignKeys ...string) *DBCon {
-	return con.NewScope(con.Value).related(value, foreignKeys...).con
+	return con.NewScope(con.search.Value).related(value, foreignKeys...).con
 }
 
 // FirstOrInit find first matched record or initialize a new one with given conditions (only works with struct, map conditions)
 func (con *DBCon) FirstOrInit(out interface{}, where ...interface{}) *DBCon {
-	c := con.cloneCon(false)
+	c := con.clone()
 	if result := c.First(out, where...); result.Error != nil {
 		if !result.RecordNotFound() {
 			return result
@@ -369,7 +369,7 @@ func (con *DBCon) FirstOrInit(out interface{}, where ...interface{}) *DBCon {
 
 // FirstOrCreate find first matched record or create a new one with given conditions (only works with struct, map conditions)
 func (con *DBCon) FirstOrCreate(out interface{}, where ...interface{}) *DBCon {
-	c := con.cloneCon(false)
+	c := con.clone()
 	if result := con.First(out, where...); result.Error != nil {
 		if !result.RecordNotFound() {
 			return result
@@ -416,7 +416,7 @@ func (con *DBCon) Update(attrs ...interface{}) *DBCon {
 
 // Updates update attributes with callbacks
 func (con *DBCon) Updates(values interface{}, ignoreProtectedAttrs ...bool) *DBCon {
-	return con.NewScope(con.Value).
+	return con.NewScope(con.search.Value).
 		Set(IGNORE_PROTEC_SETTING, len(ignoreProtectedAttrs) > 0).
 		InstanceSet(UPDATE_INTERF_SETTING, values).
 		callCallbacks(con.parent.callback.updates).con
@@ -445,7 +445,7 @@ func (con *DBCon) UpdateColumn(attrs ...interface{}) *DBCon {
 
 // UpdateColumns update attributes without callbacks
 func (con *DBCon) UpdateColumns(values interface{}) *DBCon {
-	return con.NewScope(con.Value).
+	return con.NewScope(con.search.Value).
 		Set(UPDATE_COLUMN_SETTING, true).
 		Set(SAVE_ASSOC_SETTING, false).
 		InstanceSet(UPDATE_INTERF_SETTING, values).
@@ -458,7 +458,7 @@ func (con *DBCon) Save(value interface{}) *DBCon {
 	if !scope.PrimaryKeyZero() {
 		newDB := scope.callCallbacks(con.parent.callback.updates).con
 		if newDB.Error == nil && newDB.RowsAffected == 0 {
-			return con.cloneCon(true).FirstOrCreate(value)
+			return newCon(con).FirstOrCreate(value)
 		}
 		return newDB
 	}
@@ -497,27 +497,28 @@ func (con *DBCon) Exec(sql string, values ...interface{}) *DBCon {
 //    // if user's primary key is non-blank, will use it as condition, then will only update the user's name to `hello`
 //    db.Model(&user).Update("name", "hello")
 func (con *DBCon) Model(value interface{}) *DBCon {
-	c := con.cloneCon(false)
-	c.Value = value
+	c := con.clone()
+	c.search.Value = value
 	return c
 }
 
 // Table specify the table you would like to run db operations
 func (con *DBCon) Table(name string) *DBCon {
-	clone := con.cloneCon(false)
+	clone := con.clone()
 	clone.search.Table(name)
-	clone.Value = nil
+	//TODO : @Badu - why we're reseting the value?
+	clone.search.Value = nil
 	return clone
 }
 
 // Debug start debug mode
 func (con *DBCon) Debug() *DBCon {
-	return con.cloneCon(false).LogMode(true)
+	return con.clone().LogMode(true)
 }
 
 // Begin begin a transaction
 func (con *DBCon) Begin() *DBCon {
-	c := con.cloneCon(false)
+	c := con.clone()
 	if db, ok := c.sqli.(sqlDb); ok {
 		//clone.db implements Begin() -> call Begin()
 		tx, err := db.Begin()
@@ -577,7 +578,7 @@ func (con *DBCon) CreateTable(models ...interface{}) *DBCon {
 
 // DropTable drop table for models
 func (con *DBCon) DropTable(values ...interface{}) *DBCon {
-	db := con.cloneCon(false)
+	db := con.clone()
 	for _, value := range values {
 		if tableName, ok := value.(string); ok {
 			db = db.Table(tableName)
@@ -590,7 +591,7 @@ func (con *DBCon) DropTable(values ...interface{}) *DBCon {
 
 // DropTableIfExists drop table if it is exist
 func (con *DBCon) DropTableIfExists(values ...interface{}) *DBCon {
-	db := con.cloneCon(false)
+	db := con.clone()
 	for _, value := range values {
 		if con.HasTable(value) {
 			db.AddError(con.DropTable(value).Error)
@@ -629,35 +630,35 @@ func (con *DBCon) AutoMigrate(values ...interface{}) *DBCon {
 
 // ModifyColumn modify column to type
 func (con *DBCon) ModifyColumn(column string, typ string) *DBCon {
-	scope := con.NewScope(con.Value)
+	scope := con.NewScope(con.search.Value)
 	scope.modifyColumn(column, typ)
 	return scope.con
 }
 
 // DropColumn drop a column
 func (con *DBCon) DropColumn(column string) *DBCon {
-	scope := con.NewScope(con.Value)
+	scope := con.NewScope(con.search.Value)
 	scope.dropColumn(column)
 	return scope.con
 }
 
 // AddIndex add index for columns with given name
 func (con *DBCon) AddIndex(indexName string, columns ...string) *DBCon {
-	scope := con.Unscoped().NewScope(con.Value)
+	scope := con.Unscoped().NewScope(con.search.Value)
 	scope.addIndex(false, indexName, columns...)
 	return scope.con
 }
 
 // AddUniqueIndex add unique index for columns with given name
 func (con *DBCon) AddUniqueIndex(indexName string, columns ...string) *DBCon {
-	scope := con.Unscoped().NewScope(con.Value)
+	scope := con.Unscoped().NewScope(con.search.Value)
 	scope.addIndex(true, indexName, columns...)
 	return scope.con
 }
 
 // RemoveIndex remove index with name
 func (con *DBCon) RemoveIndex(indexName string) *DBCon {
-	scope := con.NewScope(con.Value)
+	scope := con.NewScope(con.search.Value)
 	scope.removeIndex(indexName)
 	return scope.con
 }
@@ -666,7 +667,7 @@ func (con *DBCon) RemoveIndex(indexName string) *DBCon {
 //     db.Model(&User{}).AddForeignKey("city_id", "cities(id)", "RESTRICT", "RESTRICT")
 //TODO : @Badu - make it work with interfaces instead of strings (field, dest)
 func (con *DBCon) AddForeignKey(field string, dest string, onDelete string, onUpdate string) *DBCon {
-	scope := con.NewScope(con.Value)
+	scope := con.NewScope(con.search.Value)
 	scope.addForeignKey(field, dest, onDelete, onUpdate)
 	return scope.con
 }
@@ -674,7 +675,7 @@ func (con *DBCon) AddForeignKey(field string, dest string, onDelete string, onUp
 // Association start `Association Mode` to handler relations things easier in that mode
 func (con *DBCon) Association(column string) *Association {
 	var err error
-	scope := con.NewScope(con.Value)
+	scope := con.NewScope(con.search.Value)
 	primaryField := scope.PK()
 	if primaryField == nil {
 		err = errors.New("SCOPE : primary field is NIL")
@@ -750,26 +751,23 @@ func (con *DBCon) GetErrors() []error {
 ////////////////////////////////////////////////////////////////////////////////
 // Private Methods For *gorm.DBCon
 ////////////////////////////////////////////////////////////////////////////////
-//clone - blank param is for copying values and search as well
-func (con *DBCon) cloneCon(isNew bool) *DBCon {
+//returns a cloned connection - with extradata included
+func (con *DBCon) clone() *DBCon {
 	clone := DBCon{
 		sqli:     con.sqli,
 		parent:   con.parent,
 		logger:   con.logger,
 		logMode:  con.logMode,
 		settings: map[uint64]interface{}{},
-		Value:    con.Value,
 		Error:    con.Error,
 	}
-	if !isNew {
-		for key, value := range con.settings {
-			clone.settings[key] = value
-		}
-		if con.search == nil {
-			clone.search = &Search{Conditions: make(SqlConditions)}
-		} else {
-			clone.search = con.search.Clone()
-		}
+	for key, value := range con.settings {
+		clone.settings[key] = value
+	}
+	if con.search == nil {
+		clone.search = &Search{Conditions: make(SqlConditions)}
+	} else {
+		clone.search = con.search.Clone()
 	}
 	return &clone
 }

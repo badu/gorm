@@ -146,6 +146,7 @@ func (s *Search) Clone() *Search {
 		clone.Conditions[key] = value
 	}
 	clone.tableName = s.tableName
+	clone.Value = s.Value
 	return &clone
 }
 
