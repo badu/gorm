@@ -316,7 +316,6 @@ func Open(dialectName string, args ...interface{}) (*DBCon, error) {
 		dialect:  commontDialect,
 		logger:   defaultLogger,
 		callback: &Callback{},
-		source:   source,
 		settings: map[uint64]interface{}{},
 		sqli:     dbSQL,
 	}

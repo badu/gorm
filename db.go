@@ -205,7 +205,6 @@ func (con *DBCon) Dialect() Dialect {
 
 // NewScope create a scope for current operation
 func (con *DBCon) NewScope(value interface{}) *Scope {
-	//TODO : @Badu - if NewScope of Scope would be the same with this, we fail
 	conClone := con.clone()
 	conClone.search.Value = value
 	//TODO : @Badu - this is the point where connection passes over the search to scope

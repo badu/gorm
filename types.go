@@ -116,25 +116,18 @@ type (
 
 	// DBCon contains information for current db connection
 	DBCon struct {
-		parent   *DBCon
-		dialect  Dialect
-		settings map[uint64]interface{}
-		//TODO : @Badu - search have to go since they are present in Scope
-		search *Search
-
-		Error error
-
-		sqli sqlInterf
+		parent        *DBCon
+		dialect       Dialect
+		settings      map[uint64]interface{}
+		search        *Search
+		logMode       int
+		logger        logger
+		callback      *Callback
+		sqli          sqlInterf
+		singularTable bool
+		Error         error
 
 		RowsAffected int64
-
-		logMode int
-		logger  logger
-
-		singularTable bool
-		source        string
-
-		callback *Callback
 	}
 	//declared to allow existing code to run, dbcon.Open(...) db = &gorm.DB{*dbcon}
 	DB struct {

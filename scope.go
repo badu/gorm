@@ -255,17 +255,19 @@ func (scope *Scope) Raw(sql string) *Scope {
 
 // Exec perform generated SQL
 func (scope *Scope) Exec() *Scope {
+	//fail fast
+	if scope.HasError() {
+		return scope
+	}
 	//avoid call if we don't need to
 	if scope.con.logMode == 2 {
 		defer scope.trace(NowFunc())
 	}
-	if !scope.HasError() {
-		result, err := scope.con.sqli.Exec(scope.Search.SQL, scope.Search.SQLVars...)
+	result, err := scope.con.sqli.Exec(scope.Search.SQL, scope.Search.SQLVars...)
+	if scope.Err(err) == nil {
+		count, err := result.RowsAffected()
 		if scope.Err(err) == nil {
-			count, err := result.RowsAffected()
-			if scope.Err(err) == nil {
-				scope.con.RowsAffected = count
-			}
+			scope.con.RowsAffected = count
 		}
 	}
 	return scope
@@ -273,7 +275,6 @@ func (scope *Scope) Exec() *Scope {
 
 // Begin start a transaction
 func (scope *Scope) Begin() *Scope {
-
 	if db, ok := scope.con.sqli.(sqlDb); ok {
 		//parent db implements Begin() -> call Begin()
 		if tx, err := db.Begin(); err == nil {
@@ -433,12 +434,12 @@ func (scope *Scope) callCallbacks(funcs ScopedFuncs) *Scope {
 }
 
 func (scope *Scope) updatedAttrsWithValues(value interface{}) (map[string]interface{}, bool) {
-	hasUpdate := false
 	if scope.IndirectValue().Kind() != reflect.Struct {
 		return convertInterfaceToMap(value, false), true
 	}
 
 	results := map[string]interface{}{}
+	hasUpdate := false
 
 	for key, value := range convertInterfaceToMap(value, true) {
 		if field, ok := scope.FieldByName(key); ok && scope.changeableField(field) {
