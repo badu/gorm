@@ -24,7 +24,7 @@ func (r *Relationship) Poly(field *StructField, toModel *ModelStruct, fromScope,
 		// Toy use OwnerID, OwnerType ('dogs') as foreign key
 		if polymorphicType, ok := toModel.FieldByName(polyFieldName); ok {
 			modelName = polyName
-			r.PolymorphicType = polymorphicType.GetName()
+			r.PolymorphicType = polymorphicType.GetStructName()
 			r.PolymorphicDBName = polymorphicType.DBName
 			// if Dog has multiple set of toys set name of the set (instead of default 'dogs')
 			if polyValue != "" {
@@ -123,11 +123,11 @@ func (r *Relationship) HasMany(field *StructField,
 			if associationField, ok := fromModel.FieldByName(associationForeignKeys[idx]); ok {
 				// source foreign keys
 				foreignField.SetIsForeignKey()
-				r.AssociationForeignFieldNames.add(associationField.GetName())
+				r.AssociationForeignFieldNames.add(associationField.GetStructName())
 				r.AssociationForeignDBNames.add(associationField.DBName)
 
 				// association foreign keys
-				r.ForeignFieldNames.add(foreignField.GetName())
+				r.ForeignFieldNames.add(foreignField.GetStructName())
 				r.ForeignDBNames.add(foreignField.DBName)
 			} else {
 				errMsg := fmt.Sprintf(afk_field_not_found_warn, "HasMany", associationForeignKeys[idx], fromModel.ModelType.Name())
@@ -161,11 +161,11 @@ func (r *Relationship) HasOne(field *StructField,
 			if scopeField, ok := fromModel.FieldByName(associationForeignKeys[idx]); ok {
 				foreignField.SetIsForeignKey()
 				// source foreign keys
-				r.AssociationForeignFieldNames.add(scopeField.GetName())
+				r.AssociationForeignFieldNames.add(scopeField.GetStructName())
 				r.AssociationForeignDBNames.add(scopeField.DBName)
 
 				// association foreign keys
-				r.ForeignFieldNames.add(foreignField.GetName())
+				r.ForeignFieldNames.add(foreignField.GetStructName())
 				r.ForeignDBNames.add(foreignField.DBName)
 			} else {
 				errMsg := fmt.Sprintf(afk_field_not_found_warn, "HasOne fromModel", associationForeignKeys[idx], fromModel.ModelType.Name())
@@ -197,11 +197,11 @@ func (r *Relationship) BelongTo(field *StructField,
 				foreignField.SetIsForeignKey()
 
 				// association foreign keys
-				r.AssociationForeignFieldNames.add(associationField.GetName())
+				r.AssociationForeignFieldNames.add(associationField.GetStructName())
 				r.AssociationForeignDBNames.add(associationField.DBName)
 
 				// source foreign keys
-				r.ForeignFieldNames.add(foreignField.GetName())
+				r.ForeignFieldNames.add(foreignField.GetStructName())
 				r.ForeignDBNames.add(foreignField.DBName)
 			} else {
 				errMsg := fmt.Sprintf(afk_field_not_found_warn, "BelongTo", associationForeignKeys[idx], fromModel.ModelType.Name())
@@ -234,11 +234,11 @@ func (r *Relationship) collectFKsAndAFKs(field *StructField,
 		if !field.HasSetting(ASSOCIATIONFOREIGNKEY) {
 			for _, pk := range model.PKs() {
 				if modelName == "" {
-					foreignKeys.add(field.GetName() + pk.GetName())
+					foreignKeys.add(field.GetStructName() + pk.GetStructName())
 				} else {
-					foreignKeys.add(modelName + pk.GetName())
+					foreignKeys.add(modelName + pk.GetStructName())
 				}
-				associationForeignKeys.add(pk.GetName())
+				associationForeignKeys.add(pk.GetStructName())
 			}
 		} else {
 			associationForeignKeys = field.getAssocForeignKeys()
@@ -246,11 +246,11 @@ func (r *Relationship) collectFKsAndAFKs(field *StructField,
 			for _, afk := range associationForeignKeys {
 				if fkField, ok := model.FieldByName(afk); ok {
 					if modelName == "" {
-						foreignKeys.add(field.GetName() + fkField.GetName())
+						foreignKeys.add(field.GetStructName() + fkField.GetStructName())
 					} else {
-						foreignKeys.add(modelName + fkField.GetName())
+						foreignKeys.add(modelName + fkField.GetStructName())
 					}
-					associationForeignKeys.add(fkField.GetName())
+					associationForeignKeys.add(fkField.GetStructName())
 				} else {
 					errMsg := fmt.Sprintf(afk_field_not_found_warn, "collectFKsAndAFKs", fkField, model.ModelType.Name())
 					scope.Warn(errMsg)
@@ -264,7 +264,7 @@ func (r *Relationship) collectFKsAndAFKs(field *StructField,
 			for _, fk := range foreignKeys {
 				prefix := modelName
 				if modelName == "" {
-					prefix = field.GetName()
+					prefix = field.GetStructName()
 				}
 				if strings.HasPrefix(fk, prefix) {
 					afk := strings.TrimPrefix(fk, prefix)

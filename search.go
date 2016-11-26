@@ -365,20 +365,20 @@ func (s *Search) checkFieldIncluded(field *StructField) bool {
 	for _, pair := range s.Conditions[Select_query] {
 		switch strs := pair.expression.(type) {
 		case string:
-			if field.GetName() == strs || field.DBName == strs {
+			if field.GetStructName() == strs || field.DBName == strs {
 				return true
 			}
 
 		case []string:
 			for _, o := range strs {
-				if field.GetName() == o || field.DBName == o {
+				if field.GetStructName() == o || field.DBName == o {
 					return true
 				}
 			}
 		}
 
 		for _, pairArg := range pair.args {
-			if field.GetName() == pairArg || field.DBName == pairArg {
+			if field.GetStructName() == pairArg || field.DBName == pairArg {
 				return true
 			}
 		}
@@ -392,7 +392,7 @@ func (s *Search) checkFieldOmitted(field *StructField) bool {
 		return false
 	}
 	for _, attr := range pair.args {
-		if field.GetName() == attr || field.DBName == attr {
+		if field.GetStructName() == attr || field.DBName == attr {
 			//fmt.Printf("Field %q omitted\n", attr.(string))
 			return true
 		}
@@ -431,65 +431,6 @@ func (s *Search) quote(str string) string {
 	}
 
 	return s.dialect.Quote(str)
-}
-
-func (s *Search) orderSQL() string {
-	if !s.hasOrder() || s.isCounting() {
-		return ""
-	}
-
-	var orders []string
-	for _, orderPair := range s.Conditions[Order_query] {
-		if str, ok := orderPair.args[0].(string); ok {
-			orders = append(orders, s.quoteIfPossible(str))
-		} else if pair, ok := orderPair.args[0].(*SqlPair); ok {
-			exp := pair.strExpr()
-			for _, arg := range pair.args {
-				exp = strings.Replace(exp, "?", s.addToVars(arg), 1)
-			}
-			orders = append(orders, exp)
-		}
-	}
-	return " ORDER BY " + strings.Join(orders, ",")
-}
-
-func (s *Search) groupSQL() string {
-	if !s.hasGroup() {
-		return ""
-	}
-	return " GROUP BY " + s.Conditions[group_query][0].expression.(string)
-}
-
-func (s *Search) havingSQL(scope *Scope) string {
-	if !s.hasHaving() {
-		return ""
-	}
-
-	var andConditions []string
-	for _, pair := range s.Conditions[having_query] {
-		if aStr := s.buildWhereCondition(pair, scope); aStr != "" {
-			andConditions = append(andConditions, aStr)
-		}
-	}
-	combinedSQL := strings.Join(andConditions, " AND ")
-
-	if len(combinedSQL) == 0 {
-		return ""
-	}
-
-	return " HAVING " + combinedSQL
-}
-
-func (s *Search) joinsSQL(scope *Scope) string {
-	var joinConditions []string
-
-	for _, pair := range s.Conditions[joins_query] {
-		if aStr := s.buildWhereCondition(pair, scope); aStr != "" {
-			joinConditions = append(joinConditions, strings.TrimSuffix(strings.TrimPrefix(aStr, "("), ")"))
-		}
-	}
-
-	return strings.Join(joinConditions, " ") + " "
 }
 
 func (s *Search) whereSQL(scope *Scope) string {
@@ -548,51 +489,6 @@ func (s *Search) whereSQL(scope *Scope) string {
 		str = "WHERE " + combinedSQL
 	}
 	return str
-}
-
-func (s *Search) selectSQL(scope *Scope) string {
-	if !s.hasSelect() {
-		if s.hasJoins() {
-			return fmt.Sprintf("%v.*", scope.QuotedTableName())
-		}
-		return "*"
-	}
-
-	fromPair := s.getFirst(Select_query)
-	if fromPair == nil {
-		//error has occured in getting first item in slice
-		return ""
-	}
-	var str string
-	switch value := fromPair.expression.(type) {
-	case string:
-		str = value
-	case []string:
-		str = strings.Join(value, ", ")
-	}
-	for _, arg := range fromPair.args {
-		switch reflect.ValueOf(arg).Kind() {
-		case reflect.Slice:
-			values := reflect.ValueOf(arg)
-			var tempMarks []string
-			for i := 0; i < values.Len(); i++ {
-				tempMarks = append(tempMarks, s.addToVars(values.Index(i).Interface()))
-			}
-			str = strings.Replace(str, "?", strings.Join(tempMarks, ","), 1)
-		default:
-			if valuer, ok := interface{}(arg).(driver.Valuer); ok {
-				arg, _ = valuer.Value()
-			}
-			str = strings.Replace(str, "?", s.addToVars(arg), 1)
-		}
-	}
-	return str
-}
-
-func (s *Search) inlineCondition(values ...interface{}) {
-	if len(values) > 0 {
-		s.Where(values[0], values[1:]...)
-	}
 }
 
 func (s *Search) buildWhereCondition(fromPair SqlPair, scope *Scope) string {
@@ -739,11 +635,65 @@ func (s *Search) buildNotCondition(fromPair SqlPair, scope *Scope) string {
 // CombinedConditionSql return combined condition sql
 func (s *Search) combinedConditionSql(scope *Scope) string {
 	//Attention : if we don't build joinSql first, joins will fail (it's mixing up the where clauses of the joins)
-	joinsSql := s.joinsSQL(scope)
+	//-= creating Joins =-
+	var joinConditions []string
+
+	for _, pair := range s.Conditions[joins_query] {
+		if aStr := s.buildWhereCondition(pair, scope); aStr != "" {
+			joinConditions = append(joinConditions, strings.TrimSuffix(strings.TrimPrefix(aStr, "("), ")"))
+		}
+	}
+
+	joinsSql := strings.Join(joinConditions, " ") + " "
+	//-= end creating Joins =-
+
 	whereSql := s.whereSQL(scope)
 	if s.IsRaw() {
 		whereSql = strings.TrimSuffix(strings.TrimPrefix(whereSql, "WHERE ("), ")")
 	}
+
+	//-= creating Group =-
+	groupSQL := ""
+	if s.hasGroup() {
+		groupSQL = " GROUP BY " + s.Conditions[group_query][0].expression.(string)
+	}
+	//-= end creating Group =-
+
+	//-= creating Having =-
+	havingSQL := ""
+	if s.hasHaving() {
+		var andConditions []string
+		for _, pair := range s.Conditions[having_query] {
+			if aStr := s.buildWhereCondition(pair, scope); aStr != "" {
+				andConditions = append(andConditions, aStr)
+			}
+		}
+		combinedSQL := strings.Join(andConditions, " AND ")
+		if len(combinedSQL) > 0 {
+			havingSQL = " HAVING " + combinedSQL
+		}
+	}
+	//-= end creating Having =-
+
+	//-= creating Order =-
+	orderSQL := ""
+	if s.hasOrder() && !s.isCounting() {
+		var orders []string
+		for _, orderPair := range s.Conditions[Order_query] {
+			if str, ok := orderPair.args[0].(string); ok {
+				orders = append(orders, s.quoteIfPossible(str))
+			} else if pair, ok := orderPair.args[0].(*SqlPair); ok {
+				exp := pair.strExpr()
+				for _, arg := range pair.args {
+					exp = strings.Replace(exp, "?", s.addToVars(arg), 1)
+				}
+				orders = append(orders, exp)
+			}
+		}
+		orderSQL = " ORDER BY " + strings.Join(orders, ",")
+	}
+	//-= end creating Order =-
+
 	if s.hasOffsetOrLimit() {
 		limitValue := -1
 		offsetValue := -1
@@ -757,9 +707,9 @@ func (s *Search) combinedConditionSql(scope *Scope) string {
 
 		}
 		limitAndOffsetSQL := s.dialect.LimitAndOffsetSQL(limitValue, offsetValue)
-		return joinsSql + whereSql + s.groupSQL() + s.havingSQL(scope) + s.orderSQL() + limitAndOffsetSQL
+		return joinsSql + whereSql + groupSQL + havingSQL + orderSQL + limitAndOffsetSQL
 	}
-	return joinsSql + whereSql + s.groupSQL() + s.havingSQL(scope) + s.orderSQL()
+	return joinsSql + whereSql + groupSQL + havingSQL + orderSQL
 
 }
 
@@ -767,7 +717,44 @@ func (s *Search) prepareQuerySQL(scope *Scope) {
 	if s.IsRaw() {
 		scope.Raw(s.combinedConditionSql(scope))
 	} else {
-		scope.Raw(fmt.Sprintf("SELECT %v FROM %v %v", s.selectSQL(scope), scope.QuotedTableName(), s.combinedConditionSql(scope)))
+		selectSQL := ""
+		if s.hasSelect() {
+			fromPair := s.getFirst(Select_query)
+			if fromPair == nil {
+				//error has occurred in getting first item in slice
+				scope.Warn(fmt.Errorf("Error : error has occurred in getting first item in slice for SELECT"))
+				selectSQL= ""
+			}else {
+				switch value := fromPair.expression.(type) {
+				case string:
+					selectSQL = value
+				case []string:
+					selectSQL = strings.Join(value, ", ")
+				}
+				for _, arg := range fromPair.args {
+					switch reflect.ValueOf(arg).Kind() {
+					case reflect.Slice:
+						values := reflect.ValueOf(arg)
+						var tempMarks []string
+						for i := 0; i < values.Len(); i++ {
+							tempMarks = append(tempMarks, s.addToVars(values.Index(i).Interface()))
+						}
+						selectSQL = strings.Replace(selectSQL, "?", strings.Join(tempMarks, ","), 1)
+					default:
+						if valuer, ok := interface{}(arg).(driver.Valuer); ok {
+							arg, _ = valuer.Value()
+						}
+						selectSQL = strings.Replace(selectSQL, "?", s.addToVars(arg), 1)
+					}
+				}
+			}
+		} else if s.hasJoins() {
+			selectSQL = fmt.Sprintf("%v.*", scope.QuotedTableName())
+		} else {
+			selectSQL = "*"
+		}
+
+		scope.Raw(fmt.Sprintf("SELECT %v FROM %v %v", selectSQL, scope.QuotedTableName(), s.combinedConditionSql(scope)))
 	}
 }
 

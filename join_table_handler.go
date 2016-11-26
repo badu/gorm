@@ -149,7 +149,7 @@ func (s JoinTableHandler) JoinWith(handler JoinTableHandlerInterface, db *DBCon,
 		for _, foreignKey := range s.Source.ForeignKeys {
 			foreignDBNames = append(foreignDBNames, foreignKey.DBName)
 			if field, ok := scope.FieldByName(foreignKey.AssociationDBName); ok {
-				foreignFieldNames.add(field.GetName())
+				foreignFieldNames.add(field.GetStructName())
 			}
 		}
 

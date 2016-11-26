@@ -242,7 +242,7 @@ func (field *StructField) SetIsAutoIncrement() {
 	field.setFlag(IS_AUTOINCREMENT)
 }
 
-func (field *StructField) GetName() string {
+func (field *StructField) GetStructName() string {
 	return field.Struct.Name
 }
 
@@ -306,7 +306,7 @@ func (field *StructField) Set(value interface{}) error {
 			} else {
 				//Oops
 				//TODO : @Badu - make errors more explicit
-				err = fmt.Errorf("could not convert argument of field %s from %s to %s", field.GetName(), reflectValue.Type(), fieldValue.Type())
+				err = fmt.Errorf("could not convert argument of field %s from %s to %s", field.GetStructName(), reflectValue.Type(), fieldValue.Type())
 			}
 		}
 	} else {

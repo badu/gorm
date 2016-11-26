@@ -31,6 +31,42 @@ func (scope *Scope) New(value interface{}) *Scope {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// Setter-Getters
+////////////////////////////////////////////////////////////////////////////////
+
+// Set set value by name
+func (scope *Scope) Set(name string, value interface{}) *Scope {
+	scope.con.InstantSet(name, value)
+	return scope
+}
+
+// Get get setting by name
+func (scope *Scope) Get(name string) (interface{}, bool) {
+	return scope.con.Get(name)
+}
+
+// InstanceID get InstanceID for scope
+func (scope *Scope) InstanceID() string {
+	if scope.instanceID == "" {
+		//TODO : @Badu - aren't there all sort of better ways???
+		scope.instanceID = fmt.Sprintf("%v%v", &scope, &scope.con)
+	}
+	return scope.instanceID
+}
+
+// InstanceSet set instance setting for current operation,
+// but not for operations in callbacks,
+// like saving associations callback
+func (scope *Scope) InstanceSet(name string, value interface{}) *Scope {
+	return scope.Set(name+scope.InstanceID(), value)
+}
+
+// InstanceGet get instance setting from current operation
+func (scope *Scope) InstanceGet(name string) (interface{}, bool) {
+	return scope.Get(name + scope.InstanceID())
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // Scope DB
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -41,11 +77,12 @@ func (scope *Scope) Con() *DBCon {
 
 // NewCon create a new Con without search information
 func (scope *Scope) NewCon() *DBCon {
-	if scope.con != nil {
-		db := scope.con.clone(true, true)
-		return db
+	//fail fast
+	if scope.con == nil {
+		return nil
 	}
-	return nil
+	db := scope.con.clone(true, true)
+	return db
 }
 
 // SQLDB return *sql.DB
@@ -60,15 +97,16 @@ func (scope *Scope) Dialect() Dialect {
 
 // Quote used to quote string to escape them for database
 func (scope *Scope) Quote(str string) string {
-	if strings.Index(str, ".") != -1 {
-		newStrs := []string{}
-		for _, str := range strings.Split(str, ".") {
-			newStrs = append(newStrs, scope.Dialect().Quote(str))
-		}
-		return strings.Join(newStrs, ".")
+	//fail fast
+	if strings.Index(str, ".") == -1 {
+		return scope.Dialect().Quote(str)
 	}
-
-	return scope.Dialect().Quote(str)
+	//TODO : @Badu - optimize - Split + Join = Replace ?
+	newStrs := []string{}
+	for _, str := range strings.Split(str, ".") {
+		newStrs = append(newStrs, scope.Dialect().Quote(str))
+	}
+	return strings.Join(newStrs, ".")
 }
 
 // Err add error to Scope
@@ -106,24 +144,6 @@ func (scope *Scope) Fields() StructFields {
 	return *scope.fields
 }
 
-// FieldByName find `gorm.StructField` with field name or db name
-func (scope *Scope) FieldByName(name string) (*StructField, bool) {
-	var (
-		dbName           = NamesMap.ToDBName(name)
-		mostMatchedField *StructField
-	)
-
-	for _, field := range scope.Fields() {
-		if field.GetName() == name || field.DBName == name {
-			return field, true
-		}
-		if field.DBName == dbName {
-			mostMatchedField = field
-		}
-	}
-	return mostMatchedField, mostMatchedField != nil
-}
-
 // was PrimaryFields() : PKs() return scope's primary fields
 func (scope *Scope) PKs() StructFields {
 	var fields StructFields
@@ -157,6 +177,7 @@ func (scope *Scope) PKName() string {
 	if field := scope.PK(); field != nil {
 		return field.DBName
 	}
+	//TODO : @Badu - investigate where this is called and gets the empty string
 	return ""
 }
 
@@ -174,6 +195,24 @@ func (scope *Scope) PrimaryKeyValue() interface{} {
 	return 0
 }
 
+// FieldByName find `gorm.StructField` with field name or db name
+func (scope *Scope) FieldByName(name string) (*StructField, bool) {
+	var (
+		dbName           = NamesMap.ToDBName(name)
+		mostMatchedField *StructField
+	)
+
+	for _, field := range scope.Fields() {
+		if field.GetStructName() == name || field.DBName == name {
+			return field, true
+		}
+		if field.DBName == dbName {
+			mostMatchedField = field
+		}
+	}
+	return mostMatchedField, mostMatchedField != nil
+}
+
 // SetColumn to set the column's value, column could be field or field's name/dbname
 func (scope *Scope) SetColumn(column interface{}, value interface{}) error {
 	var updateAttrs = map[string]interface{}{}
@@ -181,11 +220,12 @@ func (scope *Scope) SetColumn(column interface{}, value interface{}) error {
 		updateAttrs = attrs.(map[string]interface{})
 		defer scope.InstanceSet("gorm:update_attrs", updateAttrs)
 	}
-
+	//TODO : @Badu - make switch .(type)
 	if field, ok := column.(*StructField); ok {
 		updateAttrs[field.DBName] = value
 		return field.Set(value)
 	} else if name, ok := column.(string); ok {
+		//TODO : @Badu - looks like Scope.FieldByName
 		var (
 			dbName           = NamesMap.ToDBName(name)
 			mostMatchedField *StructField
@@ -195,7 +235,7 @@ func (scope *Scope) SetColumn(column interface{}, value interface{}) error {
 				updateAttrs[field.DBName] = value
 				return field.Set(value)
 			}
-			if (field.DBName == dbName) || (field.GetName() == name && mostMatchedField == nil) {
+			if (field.DBName == dbName) || (field.GetStructName() == name && mostMatchedField == nil) {
 				mostMatchedField = field
 			}
 		}
@@ -205,6 +245,7 @@ func (scope *Scope) SetColumn(column interface{}, value interface{}) error {
 			return mostMatchedField.Set(value)
 		}
 	}
+	//TODO : @Badu - make this error more explicit : what's column name
 	return errors.New("SCOPE : could not convert column to field")
 }
 
@@ -225,7 +266,7 @@ func (scope *Scope) CallMethod(methodName string) {
 
 // TableName return table name
 func (scope *Scope) TableName() string {
-	if scope.Search != nil && len(scope.Search.tableName) > 0 {
+	if scope.Search != nil && scope.Search.tableName != "" {
 		return scope.Search.tableName
 	}
 	switch tabler := scope.Value.(type) {
@@ -239,7 +280,7 @@ func (scope *Scope) TableName() string {
 
 // QuotedTableName return quoted table name
 func (scope *Scope) QuotedTableName() string {
-	if scope.Search != nil && len(scope.Search.tableName) > 0 {
+	if scope.Search != nil && scope.Search.tableName != "" {
 		if strings.Index(scope.Search.tableName, " ") != -1 {
 			return scope.Search.tableName
 		}
@@ -257,48 +298,20 @@ func (scope *Scope) Raw(sql string) *Scope {
 
 // Exec perform generated SQL
 func (scope *Scope) Exec() *Scope {
-	defer scope.trace(NowFunc())
-
+	//avoid call if we don't need to
+	if scope.con.logMode == 2 {
+		defer scope.trace(NowFunc())
+	}
 	if !scope.HasError() {
-		if result, err := scope.AsSQLDB().Exec(scope.Search.SQL, scope.Search.SQLVars...); scope.Err(err) == nil {
-			if count, err := result.RowsAffected(); scope.Err(err) == nil {
+		result, err := scope.AsSQLDB().Exec(scope.Search.SQL, scope.Search.SQLVars...)
+		if scope.Err(err) == nil {
+			count, err := result.RowsAffected()
+			if scope.Err(err) == nil {
 				scope.con.RowsAffected = count
 			}
 		}
 	}
 	return scope
-}
-
-// Set set value by name
-func (scope *Scope) Set(name string, value interface{}) *Scope {
-	scope.con.InstantSet(name, value)
-	return scope
-}
-
-// Get get setting by name
-func (scope *Scope) Get(name string) (interface{}, bool) {
-	return scope.con.Get(name)
-}
-
-// InstanceID get InstanceID for scope
-func (scope *Scope) InstanceID() string {
-	if scope.instanceID == "" {
-		//TODO : @Badu - aren't there all sort of better ways???
-		scope.instanceID = fmt.Sprintf("%v%v", &scope, &scope.con)
-	}
-	return scope.instanceID
-}
-
-// InstanceSet set instance setting for current operation,
-// but not for operations in callbacks,
-// like saving associations callback
-func (scope *Scope) InstanceSet(name string, value interface{}) *Scope {
-	return scope.Set(name+scope.InstanceID(), value)
-}
-
-// InstanceGet get instance setting from current operation
-func (scope *Scope) InstanceGet(name string) (interface{}, bool) {
-	return scope.Get(name + scope.InstanceID())
 }
 
 // Begin start a transaction
@@ -339,7 +352,7 @@ func (scope *Scope) CommitOrRollback() *Scope {
 func (scope *Scope) GetModelStruct() *ModelStruct {
 	var modelStruct ModelStruct
 	// Scope value can't be nil
-	//TODO : @Badu - why can't be null and why we are not returning an error?
+	//TODO : @Badu - why can't be nil and why we are not returning an warning/error?
 	if scope.Value == nil {
 		return &modelStruct
 	}
@@ -533,14 +546,20 @@ func (scope *Scope) updatedAttrsWithValues(value interface{}) (map[string]interf
 }
 
 func (scope *Scope) row() *sql.Row {
-	defer scope.trace(NowFunc())
+	//avoid call if we don't need to
+	if scope.con.logMode == 2 {
+		defer scope.trace(NowFunc())
+	}
 	scope.callCallbacks(scope.con.parent.callback.rowQueries)
 	scope.Search.prepareQuerySQL(scope)
 	return scope.AsSQLDB().QueryRow(scope.Search.SQL, scope.Search.SQLVars...)
 }
 
 func (scope *Scope) rows() (*sql.Rows, error) {
-	defer scope.trace(NowFunc())
+	//avoid call if we don't need to
+	if scope.con.logMode == 2 {
+		defer scope.trace(NowFunc())
+	}
 	scope.callCallbacks(scope.con.parent.callback.rowQueries)
 	scope.Search.prepareQuerySQL(scope)
 	return scope.AsSQLDB().Query(scope.Search.SQL, scope.Search.SQLVars...)
@@ -612,7 +631,7 @@ func (scope *Scope) typeName() string {
 
 // trace print sql log
 func (scope *Scope) trace(t time.Time) {
-	if len(scope.Search.SQL) > 0 {
+	if scope.Search.SQL != "" {
 		scope.con.slog(scope.Search.SQL, t, scope.Search.SQLVars...)
 	}
 }
@@ -648,7 +667,7 @@ func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
 	toScope := scope.con.NewScope(value)
 	//TODO : @Badu - boilerplate string
 	allKeys := append(foreignKeys, toScope.typeName()+"Id", scope.typeName()+"Id")
-	for _, foreignKey := range  allKeys {
+	for _, foreignKey := range allKeys {
 		fromField, _ := scope.FieldByName(foreignKey)
 		//fail fast - from field is nil
 		if fromField == nil {
@@ -1084,7 +1103,7 @@ func (scope *Scope) handleHasOnePreload(field *StructField, conditions []interfa
 					indirectValue = indirectValue.Elem()
 				}
 				if equalAsString(relation.AssociationForeignFieldNames.getValueFromFields(indirectValue), foreignValues) {
-					indirectValue.FieldByName(field.GetName()).Set(result)
+					indirectValue.FieldByName(field.GetStructName()).Set(result)
 					break
 				}
 			}
@@ -1149,7 +1168,7 @@ func (scope *Scope) handleHasManyPreload(field *StructField, conditions []interf
 				reflectValue = reflectValue.Elem()
 			}
 			objectRealValue := relation.AssociationForeignFieldNames.getValueFromFields(reflectValue)
-			f := reflectValue.FieldByName(field.GetName())
+			f := reflectValue.FieldByName(field.GetStructName())
 			if results, ok := preloadMap[toString(objectRealValue)]; ok {
 				f.Set(reflect.Append(f, results...))
 			} else {
@@ -1205,7 +1224,7 @@ func (scope *Scope) handleBelongsToPreload(field *StructField, conditions []inte
 					reflectValue = reflectValue.Elem()
 				}
 				if equalAsString(relation.ForeignFieldNames.getValueFromFields(reflectValue), value) {
-					reflectValue.FieldByName(field.GetName()).Set(result)
+					reflectValue.FieldByName(field.GetStructName()).Set(result)
 				}
 			}
 		} else {
@@ -1295,7 +1314,7 @@ func (scope *Scope) handleManyToManyPreload(field *StructField, conditions []int
 
 	for _, dbName := range relation.ForeignFieldNames {
 		if field, ok := scope.FieldByName(dbName); ok {
-			foreignFieldNames.add(field.GetName())
+			foreignFieldNames.add(field.GetStructName())
 		}
 	}
 
@@ -1306,11 +1325,11 @@ func (scope *Scope) handleManyToManyPreload(field *StructField, conditions []int
 				reflectValue = reflectValue.Elem()
 			}
 			key := toString(foreignFieldNames.getValueFromFields(reflectValue))
-			fieldsSourceMap[key] = append(fieldsSourceMap[key], reflectValue.FieldByName(field.GetName()))
+			fieldsSourceMap[key] = append(fieldsSourceMap[key], reflectValue.FieldByName(field.GetStructName()))
 		}
 	} else if indirectScopeValue.IsValid() {
 		key := toString(foreignFieldNames.getValueFromFields(indirectScopeValue))
-		fieldsSourceMap[key] = append(fieldsSourceMap[key], indirectScopeValue.FieldByName(field.GetName()))
+		fieldsSourceMap[key] = append(fieldsSourceMap[key], indirectScopeValue.FieldByName(field.GetStructName()))
 	}
 	for source, link := range linkHash {
 		for i, field := range fieldsSourceMap[source] {
@@ -1353,8 +1372,10 @@ func (scope *Scope) updateTimeStampForCreateCallback() {
 // createCallback the callback used to insert data into database
 func (scope *Scope) createCallback() {
 	if !scope.HasError() {
-		defer scope.trace(NowFunc())
-
+		//avoid call if we don't need to
+		if scope.con.logMode == 2 {
+			defer scope.trace(NowFunc())
+		}
 		var (
 			columns, placeholders        StrSlice
 			blankColumnsWithDefaultValue StrSlice
@@ -1656,8 +1677,10 @@ func (scope *Scope) afterUpdateCallback() {
 //============================================
 // queryCallback used to query data from database
 func (scope *Scope) queryCallback() {
-	defer scope.trace(NowFunc())
-
+	//avoid call if we don't need to
+	if scope.con.logMode == 2 {
+		defer scope.trace(NowFunc())
+	}
 	var (
 		isSlice, isPtr bool
 		resultType     reflect.Type
@@ -1770,7 +1793,7 @@ func (scope *Scope) preloadCallback() {
 				}
 
 				for _, field := range currentFields {
-					if field.GetName() != preloadField || field.Relationship == nil {
+					if field.GetStructName() != preloadField || field.Relationship == nil {
 						continue
 					}
 

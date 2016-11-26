@@ -47,6 +47,12 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
 # Changes log
 
 ## 25.11.2016
+- [x] polished Scope methods
+- [x] removed inlineConditions from Search
+- [x] rearranged Search combinedConditionSql to have fewer calls
+- [x] rearranged Search prepareQuerySQL to have fewer calls
+
+## 25.11.2016
 - [x] utils, removed toSearchableMap
 - [x] utils, convertInterfaceToMap moved to Scope
 - [x] DBConFunc func(*DBCon) *DBCon
@@ -108,7 +114,6 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
 - [x] make StructField be able to provide a value's interface (Interface() method)
 - [x] make ModelStruct be able to provide a value's interface (Interface() method)
 - [x] cleanup reflect.New(blah... blah) - replaced with Interface() call (WIP)
-- [x] benchmarks (WIP) - seems like a steady 8% speed increase and lower memory footprint
 
 ## 12.11.2016
 - [x] switched bitflag from uint64 to uint16 (we really don't need more than 16 at the time)

@@ -38,7 +38,7 @@ func TestSaveAndQueryEmbeddedStruct(t *testing.T) {
 	}
 
 	for _, field := range TestDB.NewScope(&HNPost{}).Fields() {
-		if field.GetName() == "BasePost" {
+		if field.GetStructName() == "BasePost" {
 			t.Errorf("scope Fields should not contain embedded struct")
 		}
 	}

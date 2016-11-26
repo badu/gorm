@@ -235,7 +235,10 @@ func (con *DBCon) Scopes(funcs ...DBConFunc) *DBCon {
 func (con *DBCon) First(out interface{}, where ...interface{}) *DBCon {
 	newScope := con.clone(false, false).NewScope(out)
 	newScope.Search.Limit(1)
-	newScope.Set("gorm:order_by_primary_key", "ASC").Search.inlineCondition(where...)
+	newScope.Set("gorm:order_by_primary_key", "ASC")
+	if len(where) > 0 {
+		newScope.Search.Where(where[0], where[1:]...)
+	}
 	return newScope.callCallbacks(con.parent.callback.queries).con
 }
 
@@ -243,14 +246,19 @@ func (con *DBCon) First(out interface{}, where ...interface{}) *DBCon {
 func (con *DBCon) Last(out interface{}, where ...interface{}) *DBCon {
 	newScope := con.clone(false, false).NewScope(out)
 	newScope.Search.Limit(1)
-	newScope.Set("gorm:order_by_primary_key", "DESC").Search.inlineCondition(where...)
+	newScope.Set("gorm:order_by_primary_key", "DESC")
+	if len(where) > 0 {
+		newScope.Search.Where(where[0], where[1:]...)
+	}
 	return newScope.callCallbacks(con.parent.callback.queries).con
 }
 
 // Find find records that match given conditions
 func (con *DBCon) Find(out interface{}, where ...interface{}) *DBCon {
 	newScope := con.clone(false, false).NewScope(out)
-	newScope.Search.inlineCondition(where...)
+	if len(where) > 0 {
+		newScope.Search.Where(where[0], where[1:]...)
+	}
 	return newScope.callCallbacks(con.parent.callback.queries).con
 }
 
@@ -309,7 +317,9 @@ func (con *DBCon) FirstOrInit(out interface{}, where ...interface{}) *DBCon {
 			return result
 		}
 		newScope := c.NewScope(out)
-		newScope.Search.inlineCondition(where...)
+		if len(where) > 0 {
+			newScope.Search.Where(where[0], where[1:]...)
+		}
 		newScope.initialize()
 	} else {
 		scope := c.NewScope(out)
@@ -331,7 +341,9 @@ func (con *DBCon) FirstOrCreate(out interface{}, where ...interface{}) *DBCon {
 			return result
 		}
 		newScope := c.NewScope(out)
-		newScope.Search.inlineCondition(where...)
+		if len(where) > 0 {
+			newScope.Search.Where(where[0], where[1:]...)
+		}
 		return newScope.initialize().callCallbacks(c.parent.callback.creates).con
 	} else if c.search.hasAssign() {
 		scope := c.NewScope(out)
@@ -428,7 +440,9 @@ func (con *DBCon) Create(value interface{}) *DBCon {
 // Delete delete value match given conditions, if the value has primary key, then will including the primary key as condition
 func (con *DBCon) Delete(value interface{}, where ...interface{}) *DBCon {
 	scope := con.clone(false, false).NewScope(value)
-	scope.Search.inlineCondition(where...)
+	if len(where) > 0 {
+		scope.Search.Where(where[0], where[1:]...)
+	}
 	return scope.callCallbacks(con.parent.callback.deletes).con
 }
 
@@ -669,7 +683,7 @@ func (con *DBCon) Get(name string) (value interface{}, ok bool) {
 func (con *DBCon) SetJoinTableHandler(source interface{}, column string, handler JoinTableHandlerInterface) {
 	scope := con.NewScope(source)
 	for _, field := range scope.GetModelStruct().StructFields() {
-		if field.GetName() == column || field.DBName == column {
+		if field.GetStructName() == column || field.DBName == column {
 			if field.HasSetting(MANY2MANY) {
 				src := (&Scope{Value: source}).GetModelStruct().ModelType
 				destination := (&Scope{Value: field.Interface()}).GetModelStruct().ModelType

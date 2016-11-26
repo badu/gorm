@@ -176,7 +176,7 @@ func (modelStruct *ModelStruct) processRelations(scope *Scope) {
 				if !relationship.HasOne(field, modelStruct, toModelStruct, scope, toScope) {
 					if !relationship.BelongTo(field, modelStruct, toModelStruct, scope, toScope) {
 						//TODO : @Badu - implement warning to scope, as errors are
-						errMsg := fmt.Sprintf(no_belong_or_hasone_err, modelStruct.ModelType.Name(), field.DBName, field.GetName())
+						errMsg := fmt.Sprintf(no_belong_or_hasone_err, modelStruct.ModelType.Name(), field.DBName, field.GetStructName())
 						fmt.Printf("Warning %v\n", errMsg)
 						//scope.Err(errors.New(errMsg))
 					}

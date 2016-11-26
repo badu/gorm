@@ -80,14 +80,14 @@ func (association *Association) Replace(values ...interface{}) *Association {
 				associationScope := scope.New(field.Interface())
 				for idx, dbName := range relationship.AssociationForeignFieldNames {
 					if field, ok := associationScope.FieldByName(dbName); ok {
-						associationForeignFieldNames.add(field.GetName())
+						associationForeignFieldNames.add(field.GetStructName())
 						associationForeignDBNames.add(relationship.AssociationForeignDBNames[idx])
 					}
 				}
 			} else {
 				// If has one/many relations, use primary keys
 				for _, field := range scope.New(field.Interface()).PKs() {
-					associationForeignFieldNames.add(field.GetName())
+					associationForeignFieldNames.add(field.GetStructName())
 					associationForeignDBNames.add(field.DBName)
 				}
 			}
@@ -110,7 +110,7 @@ func (association *Association) Replace(values ...interface{}) *Association {
 
 			for _, dbName := range relationship.ForeignFieldNames {
 				if field, ok := scope.FieldByName(dbName); ok {
-					sourceForeignFieldNames.add(field.GetName())
+					sourceForeignFieldNames.add(field.GetStructName())
 				}
 			}
 
@@ -162,7 +162,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 
 	var deletingResourcePrimaryFieldNames, deletingResourcePrimaryDBNames StrSlice
 	for _, field := range scope.New(field.Interface()).PKs() {
-		deletingResourcePrimaryFieldNames.add(field.GetName())
+		deletingResourcePrimaryFieldNames.add(field.GetStructName())
 		deletingResourcePrimaryDBNames.add(field.DBName)
 	}
 
@@ -186,7 +186,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 		var associationForeignFieldNames StrSlice
 		for _, associationDBName := range relationship.AssociationForeignFieldNames {
 			if field, ok := associationScope.FieldByName(associationDBName); ok {
-				associationForeignFieldNames.add(field.GetName())
+				associationForeignFieldNames.add(field.GetStructName())
 			}
 		}
 
@@ -396,7 +396,7 @@ func (association *Association) saveAssociations(values ...interface{}) *Associa
 				),
 			)
 		} else {
-			association.setErr(scope.NewCon().Select(field.GetName()).Save(scope.Value).Error)
+			association.setErr(scope.NewCon().Select(field.GetStructName()).Save(scope.Value).Error)
 
 			if setFieldBackToValue {
 				reflectValue.Elem().Set(field.Value)
