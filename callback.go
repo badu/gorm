@@ -1,6 +1,6 @@
 package gorm
 
-const(
+const (
 	//Callback Kind constants
 	CREATE_CALLBACK    uint8 = 1
 	UPDATE_CALLBACK    uint8 = 2
@@ -75,7 +75,6 @@ func (c *Callback) GetDeletes() ScopedFuncs {
 	return c.deletes
 }
 
-//TODO : @Badu - create closures instead of callback_functions.go
 func takeAddr(callback ScopedFunc) *ScopedFunc {
 	return &callback
 }

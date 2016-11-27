@@ -1158,7 +1158,7 @@ func TestTransaction(t *testing.T) {
 		t.Errorf("Should find saved record")
 	}
 
-	if sqlTx, ok := tx.CommonDB().(*sql.Tx); !ok || sqlTx == nil {
+	if sqlTx, ok := tx.AsSQLDB().(*sql.Tx); !ok || sqlTx == nil {
 		t.Errorf("Should return the underlying sql.Tx")
 	}
 

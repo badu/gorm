@@ -62,6 +62,7 @@ func Quote(field string, dialect Dialect) string {
 	}
 	return dialect.Quote(field)
 }
+
 //using inline advantage
 func QuoteIfPossible(str string, dialect Dialect) string {
 	// only match string like `name`, `users.name`
@@ -83,6 +84,7 @@ func toQueryCondition(columns StrSlice, dialect Dialect) string {
 	}
 	return strings.Join(newColumns, ",")
 }
+
 //using inline advantage
 func toQueryMarks(primaryValues [][]interface{}) string {
 	var results []string
@@ -101,6 +103,7 @@ func toQueryMarks(primaryValues [][]interface{}) string {
 	}
 	return strings.Join(results, ",")
 }
+
 //using inline advantage
 func toQueryValues(values [][]interface{}) []interface{} {
 	var results []interface{}
@@ -111,8 +114,9 @@ func toQueryValues(values [][]interface{}) []interface{} {
 	}
 	return results
 }
+
 //using inline advantage
-func generatePreloadDBWithConditions(preloadDB *DBCon,conditions []interface{}) (*DBCon, []interface{}) {
+func generatePreloadDBWithConditions(preloadDB *DBCon, conditions []interface{}) (*DBCon, []interface{}) {
 	var (
 		preloadConditions []interface{}
 	)
@@ -127,6 +131,7 @@ func generatePreloadDBWithConditions(preloadDB *DBCon,conditions []interface{}) 
 
 	return preloadDB, preloadConditions
 }
+
 //using inline advantage
 func getColumnAsArray(columns StrSlice, values ...interface{}) [][]interface{} {
 	var results [][]interface{}
@@ -173,6 +178,7 @@ func getColumnAsArray(columns StrSlice, values ...interface{}) [][]interface{} {
 	}
 	return results
 }
+
 //using inline advantage
 //returns the scope of a slice or struct column
 func getColumnAsScope(column string, scope *Scope) *Scope {
@@ -221,6 +227,7 @@ func getColumnAsScope(column string, scope *Scope) *Scope {
 	}
 	return nil
 }
+
 //using inline advantage
 func convertInterfaceToMap(values interface{}, withIgnoredField bool) map[string]interface{} {
 	var attrs = map[string]interface{}{}
@@ -252,6 +259,7 @@ func convertInterfaceToMap(values interface{}, withIgnoredField bool) map[string
 	}
 	return attrs
 }
+
 //using inline advantage
 func newCon(con *DBCon) *DBCon {
 	clone := DBCon{
@@ -263,6 +271,54 @@ func newCon(con *DBCon) *DBCon {
 		Error:    con.Error,
 	}
 	return &clone
+}
+
+//using inline advantage
+func argsToInterface(args ...interface{}) interface{} {
+	var result interface{}
+	if len(args) == 1 {
+		switch attr := args[0].(type) {
+		case map[string]interface{}:
+			result = attr
+		case interface{}:
+			result = attr
+		}
+	} else if len(args) > 1 {
+		if str, ok := args[0].(string); ok {
+			result = map[string]interface{}{str: args[1]}
+		}
+	}
+	return result
+}
+
+//using inline advantage
+func updatedAttrsWithValues(scope *Scope, value interface{}) (map[string]interface{}, bool) {
+	if scope.IndirectValue().Kind() != reflect.Struct {
+		return convertInterfaceToMap(value, false), true
+	}
+
+	results := map[string]interface{}{}
+	hasUpdate := false
+
+	for key, value := range convertInterfaceToMap(value, true) {
+		if field, ok := scope.FieldByName(key); ok && scope.changeableField(field) {
+			if _, ok := value.(*SqlPair); ok {
+				hasUpdate = true
+				results[field.DBName] = value
+			} else {
+				err := field.Set(value)
+				if field.IsNormal() {
+					hasUpdate = true
+					if err == ErrUnaddressable {
+						results[field.DBName] = value
+					} else {
+						results[field.DBName] = field.Value.Interface()
+					}
+				}
+			}
+		}
+	}
+	return results, hasUpdate
 }
 
 // Open initialize a new db connection, need to import driver first, e.g:

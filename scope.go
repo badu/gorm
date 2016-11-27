@@ -263,13 +263,7 @@ func (scope *Scope) Exec() *Scope {
 	if scope.con.logMode == 2 {
 		defer scope.trace(NowFunc())
 	}
-	result, err := scope.con.sqli.Exec(scope.Search.SQL, scope.Search.SQLVars...)
-	if scope.Err(err) == nil {
-		count, err := result.RowsAffected()
-		if scope.Err(err) == nil {
-			scope.con.RowsAffected = count
-		}
-	}
+	scope.Search.Exec(scope)
 	return scope
 }
 
@@ -280,6 +274,7 @@ func (scope *Scope) Begin() *Scope {
 		if tx, err := db.Begin(); err == nil {
 			//TODO : @Badu - maybe the parent should do so, since it's owner of db.db
 			//parent db.db implements Exec(), Prepare(), Query() and QueryRow()
+			//TODO : @Badu - it's paired with commit or rollback - see below
 			scope.con.sqli = interface{}(tx).(sqlInterf)
 			scope.InstanceSet(STARTED_TX_SETTING, true)
 		}
@@ -298,6 +293,7 @@ func (scope *Scope) CommitOrRollback() *Scope {
 				//orm.db implements Commit() and Rollback() -> call Commit()
 				scope.Err(db.Commit())
 			}
+			//TODO : @Badu - it's paired with begin - see above
 			scope.con.sqli = scope.con.parent.sqli
 		}
 	}
@@ -433,35 +429,6 @@ func (scope *Scope) callCallbacks(funcs ScopedFuncs) *Scope {
 	return scope
 }
 
-func (scope *Scope) updatedAttrsWithValues(value interface{}) (map[string]interface{}, bool) {
-	if scope.IndirectValue().Kind() != reflect.Struct {
-		return convertInterfaceToMap(value, false), true
-	}
-
-	results := map[string]interface{}{}
-	hasUpdate := false
-
-	for key, value := range convertInterfaceToMap(value, true) {
-		if field, ok := scope.FieldByName(key); ok && scope.changeableField(field) {
-			if _, ok := value.(*SqlPair); ok {
-				hasUpdate = true
-				results[field.DBName] = value
-			} else {
-				err := field.Set(value)
-				if field.IsNormal() {
-					hasUpdate = true
-					if err == ErrUnaddressable {
-						results[field.DBName] = value
-					} else {
-						results[field.DBName] = field.Value.Interface()
-					}
-				}
-			}
-		}
-	}
-	return results, hasUpdate
-}
-
 func (scope *Scope) row() *sql.Row {
 	//avoid call if we don't need to
 	if scope.con.logMode == 2 {
@@ -469,7 +436,7 @@ func (scope *Scope) row() *sql.Row {
 	}
 	scope.callCallbacks(scope.con.parent.callback.rowQueries)
 	scope.Search.prepareQuerySQL(scope)
-	return scope.con.sqli.QueryRow(scope.Search.SQL, scope.Search.SQLVars...)
+	return scope.Search.QueryRow(scope)
 }
 
 func (scope *Scope) rows() (*sql.Rows, error) {
@@ -479,20 +446,20 @@ func (scope *Scope) rows() (*sql.Rows, error) {
 	}
 	scope.callCallbacks(scope.con.parent.callback.rowQueries)
 	scope.Search.prepareQuerySQL(scope)
-	return scope.con.sqli.Query(scope.Search.SQL, scope.Search.SQLVars...)
+	return scope.Search.Query(scope)
 }
 
 func (scope *Scope) initialize() *Scope {
 	for _, pair := range scope.Search.Conditions[Where_query] {
-		scope.updatedAttrsWithValues(pair.expression)
+		updatedAttrsWithValues(scope, pair.expression)
 	}
 	initArgs := scope.Search.getFirst(Init_attrs)
 	if initArgs != nil {
-		scope.updatedAttrsWithValues(initArgs.args)
+		updatedAttrsWithValues(scope, initArgs.args)
 	}
 	args := scope.Search.getFirst(assign_attrs)
 	if args != nil {
-		scope.updatedAttrsWithValues(args.args)
+		updatedAttrsWithValues(scope, args.args)
 	}
 	return scope
 }
@@ -1250,9 +1217,9 @@ func (scope *Scope) createCallback() {
 
 		// execute create sql
 		if lastInsertIDReturningSuffix == "" || primaryField == nil {
-			if result, err := scope.con.sqli.Exec(scope.Search.SQL, scope.Search.SQLVars...); scope.Err(err) == nil {
+			if result, err := scope.Search.Exec(scope); scope.Err(err) == nil {
 				// set rows affected count
-				scope.con.RowsAffected, _ = result.RowsAffected()
+				//scope.con.RowsAffected, _ = result.RowsAffected()
 
 				// set primary value to primary field
 				if primaryField != nil && primaryField.IsBlank() {
@@ -1262,7 +1229,7 @@ func (scope *Scope) createCallback() {
 				}
 			}
 		} else {
-			if err := scope.con.sqli.QueryRow(scope.Search.SQL, scope.Search.SQLVars...).
+			if err := scope.Search.QueryRow(scope).
 				Scan(primaryField.Value.Addr().Interface()); scope.Err(err) == nil {
 				primaryField.unsetFlag(IS_BLANK)
 				scope.con.RowsAffected = 1
@@ -1393,7 +1360,7 @@ func (scope *Scope) saveAfterAssociationsCallback() {
 // assignUpdatingAttributesCallback assign updating attributes to model
 func (scope *Scope) assignUpdatingAttributesCallback() {
 	if attrs, ok := scope.InstanceGet(UPDATE_INTERF_SETTING); ok {
-		if updateMaps, hasUpdate := scope.updatedAttrsWithValues(attrs); hasUpdate {
+		if updateMaps, hasUpdate := updatedAttrsWithValues(scope, attrs); hasUpdate {
 			scope.InstanceSet(UPDATE_ATTRS_SETTING, updateMaps)
 		} else {
 			scope.SkipLeft()
@@ -1534,7 +1501,7 @@ func (scope *Scope) queryCallback() {
 			scope.Search.SQL += addExtraSpaceIfExist(fmt.Sprint(str))
 		}
 
-		if rows, err := scope.con.sqli.Query(scope.Search.SQL, scope.Search.SQLVars...); scope.Err(err) == nil {
+		if rows, err := scope.Search.Query(scope); scope.Err(err) == nil {
 			defer rows.Close()
 
 			columns, _ := rows.Columns()

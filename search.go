@@ -79,8 +79,12 @@ func (p *SqlPair) addExpressions(values ...interface{}) {
 }
 
 func (p *SqlPair) strExpr() string {
-	result := p.expression.(string)
-	return result
+	result, ok := p.expression.(string)
+	if ok {
+		return result
+	}
+	fmt.Printf("ERROR : SqlPair expression %v expected to be string. It's not!\n", p.expression)
+	return ""
 }
 
 func (s *Search) getFirst(condType sqlConditionType) *SqlPair {
@@ -138,7 +142,6 @@ func (s *Search) addSqlCondition(condType sqlConditionType, query interface{}, v
 
 func (s *Search) Clone() *Search {
 	clone := Search{}
-
 	clone.flags = s.flags
 	//clone conditions
 	clone.Conditions = make(SqlConditions)
@@ -148,6 +151,15 @@ func (s *Search) Clone() *Search {
 	clone.tableName = s.tableName
 	clone.Value = s.Value
 	return &clone
+}
+
+func (s *Search) Wheres(wheres ...interface{}) *Search {
+	if len(wheres) > 0 {
+		s.addSqlCondition(Where_query, wheres[0], wheres[1:]...)
+		s.setFlag(HAS_WHERE)
+		//TODO : call initialize
+	}
+	return s
 }
 
 func (s *Search) Where(query interface{}, values ...interface{}) *Search {
@@ -213,20 +225,7 @@ func (s *Search) Group(query string) *Search {
 }
 
 func (s *Search) Attrs(attrs ...interface{}) *Search {
-	var result interface{}
-	if len(attrs) == 1 {
-		if attr, ok := attrs[0].(map[string]interface{}); ok {
-			result = attr
-		}
-
-		if attr, ok := attrs[0].(interface{}); ok {
-			result = attr
-		}
-	} else if len(attrs) > 1 {
-		if str, ok := attrs[0].(string); ok {
-			result = map[string]interface{}{str: attrs[1]}
-		}
-	}
+	result := argsToInterface(attrs...)
 	if result != nil {
 		s.addSqlCondition(Init_attrs, nil, result)
 		s.setFlag(HAS_INIT)
@@ -235,20 +234,7 @@ func (s *Search) Attrs(attrs ...interface{}) *Search {
 }
 
 func (s *Search) Assign(attrs ...interface{}) *Search {
-	var result interface{}
-	if len(attrs) == 1 {
-		if attr, ok := attrs[0].(map[string]interface{}); ok {
-			result = attr
-		}
-
-		if attr, ok := attrs[0].(interface{}); ok {
-			result = attr
-		}
-	} else if len(attrs) > 1 {
-		if str, ok := attrs[0].(string); ok {
-			result = map[string]interface{}{str: attrs[1]}
-		}
-	}
+	result := argsToInterface(attrs...)
 	if result != nil {
 		s.addSqlCondition(assign_attrs, nil, result)
 		s.setFlag(HAS_ASSIGN)
@@ -287,6 +273,27 @@ func (s *Search) Omit(columns ...string) *Search {
 	//fmt.Printf("Omit %d elements\n", s.numConditions(omits_query))
 	s.setFlag(HAS_OMITS)
 	return s
+}
+
+func (s *Search) Exec(scope *Scope) (sql.Result, error) {
+	result, err := scope.con.sqli.Exec(s.SQL, s.SQLVars...)
+	if scope.Err(err) == nil {
+		count, err := result.RowsAffected()
+		if scope.Err(err) == nil {
+			scope.con.RowsAffected = count
+			s.RowsAffected = count
+		}
+	}
+	return result, err
+}
+
+func (s *Search) Query(scope *Scope) (*sql.Rows, error) {
+	rows, err := scope.con.sqli.Query(s.SQL, s.SQLVars...)
+	return rows, err
+}
+
+func (s *Search) QueryRow(scope *Scope) *sql.Row {
+	return scope.con.sqli.QueryRow(s.SQL, s.SQLVars...)
 }
 
 func (s Search) hasFlag(value uint16) bool {
@@ -470,6 +477,13 @@ func (s *Search) whereSQL(scope *Scope) string {
 		str = "WHERE " + combinedSQL
 	}
 	return str
+}
+
+func (s *Search) exec(scope *Scope, sql string, values ...interface{}) string {
+	newPair := SqlPair{expression: sql}
+	newPair.addExpressions(values...)
+	genSql := s.buildWhereCondition(newPair, scope)
+	return strings.TrimSuffix(strings.TrimPrefix(genSql, "("), ")")
 }
 
 func (s *Search) buildWhereCondition(fromPair SqlPair, scope *Scope) string {

@@ -212,7 +212,7 @@ func (con *DBCon) NewScope(value interface{}) *Scope {
 }
 
 // CommonDB return the underlying `*sql.DB` or `*sql.Tx` instance, mainly intended to allow coexistence with legacy non-GORM code.
-func (con *DBCon) CommonDB() sqlInterf {
+func (con *DBCon) AsSQLDB() sqlInterf {
 	return con.sqli
 }
 
@@ -270,7 +270,7 @@ func (con *DBCon) First(out interface{}, where ...interface{}) *DBCon {
 	newScope.Search.Limit(1)
 	newScope.Set(ORDER_BY_PK_SETTING, "ASC")
 	if len(where) > 0 {
-		newScope.Search.Where(where[0], where[1:]...)
+		newScope.Search.Wheres(where...)
 	}
 	return newScope.callCallbacks(con.parent.callback.queries).con
 }
@@ -281,7 +281,7 @@ func (con *DBCon) Last(out interface{}, where ...interface{}) *DBCon {
 	newScope.Search.Limit(1)
 	newScope.Set(ORDER_BY_PK_SETTING, "DESC")
 	if len(where) > 0 {
-		newScope.Search.Where(where[0], where[1:]...)
+		newScope.Search.Wheres(where...)
 	}
 	return newScope.callCallbacks(con.parent.callback.queries).con
 }
@@ -290,7 +290,7 @@ func (con *DBCon) Last(out interface{}, where ...interface{}) *DBCon {
 func (con *DBCon) Find(out interface{}, where ...interface{}) *DBCon {
 	newScope := con.NewScope(out)
 	if len(where) > 0 {
-		newScope.Search.Where(where[0], where[1:]...)
+		newScope.Search.Wheres(where...)
 	}
 	return newScope.callCallbacks(con.parent.callback.queries).con
 }
@@ -344,73 +344,55 @@ func (con *DBCon) Related(value interface{}, foreignKeys ...string) *DBCon {
 
 // FirstOrInit find first matched record or initialize a new one with given conditions (only works with struct, map conditions)
 func (con *DBCon) FirstOrInit(out interface{}, where ...interface{}) *DBCon {
-	c := con.clone()
-	if result := c.First(out, where...); result.Error != nil {
+	conClone := con.clone()
+	if result := conClone.First(out, where...); result.Error != nil {
 		if !result.RecordNotFound() {
 			return result
 		}
-		newScope := c.NewScope(out)
-		if len(where) > 0 {
-			newScope.Search.Where(where[0], where[1:]...)
-		}
+		newScope := conClone.NewScope(out)
+		newScope.Search.Wheres(where...)
 		newScope.initialize()
 	} else {
-		scope := c.NewScope(out)
+		scope := conClone.NewScope(out)
 		args := scope.Search.getFirst(assign_attrs)
 		if args != nil {
-			scope.updatedAttrsWithValues(args.args)
-		} else {
-			//TODO : @Badu - warning ?
+			updatedAttrsWithValues(scope, args.args)
 		}
 	}
-	return c
+	return conClone
 }
 
 // FirstOrCreate find first matched record or create a new one with given conditions (only works with struct, map conditions)
 func (con *DBCon) FirstOrCreate(out interface{}, where ...interface{}) *DBCon {
-	c := con.clone()
+	conClone := con.clone()
 	if result := con.First(out, where...); result.Error != nil {
 		if !result.RecordNotFound() {
 			return result
 		}
-		newScope := c.NewScope(out)
-		if len(where) > 0 {
-			newScope.Search.Where(where[0], where[1:]...)
-		}
-		return newScope.initialize().callCallbacks(c.parent.callback.creates).con
-	} else if c.search.hasAssign() {
-		scope := c.NewScope(out)
+		newScope := conClone.NewScope(out)
+		newScope.Search.Wheres(where...)
+		return newScope.initialize().callCallbacks(conClone.parent.callback.creates).con
+	} else if conClone.search.hasAssign() {
+		scope := conClone.NewScope(out)
 		args := scope.Search.getFirst(assign_attrs)
 		if args != nil {
 			scope.InstanceSet(UPDATE_INTERF_SETTING, args.args)
-		} else {
-			//TODO : @Badu - warning ?
 		}
-		return scope.callCallbacks(c.parent.callback.updates).con
+		return scope.callCallbacks(conClone.parent.callback.updates).con
 	}
-	return c
+	return conClone
 }
 
 // Update update attributes with callbacks
 func (con *DBCon) Update(attrs ...interface{}) *DBCon {
-
-	var result interface{}
-	//TODO : @Badu - what happens to zero ? return nil, right? Return warning
-	if len(attrs) == 1 {
-		if attr, ok := attrs[0].(map[string]interface{}); ok {
-			result = attr
-		}
-
-		if attr, ok := attrs[0].(interface{}); ok {
-			result = attr
-		}
-	} else if len(attrs) > 1 {
-		if str, ok := attrs[0].(string); ok {
-			result = map[string]interface{}{str: attrs[1]}
-		}
-	}
-
+	result := argsToInterface(attrs...)
 	return con.Updates(result, true)
+}
+
+// UpdateColumn update attributes without callbacks
+func (con *DBCon) UpdateColumn(attrs ...interface{}) *DBCon {
+	result := argsToInterface(attrs...)
+	return con.UpdateColumns(result)
 }
 
 // Updates update attributes with callbacks
@@ -419,27 +401,6 @@ func (con *DBCon) Updates(values interface{}, ignoreProtectedAttrs ...bool) *DBC
 		Set(IGNORE_PROTEC_SETTING, len(ignoreProtectedAttrs) > 0).
 		InstanceSet(UPDATE_INTERF_SETTING, values).
 		callCallbacks(con.parent.callback.updates).con
-}
-
-// UpdateColumn update attributes without callbacks
-func (con *DBCon) UpdateColumn(attrs ...interface{}) *DBCon {
-	var result interface{}
-	//TODO : @Badu - what happens to zero ? return nil, right? Return warning
-	if len(attrs) == 1 {
-		if attr, ok := attrs[0].(map[string]interface{}); ok {
-			result = attr
-		}
-
-		if attr, ok := attrs[0].(interface{}); ok {
-			result = attr
-		}
-	} else if len(attrs) > 1 {
-		if str, ok := attrs[0].(string); ok {
-			result = map[string]interface{}{str: attrs[1]}
-		}
-	}
-
-	return con.UpdateColumns(result)
 }
 
 // UpdateColumns update attributes without callbacks
@@ -455,11 +416,11 @@ func (con *DBCon) UpdateColumns(values interface{}) *DBCon {
 func (con *DBCon) Save(value interface{}) *DBCon {
 	scope := con.NewScope(value)
 	if !scope.PrimaryKeyZero() {
-		newDB := scope.callCallbacks(con.parent.callback.updates).con
-		if newDB.Error == nil && newDB.RowsAffected == 0 {
+		conn := scope.callCallbacks(con.parent.callback.updates).con
+		if conn.Error == nil && conn.RowsAffected == 0 {
 			return newCon(con).FirstOrCreate(value)
 		}
-		return newDB
+		return conn
 	}
 	return scope.callCallbacks(con.parent.callback.creates).con
 }
@@ -473,9 +434,7 @@ func (con *DBCon) Create(value interface{}) *DBCon {
 // Delete delete value match given conditions, if the value has primary key, then will including the primary key as condition
 func (con *DBCon) Delete(value interface{}, where ...interface{}) *DBCon {
 	scope := con.NewScope(value)
-	if len(where) > 0 {
-		scope.Search.Where(where[0], where[1:]...)
-	}
+	scope.Search.Wheres(where...)
 	return scope.callCallbacks(con.parent.callback.deletes).con
 }
 

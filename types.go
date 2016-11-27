@@ -104,12 +104,13 @@ type (
 	SqlConditions map[sqlConditionType]sqlCondition
 
 	Search struct {
-		flags      uint16
-		Conditions SqlConditions
-		tableName  string
-		SQL        string
-		SQLVars    []interface{}
-		Value      interface{} //TODO : @Badu - moved here from DBCon - in the end should use Scope's Value
+		flags        uint16
+		Conditions   SqlConditions
+		tableName    string
+		SQL          string
+		SQLVars      []interface{}
+		Value        interface{} //TODO : @Badu - moved here from DBCon - in the end should use Scope's Value
+		RowsAffected int64
 	}
 
 	DBConFunc func(*DBCon) *DBCon

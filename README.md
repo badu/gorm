@@ -45,6 +45,12 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
 
 # Changes log
 
+## 27.11.2016
+- [x] created Search struct methods for Query, QueryRow and Exec
+- [x] created Search struct RowsAffected field (to replace DBCon's one)
+- [x] argsToInterface in utils
+- [x] updatedAttrsWithValues in utils
+
 ## 26.11.2016
 - [x] polished Scope methods
 - [x] removed inlineConditions from Search
