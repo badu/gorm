@@ -3,25 +3,23 @@ package tests
 import (
 	"database/sql"
 	"database/sql/driver"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-	"reflect"
-	"runtime"
-	"strconv"
-	"testing"
-	"time"
-
 	"github.com/erikstmartin/go-testdb"
-
-	"encoding/json"
 	"github.com/jinzhu/now"
 	"gorm"
 	_ "gorm/dialects/mysql"
 	pgdialect "gorm/dialects/postgres"
 	_ "gorm/dialects/sqlite"
+	"os"
+	"reflect"
+	"runtime"
 	"sort"
+	"strconv"
 	"strings"
+	"testing"
+	"time"
 )
 
 var (
@@ -36,6 +34,9 @@ var (
 		sort.Strings(contents)
 		return reflect.DeepEqual(toyContents, contents)
 	}
+
+	startTime time.Time
+	elapsed   time.Duration
 )
 
 type (
@@ -818,13 +819,20 @@ func (nt NullTime) Value() (driver.Value, error) {
 }
 
 func init() {
+	startTime = time.Now()
+
+	fmt.Println("Init tests...")
 	var err error
 
 	if TestDB, err = OpenTestConnection(); err != nil {
 		panic(fmt.Sprintf("No error should happen when connecting to test database, but got err=%+v", err))
 	}
 
+	elapsed = time.Since(startTime)
+	fmt.Printf("Openning connection took %s\n", elapsed)
 	runMigration()
+	elapsed = time.Since(startTime)
+	fmt.Printf("Migration took %s\n", elapsed)
 }
 
 func toJSONString(v interface{}) []byte {
@@ -882,7 +890,6 @@ func OpenTestConnection() (db *gorm.DBCon, err error) {
 	// db.SetLogger(log.New(os.Stdout, "\r\n", 0))
 
 	db.DB().SetMaxIdleConns(10)
-
 	return
 }
 
@@ -1585,50 +1592,5 @@ func TestOpenWithOneParameter(t *testing.T) {
 	}
 	if err == nil {
 		t.Error("Open with one parameter returned err as nil")
-	}
-}
-
-func BenchmarkGorm(b *testing.B) {
-	b.Log("1) BenchmarkGorm")
-	b.N = 2000
-	for x := 0; x < b.N; x++ {
-		e := strconv.Itoa(x) + "benchmark@example.org"
-		now := time.Now()
-		email := BigEmail{Email: e, UserAgent: "pc", RegisteredAt: &now}
-		// Insert
-		TestDB.Save(&email)
-		// Query
-		TestDB.First(&BigEmail{}, "email = ?", e)
-		// Update
-		TestDB.Model(&email).UpdateColumn("email", "new-"+e)
-		// Delete
-		TestDB.Delete(&email)
-	}
-}
-
-func BenchmarkRawSql(b *testing.B) {
-	b.Log("2) BenchmarkRawSql")
-	DB, _ := sql.Open("postgres", "user=gorm DB.ame=gorm sslmode=disable")
-	DB.SetMaxIdleConns(10)
-	insertSql := "INSERT INTO emails (user_id,email,user_agent,registered_at,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id"
-	querySql := "SELECT * FROM emails WHERE email = $1 ORDER BY id LIMIT 1"
-	updateSql := "UPDATE emails SET email = $1, updated_at = $2 WHERE id = $3"
-	deleteSql := "DELETE FROM orders WHERE id = $1"
-
-	b.N = 2000
-	for x := 0; x < b.N; x++ {
-		var id int64
-		e := strconv.Itoa(x) + "benchmark@example.org"
-		now := time.Now()
-		email := BigEmail{Email: e, UserAgent: "pc", RegisteredAt: &now}
-		// Insert
-		DB.QueryRow(insertSql, email.UserId, email.Email, email.UserAgent, email.RegisteredAt, time.Now(), time.Now()).Scan(&id)
-		// Query
-		rows, _ := DB.Query(querySql, email.Email)
-		rows.Close()
-		// Update
-		DB.Exec(updateSql, "new-"+e, time.Now(), id)
-		// Delete
-		DB.Exec(deleteSql, id)
 	}
 }

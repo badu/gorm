@@ -1,8 +1,8 @@
 package gorm
 
 import (
-	"strings"
 	"errors"
+	"strings"
 )
 
 type (
@@ -12,6 +12,7 @@ type (
 	// Errors contains all happened errors
 	GormErrors []error
 )
+
 var (
 	// ErrRecordNotFound record not found error, happens when haven't find any matched data when looking up with a struct
 	ErrRecordNotFound = errors.New("record not found")
@@ -28,6 +29,7 @@ var (
 	// ErrUnaddressable unaddressable value
 	ErrUnaddressable = errors.New("using unaddressable value")
 )
+
 // GetErrors get all happened errors
 func (errs GormErrors) GetErrors() []error {
 	return errs

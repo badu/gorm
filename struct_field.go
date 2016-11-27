@@ -216,6 +216,7 @@ func (field *StructField) IsEmbedOrAnon() bool {
 func (field *StructField) IsAutoIncrement() bool {
 	return field.flags&(1<<IS_AUTOINCREMENT) != 0
 }
+
 //TODO : @Badu - make field aware of "it's include or not"
 func (field *StructField) IsOmmited() bool {
 	return field.flags&(1<<IS_OMITTED) != 0
@@ -224,6 +225,7 @@ func (field *StructField) IsOmmited() bool {
 func (field *StructField) SetIsOmmitted() {
 	field.flags = field.flags | (1 << IS_OMITTED)
 }
+
 //TODO : @Badu - make field aware of "it's include or not"
 func (field *StructField) IsIncluded() bool {
 	return field.flags&(1<<IS_INCLUDED) != 0
@@ -492,8 +494,4 @@ func (field *StructField) getAssocForeignKeys() StrSlice {
 		result.commaLoad(foreignKey)
 	}
 	return result
-}
-
-func (field *StructField) changeableField() {
-
 }

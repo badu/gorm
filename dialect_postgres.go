@@ -60,10 +60,10 @@ func (postgres) DataTypeOf(field *StructField) string {
 		default:
 			if (dataValue.Kind() == reflect.Array ||
 				dataValue.Kind() == reflect.Slice) &&
-				dataValue.Type().Elem() == reflect.TypeOf(uint8(0)){
+				dataValue.Type().Elem() == reflect.TypeOf(uint8(0)) {
 				sqlType = "bytea"
 			} else if dataValue.Kind() == reflect.Array &&
-				dataValue.Type().Len() == 16{
+				dataValue.Type().Len() == 16 {
 				typename := dataValue.Type().Name()
 				lower := strings.ToLower(typename)
 				if "uuid" == lower || "guid" == lower {

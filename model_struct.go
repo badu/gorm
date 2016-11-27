@@ -43,8 +43,9 @@ func (modelStruct *ModelStruct) HasColumn(column string) bool {
 func (modelStruct *ModelStruct) FieldByName(column string) (*StructField, bool) {
 	field, ok := modelStruct.fieldsMap.Get(column)
 	if !ok {
+		//fmt.Printf("couldn't find %q in fields map\n", column)
 		//couldn't find it in "fields" map
-		for _, field := range modelStruct.StructFields() {
+		for _, field := range modelStruct.fieldsMap.fields {
 			if field.DBName == NamesMap.ToDBName(column) {
 				return field, true
 			}
@@ -175,10 +176,8 @@ func (modelStruct *ModelStruct) processRelations(scope *Scope) {
 			} else if field.IsStruct() {
 				if !relationship.HasOne(field, modelStruct, toModelStruct, scope, toScope) {
 					if !relationship.BelongTo(field, modelStruct, toModelStruct, scope, toScope) {
-						//TODO : @Badu - implement warning to scope, as errors are
-						errMsg := fmt.Sprintf(no_belong_or_hasone_err, modelStruct.ModelType.Name(), field.DBName, field.GetStructName())
-						fmt.Printf("Warning %v\n", errMsg)
-						//scope.Err(errors.New(errMsg))
+						errMsg := fmt.Errorf(no_belong_or_hasone_err, modelStruct.ModelType.Name(), field.DBName, field.GetStructName())
+						scope.Warn(errMsg)
 					}
 				}
 			}

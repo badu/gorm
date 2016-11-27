@@ -1,7 +1,7 @@
 package benchmarks
 
 import (
-	badu "github.com/badu/gorm"
+	badu "gorm"
 	jinzhu "github.com/jinzhu/gorm"
 	"runtime"
 	"sync"

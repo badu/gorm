@@ -5,7 +5,6 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"reflect"
-	"regexp"
 	"strconv"
 	"strings"
 )
@@ -157,9 +156,22 @@ func (s *Search) Wheres(wheres ...interface{}) *Search {
 	if len(wheres) > 0 {
 		s.addSqlCondition(Where_query, wheres[0], wheres[1:]...)
 		s.setFlag(HAS_WHERE)
-		//TODO : call initialize
 	}
 	return s
+}
+
+func (s *Search) initialize(scope *Scope) {
+	for _, pair := range s.Conditions[Where_query] {
+		updatedAttrsWithValues(scope, pair.expression)
+	}
+	initArgs := s.getFirst(Init_attrs)
+	if initArgs != nil {
+		updatedAttrsWithValues(scope, initArgs.args)
+	}
+	args := s.getFirst(assign_attrs)
+	if args != nil {
+		updatedAttrsWithValues(scope, args.args)
+	}
 }
 
 func (s *Search) Where(query interface{}, values ...interface{}) *Search {
@@ -275,13 +287,19 @@ func (s *Search) Omit(columns ...string) *Search {
 	return s
 }
 
+func (s *Search) exec(scope *Scope, sql string, values ...interface{}) string {
+	newPair := SqlPair{expression: sql}
+	newPair.addExpressions(values...)
+	genSql := s.buildWhereCondition(newPair, scope)
+	return strings.TrimSuffix(strings.TrimPrefix(genSql, "("), ")")
+}
+
 func (s *Search) Exec(scope *Scope) (sql.Result, error) {
 	result, err := scope.con.sqli.Exec(s.SQL, s.SQLVars...)
 	if scope.Err(err) == nil {
 		count, err := result.RowsAffected()
 		if scope.Err(err) == nil {
 			scope.con.RowsAffected = count
-			s.RowsAffected = count
 		}
 	}
 	return result, err
@@ -296,6 +314,7 @@ func (s *Search) QueryRow(scope *Scope) *sql.Row {
 	return scope.con.sqli.QueryRow(s.SQL, s.SQLVars...)
 }
 
+//should remain unused
 func (s Search) hasFlag(value uint16) bool {
 	return s.flags&(1<<value) != 0
 }
@@ -304,6 +323,7 @@ func (s *Search) setFlag(value uint16) {
 	s.flags = s.flags | (1 << value)
 }
 
+//should remain unused
 func (s *Search) unsetFlag(value uint16) {
 	s.flags = s.flags & ^(1 << value)
 }
@@ -406,7 +426,7 @@ func (s *Search) checkFieldOmitted(field *StructField) bool {
 	}
 	return false
 }
-
+//TODO : @Badu - maybe it's best to split this into two function - one for sqlPair and one for value (to remove recursion)
 // addToVars add value as sql's vars, used to prevent SQL injection
 func (s *Search) addToVars(value interface{}, dialect Dialect) string {
 	if pair, ok := value.(*SqlPair); ok {
@@ -479,13 +499,6 @@ func (s *Search) whereSQL(scope *Scope) string {
 	return str
 }
 
-func (s *Search) exec(scope *Scope, sql string, values ...interface{}) string {
-	newPair := SqlPair{expression: sql}
-	newPair.addExpressions(values...)
-	genSql := s.buildWhereCondition(newPair, scope)
-	return strings.TrimSuffix(strings.TrimPrefix(genSql, "("), ")")
-}
-
 func (s *Search) buildWhereCondition(fromPair SqlPair, scope *Scope) string {
 	var (
 		str             string
@@ -497,7 +510,7 @@ func (s *Search) buildWhereCondition(fromPair SqlPair, scope *Scope) string {
 	switch expType := fromPair.expression.(type) {
 	case string:
 		// if string is number
-		if regexp.MustCompile("^\\s*\\d+\\s*$").MatchString(expType) {
+		if regExpNumberMatcher.MatchString(expType) {
 			return fmt.Sprintf("(%v.%v = %v)", quotedTableName, quotedPKName, s.addToVars(expType, dialect))
 		} else if expType != "" {
 			str = fmt.Sprintf("(%v)", expType)
@@ -565,10 +578,10 @@ func (s *Search) buildNotCondition(fromPair SqlPair, scope *Scope) string {
 	switch exprType := fromPair.expression.(type) {
 	case string:
 		// is number
-		if regexp.MustCompile("^\\s*\\d+\\s*$").MatchString(exprType) {
+		if regExpNumberMatcher.MatchString(exprType) {
 			id, _ := strconv.Atoi(exprType)
 			return fmt.Sprintf("(%v <> %v)", Quote(primaryKey, dialect), id)
-		} else if regexp.MustCompile("(?i) (=|<>|>|<|LIKE|IS|IN) ").MatchString(exprType) {
+		} else if regExpLikeInMatcher.MatchString(exprType) {
 			str = fmt.Sprintf(" NOT (%v) ", exprType)
 			notEqualSQL = fmt.Sprintf("NOT (%v)", exprType)
 		} else {

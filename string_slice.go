@@ -2,8 +2,6 @@ package gorm
 
 import (
 	"strings"
-	"reflect"
-	"database/sql/driver"
 )
 
 //============================================
@@ -41,25 +39,4 @@ func (s *StrSlice) commaLoad(target string) {
 
 func (s StrSlice) slice() []string {
 	return s
-}
-
-
-// getValueFromFields return given fields's value
-func (s StrSlice) getValueFromFields(value reflect.Value) []interface{} {
-	var results []interface{}
-	// If value is a nil pointer, Indirect returns a zero Value!
-	// Therefor we need to check for a zero value,
-	// as FieldByName could panic
-	if indirectValue := reflect.Indirect(value); indirectValue.IsValid() {
-		for _, fieldName := range s {
-			if fieldValue := indirectValue.FieldByName(fieldName); fieldValue.IsValid() {
-				result := fieldValue.Interface()
-				if r, ok := result.(driver.Valuer); ok {
-					result, _ = r.Value()
-				}
-				results = append(results, result)
-			}
-		}
-	}
-	return results
 }

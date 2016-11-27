@@ -2,25 +2,17 @@ package gorm
 
 import (
 	"database/sql"
+	"database/sql/driver"
 	"errors"
 	"fmt"
 	"reflect"
-	"regexp"
 	"strings"
 )
-
-//============================================
-// Dialect functions
-//============================================
 
 // RegisterDialect register new dialect
 func RegisterDialect(name string, dialect Dialect) {
 	dialectsMap[name] = dialect
 }
-
-//============================================
-// Other utils functions
-//============================================
 
 func equalAsString(a interface{}, b interface{}) bool {
 	return toString(a) == toString(b)
@@ -66,7 +58,7 @@ func Quote(field string, dialect Dialect) string {
 //using inline advantage
 func QuoteIfPossible(str string, dialect Dialect) string {
 	// only match string like `name`, `users.name`
-	if regexp.MustCompile("^[a-zA-Z]+(\\.[a-zA-Z]+)*$").MatchString(str) {
+	if regExpNameMatcher.MatchString(str) {
 		return Quote(str, dialect)
 	}
 	return str
@@ -319,6 +311,51 @@ func updatedAttrsWithValues(scope *Scope, value interface{}) (map[string]interfa
 		}
 	}
 	return results, hasUpdate
+}
+
+//using inline advantage
+// getValueFromFields return given fields's value
+func getValueFromFields(s StrSlice, value reflect.Value) []interface{} {
+	var results []interface{}
+	// If value is a nil pointer, Indirect returns a zero Value!
+	// Therefor we need to check for a zero value,
+	// as FieldByName could panic
+	if indirectValue := reflect.Indirect(value); indirectValue.IsValid() {
+		for _, fieldName := range s {
+			if fieldValue := indirectValue.FieldByName(fieldName); fieldValue.IsValid() {
+				result := fieldValue.Interface()
+				if r, ok := result.(driver.Valuer); ok {
+					result, _ = r.Value()
+				}
+				results = append(results, result)
+			}
+		}
+	}
+	return results
+}
+
+func getSearchMap(jth JoinTableHandler, con *DBCon, sources ...interface{}) map[string]interface{} {
+	values := map[string]interface{}{}
+
+	for _, source := range sources {
+		scope := con.NewScope(source)
+		modelType := scope.GetModelStruct().ModelType
+
+		if jth.Source.ModelType == modelType {
+			for _, foreignKey := range jth.Source.ForeignKeys {
+				if field, ok := scope.FieldByName(foreignKey.AssociationDBName); ok {
+					values[foreignKey.DBName] = field.Value.Interface()
+				}
+			}
+		} else if jth.Destination.ModelType == modelType {
+			for _, foreignKey := range jth.Destination.ForeignKeys {
+				if field, ok := scope.FieldByName(foreignKey.AssociationDBName); ok {
+					values[foreignKey.DBName] = field.Value.Interface()
+				}
+			}
+		}
+	}
+	return values
 }
 
 // Open initialize a new db connection, need to import driver first, e.g:

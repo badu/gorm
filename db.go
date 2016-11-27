@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"strings"
 	"sync"
 	"time"
 )
@@ -268,7 +267,7 @@ func (con *DBCon) Scopes(funcs ...DBConFunc) *DBCon {
 func (con *DBCon) First(out interface{}, where ...interface{}) *DBCon {
 	newScope := con.NewScope(out)
 	newScope.Search.Limit(1)
-	newScope.Set(ORDER_BY_PK_SETTING, "ASC")
+	newScope.Set(ORDER_BY_PK_SETTING, ASCENDENT)
 	if len(where) > 0 {
 		newScope.Search.Wheres(where...)
 	}
@@ -279,7 +278,7 @@ func (con *DBCon) First(out interface{}, where ...interface{}) *DBCon {
 func (con *DBCon) Last(out interface{}, where ...interface{}) *DBCon {
 	newScope := con.NewScope(out)
 	newScope.Search.Limit(1)
-	newScope.Set(ORDER_BY_PK_SETTING, "DESC")
+	newScope.Set(ORDER_BY_PK_SETTING, DESCENDENT)
 	if len(where) > 0 {
 		newScope.Search.Wheres(where...)
 	}
@@ -350,8 +349,7 @@ func (con *DBCon) FirstOrInit(out interface{}, where ...interface{}) *DBCon {
 			return result
 		}
 		newScope := conClone.NewScope(out)
-		newScope.Search.Wheres(where...)
-		newScope.initialize()
+		newScope.Search.Wheres(where...).initialize(newScope)
 	} else {
 		scope := conClone.NewScope(out)
 		args := scope.Search.getFirst(assign_attrs)
@@ -370,8 +368,8 @@ func (con *DBCon) FirstOrCreate(out interface{}, where ...interface{}) *DBCon {
 			return result
 		}
 		newScope := conClone.NewScope(out)
-		newScope.Search.Wheres(where...)
-		return newScope.initialize().callCallbacks(conClone.parent.callback.creates).con
+		newScope.Search.Wheres(where...).initialize(newScope)
+		return newScope.callCallbacks(conClone.parent.callback.creates).con
 	} else if conClone.search.hasAssign() {
 		scope := conClone.NewScope(out)
 		args := scope.Search.getFirst(assign_attrs)
@@ -383,24 +381,18 @@ func (con *DBCon) FirstOrCreate(out interface{}, where ...interface{}) *DBCon {
 	return conClone
 }
 
-// Update update attributes with callbacks
-func (con *DBCon) Update(attrs ...interface{}) *DBCon {
-	result := argsToInterface(attrs...)
-	return con.Updates(result, true)
-}
-
-// UpdateColumn update attributes without callbacks
-func (con *DBCon) UpdateColumn(attrs ...interface{}) *DBCon {
-	result := argsToInterface(attrs...)
-	return con.UpdateColumns(result)
-}
-
 // Updates update attributes with callbacks
 func (con *DBCon) Updates(values interface{}, ignoreProtectedAttrs ...bool) *DBCon {
 	return con.NewScope(con.search.Value).
 		Set(IGNORE_PROTEC_SETTING, len(ignoreProtectedAttrs) > 0).
 		InstanceSet(UPDATE_INTERF_SETTING, values).
 		callCallbacks(con.parent.callback.updates).con
+}
+
+// Update update attributes with callbacks
+func (con *DBCon) Update(attrs ...interface{}) *DBCon {
+	result := argsToInterface(attrs...)
+	return con.Updates(result, true)
 }
 
 // UpdateColumns update attributes without callbacks
@@ -410,6 +402,12 @@ func (con *DBCon) UpdateColumns(values interface{}) *DBCon {
 		Set(SAVE_ASSOC_SETTING, false).
 		InstanceSet(UPDATE_INTERF_SETTING, values).
 		callCallbacks(con.parent.callback.updates).con
+}
+
+// UpdateColumn update attributes without callbacks
+func (con *DBCon) UpdateColumn(attrs ...interface{}) *DBCon {
+	result := argsToInterface(attrs...)
+	return con.UpdateColumns(result)
 }
 
 // Save update value in database, if the value doesn't have primary key, will insert it
@@ -427,8 +425,7 @@ func (con *DBCon) Save(value interface{}) *DBCon {
 
 // Create insert the value into database
 func (con *DBCon) Create(value interface{}) *DBCon {
-	scope := con.NewScope(value)
-	return scope.callCallbacks(con.parent.callback.creates).con
+	return con.NewScope(value).callCallbacks(con.parent.callback.creates).con
 }
 
 // Delete delete value match given conditions, if the value has primary key, then will including the primary key as condition
@@ -441,11 +438,7 @@ func (con *DBCon) Delete(value interface{}, where ...interface{}) *DBCon {
 // Exec execute raw sql
 func (con *DBCon) Exec(sql string, values ...interface{}) *DBCon {
 	scope := con.NewScope(nil)
-	newPair := SqlPair{expression: sql}
-	newPair.addExpressions(values...)
-	generatedSQL := scope.Search.buildWhereCondition(newPair, scope)
-	generatedSQL = strings.TrimSuffix(strings.TrimPrefix(generatedSQL, "("), ")")
-	scope.Raw(generatedSQL)
+	scope.Raw(scope.Search.exec(scope, sql, values...))
 	return scope.Exec().con
 }
 
@@ -464,7 +457,7 @@ func (con *DBCon) Model(value interface{}) *DBCon {
 func (con *DBCon) Table(name string) *DBCon {
 	clone := con.clone()
 	clone.search.Table(name)
-	//TODO : @Badu - why we're reseting the value?
+	//reseting the value
 	clone.search.Value = nil
 	return clone
 }
@@ -527,24 +520,32 @@ func (con *DBCon) RecordNotFound() bool {
 
 // CreateTable create table for models
 func (con *DBCon) CreateTable(models ...interface{}) *DBCon {
-	db := con.Unscoped()
+	conn := con.Unscoped()
 	for _, model := range models {
-		db = db.NewScope(model).createTable().con
+		scope := conn.NewScope(model)
+		createTable(scope)
+		conn = scope.con
 	}
-	return db
+	return conn
 }
 
 // DropTable drop table for models
 func (con *DBCon) DropTable(values ...interface{}) *DBCon {
-	db := con.clone()
+	conn := con.clone()
 	for _, value := range values {
 		if tableName, ok := value.(string); ok {
-			db = db.Table(tableName)
+			conn = conn.Table(tableName)
 		}
-
-		db = db.NewScope(value).dropTable().con
+		scope := conn.NewScope(value)
+		scope.Raw(
+			fmt.Sprintf(
+				"DROP TABLE %v",
+				scope.QuotedTableName(),
+			),
+		).Exec()
+		conn = scope.con
 	}
-	return db
+	return conn
 }
 
 // DropTableIfExists drop table if it is exist
@@ -578,46 +579,61 @@ func (con *DBCon) HasTable(value interface{}) bool {
 
 // AutoMigrate run auto migration for given models, will only add missing fields, won't delete/change current data
 func (con *DBCon) AutoMigrate(values ...interface{}) *DBCon {
-	db := con.Unscoped()
+	conn := con.Unscoped()
 	//TODO : @Badu - find a way to order by relationships, so we can drop foreign keys before migrate
 	for _, value := range values {
-		db = db.NewScope(value).autoMigrate().con
+		scope := conn.NewScope(value)
+		autoMigrate(scope)
+		conn = scope.con
 	}
-	return db
+	return conn
 }
 
 // ModifyColumn modify column to type
 func (con *DBCon) ModifyColumn(column string, typ string) *DBCon {
 	scope := con.NewScope(con.search.Value)
-	scope.modifyColumn(column, typ)
+	scope.Raw(
+		fmt.Sprintf(
+			"ALTER TABLE %v MODIFY %v %v",
+			scope.QuotedTableName(),
+			Quote(column, con.parent.dialect),
+			typ,
+		),
+	).Exec()
 	return scope.con
 }
 
 // DropColumn drop a column
 func (con *DBCon) DropColumn(column string) *DBCon {
 	scope := con.NewScope(con.search.Value)
-	scope.dropColumn(column)
+	scope.Raw(
+		fmt.Sprintf(
+			"ALTER TABLE %v DROP COLUMN %v",
+			scope.QuotedTableName(),
+			Quote(column, scope.con.parent.dialect),
+		),
+	).Exec()
 	return scope.con
 }
 
 // AddIndex add index for columns with given name
 func (con *DBCon) AddIndex(indexName string, columns ...string) *DBCon {
 	scope := con.Unscoped().NewScope(con.search.Value)
-	scope.addIndex(false, indexName, columns...)
+	addIndex(scope, false, indexName, columns...)
 	return scope.con
 }
 
 // AddUniqueIndex add unique index for columns with given name
 func (con *DBCon) AddUniqueIndex(indexName string, columns ...string) *DBCon {
 	scope := con.Unscoped().NewScope(con.search.Value)
-	scope.addIndex(true, indexName, columns...)
+	addIndex(scope, true, indexName, columns...)
 	return scope.con
 }
 
 // RemoveIndex remove index with name
 func (con *DBCon) RemoveIndex(indexName string) *DBCon {
 	scope := con.NewScope(con.search.Value)
-	scope.removeIndex(indexName)
+	con.parent.dialect.RemoveIndex(scope.TableName(), indexName)
 	return scope.con
 }
 
@@ -625,8 +641,30 @@ func (con *DBCon) RemoveIndex(indexName string) *DBCon {
 //     db.Model(&User{}).AddForeignKey("city_id", "cities(id)", "RESTRICT", "RESTRICT")
 //TODO : @Badu - make it work with interfaces instead of strings (field, dest)
 func (con *DBCon) AddForeignKey(field string, dest string, onDelete string, onUpdate string) *DBCon {
-	scope := con.NewScope(con.search.Value)
-	scope.addForeignKey(field, dest, onDelete, onUpdate)
+	var (
+		scope     = con.NewScope(con.search.Value)
+		dialect   = con.parent.dialect
+		tableName = scope.TableName()
+		keyName   = dialect.BuildForeignKeyName(tableName, field, dest)
+		query     = `ALTER TABLE %s ADD CONSTRAINT %s FOREIGN KEY (%s) REFERENCES %s ON DELETE %s ON UPDATE %s;`
+	)
+
+	if dialect.HasForeignKey(tableName, keyName) {
+		return scope.con
+	}
+
+	scope.Raw(
+		fmt.Sprintf(
+			query,
+			scope.QuotedTableName(),
+			QuoteIfPossible(keyName, dialect),
+			QuoteIfPossible(field, dialect),
+			dest,
+			onDelete,
+			onUpdate,
+		),
+	).Exec()
+
 	return scope.con
 }
 
@@ -674,6 +712,9 @@ func (con *DBCon) SetJoinTableHandler(source interface{}, column string, handler
 	}
 }
 
+////////////////////////////////////////////////////////////////////////////////
+//Errors
+////////////////////////////////////////////////////////////////////////////////
 // AddError add error to the db
 func (con *DBCon) AddError(err error) error {
 	if err != nil {

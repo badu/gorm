@@ -3,8 +3,8 @@ package benchmarks
 import (
 	"fmt"
 
-	badu "github.com/badu/gorm"
-	_ "github.com/badu/gorm/dialects/sqlite"
+	badu "gorm"
+	_ "gorm/dialects/sqlite"
 	"testing"
 )
 

@@ -1,31 +1,14 @@
 # Todo
-- [ ] Debug SQL string even when it fails
-- [ ] All create, migrate and alter functions should be moved from the scope inside a separate object 
-(since we're automigrating just at startup) 
+- [ ] Debug SQL string even when it fails 
 - [ ] Documentation for tests and build examples
 - [ ] Stringer implementation on all structs for debugging
-- [ ] Extract strings from code (make constants)
-- [ ] Collect errors and their messages in one place
-- [ ] replace slices of strings with Collector
 - [ ] Relationships should be kept by ModelStruct (to accept many)
-- [ ] implement Warnings as Errors are
-- [ ] put back DB() of Scope shadow of Con() with Warning "deprecated"
-- [ ] put back NewDB() of Scope shadow of NewCon() with Warning "deprecated"
-- [ ] put back PrimaryKey() of Scope shadow of PKName() with Warning "deprecated"
-- [ ] put back PrimaryField() of Scope shadow of PK() with Warning "deprecated"
-- [ ] put back PrimaryFields() of Scope shadow of PKs() with Warning "deprecated"
-- [ ] put back SQLDB() of Scope shadow of AsSQLDB() with Warning "deprecated"
+- [ ] Simplify reflections everywhere
+- [ ] Generated SQL let's the SQL engine cast : SELECT * FROM aTable WHERE id = '1' (id being int). I think it's a bad practice and it should be fixed
 
-# Comments and thoughts
-- Generated SQL let's the SQL engine cast : SELECT * FROM aTable WHERE id = '1' (id being int). I think it's a bad practice and it should be fixed
-- I'm almost convinced that default Callbacks should be Scope methods :
- handleHasOnePreload, handleHasManyPreload, handleBelongsToPreload, handleManyToManyPreload are all in Scope, but called
- from preloadCallback in callback_functions.go. Anyway, callbacks needs reconsideration - it has good parts (customization) and bad parts 
- (the separation is artificial, since if you remove default callbacks, gorm won't work as intended)
-- There are so many checks all over the place, which show insecurity. For example, we know what's to know about a StructField - maybe it's best 
-to have the dereferenced pointer to the struct/slice kept inside. Same goes for Scope...
-- Set and Get, SetInstance and all that, should be nicer
-- As a general idea "fail fast" type of logic is missing in all the project
+# Comments and thoughts 
+- As a general idea on golang projects : "fail fast" type of logic is the best approach
+- When a function is called everytime, best idea is to allow golang to inline it
 
 # Last merge
 - #1242 - "Omit duplicates and zero-value ids in preload queries. Resolves #854 and #1054." 
@@ -36,12 +19,6 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
     `dbcon, err := gorm.Open("mysql", dbstr+"?parseTime=true")`
     `db = &gorm.DB{*dbcon}`
 - Removed MSSQL support - out of my concerns with this project
-- renamed DB() of Scope to Con()
-- renamed NewDB() of Scope to NewCon()
-- renamed PrimaryKey() of Scope to PKName()
-- renamed PrimaryField() of Scope to PK()
-- renamed PrimaryFields() of Scope to PKs()
-- renamed SQLDB() of Scope to AsSQLDB()
 
 # Changes log
 
@@ -50,6 +27,13 @@ to have the dereferenced pointer to the struct/slice kept inside. Same goes for 
 - [x] created Search struct RowsAffected field (to replace DBCon's one)
 - [x] argsToInterface in utils
 - [x] updatedAttrsWithValues in utils
+- [x] getValueFromFields in utils
+- [x] initialize moved from Scope to Search
+- [x] implement Warnings (like logs, but always)
+- [x] All create, migrate and alter functions should be moved from the scope inside a separate file (since we're automigrating just at startup)
+- [x] put back PrimaryKey() of Scope shadow of PKName() 
+- [x] put back PrimaryField() of Scope shadow of PK() 
+- [x] put back PrimaryFields() of Scope shadow of PKs()
 
 ## 26.11.2016
 - [x] polished Scope methods

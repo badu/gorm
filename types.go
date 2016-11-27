@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"reflect"
+	"regexp"
 	"time"
 )
 
@@ -14,6 +15,9 @@ const (
 	TAG_SQL         string = "sql"
 	TAG_GORM        string = "gorm"
 	DEFAULT_ID_NAME string = "id"
+
+	ASCENDENT  string = "ASC"
+	DESCENDENT string = "DESC"
 
 	UPDATE_COLUMN_SETTING      uint64 = 1
 	INSERT_OPT_SETTING         uint64 = 2
@@ -110,7 +114,6 @@ type (
 		SQL          string
 		SQLVars      []interface{}
 		Value        interface{} //TODO : @Badu - moved here from DBCon - in the end should use Scope's Value
-		RowsAffected int64
 	}
 
 	DBConFunc func(*DBCon) *DBCon
@@ -332,4 +335,16 @@ var (
 		"gorm:started_transaction":              STARTED_TX_SETTING,
 		"gorm:blank_columns_with_default_value": BLANK_COLS_DEFAULT_SETTING,
 	}
+
+	// only matches string like `name`, `users.name`
+	regExpNameMatcher = regexp.MustCompile("^[a-zA-Z]+(\\.[a-zA-Z]+)*$")
+	// only matches numbers
+	regExpNumberMatcher = regexp.MustCompile("^\\s*\\d+\\s*$")
+	//matches like, is, in, compare ...
+	regExpLikeInMatcher = regexp.MustCompile("(?i) (=|<>|>|<|LIKE|IS|IN) ")
+	//matches word "count"
+	regExpCounter = regexp.MustCompile("(?i)^count(.+)$")
+
+	regExpFKName      = regexp.MustCompile("(_*[^a-zA-Z]+_*|_+)")
+	regExpMySQLFKName = regexp.MustCompile("(_*[^a-zA-Z]+_*|_+)")
 )
