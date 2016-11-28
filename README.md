@@ -9,6 +9,7 @@
 # Comments and thoughts 
 - As a general idea on golang projects : "fail fast" type of logic is the best approach
 - When a function is called everytime, best idea is to allow golang to inline it
+- regexp.MustCompile is slow inside inline functions (10 times slower)
 
 # Last merge
 - #1242 - "Omit duplicates and zero-value ids in preload queries. Resolves #854 and #1054." 
@@ -21,6 +22,11 @@
 - Removed MSSQL support - out of my concerns with this project
 
 # Changes log
+
+## 28.11.2016
+- [x] Benchmark Quote with regexp, runes, runes conversion and byte shifting
+- [x] Optimized Quote in utils : uses "prepared" regexp 
+- [x] changed the Dialect interface : Quote(key string) string is now GetQuoter() string - which returns the quote string(rune)
 
 ## 27.11.2016
 - [x] created Search struct methods for Query, QueryRow and Exec

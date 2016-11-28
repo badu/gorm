@@ -108,12 +108,12 @@ type (
 	SqlConditions map[sqlConditionType]sqlCondition
 
 	Search struct {
-		flags        uint16
-		Conditions   SqlConditions
-		tableName    string
-		SQL          string
-		SQLVars      []interface{}
-		Value        interface{} //TODO : @Badu - moved here from DBCon - in the end should use Scope's Value
+		flags      uint16
+		Conditions SqlConditions
+		tableName  string
+		SQL        string
+		SQLVars    []interface{}
+		Value      interface{} //TODO : @Badu - moved here from DBCon - in the end should use Scope's Value
 	}
 
 	DBConFunc func(*DBCon) *DBCon
@@ -271,8 +271,8 @@ type (
 		SetDB(db *sql.DB)
 		// BindVar return the placeholder for actual values in SQL statements, in many dbs it is "?", Postgres using $1
 		BindVar(i int) string
-		// Quote quotes field name to avoid SQL parsing exceptions by using a reserved word as a field name
-		Quote(key string) string
+		// GetQuoter returns the rune for quoting field name to avoid SQL parsing exceptions by using a reserved word as a field name
+		GetQuoter() string
 		// DataTypeOf return data's sql type
 		DataTypeOf(field *StructField) string
 		// HasIndex check has index or not
@@ -335,7 +335,7 @@ var (
 		"gorm:started_transaction":              STARTED_TX_SETTING,
 		"gorm:blank_columns_with_default_value": BLANK_COLS_DEFAULT_SETTING,
 	}
-
+	// Attention : using "unprepared" regexp.MustCompile is really slow : ten times slower
 	// only matches string like `name`, `users.name`
 	regExpNameMatcher = regexp.MustCompile("^[a-zA-Z]+(\\.[a-zA-Z]+)*$")
 	// only matches numbers
@@ -344,7 +344,8 @@ var (
 	regExpLikeInMatcher = regexp.MustCompile("(?i) (=|<>|>|<|LIKE|IS|IN) ")
 	//matches word "count"
 	regExpCounter = regexp.MustCompile("(?i)^count(.+)$")
-
-	regExpFKName      = regexp.MustCompile("(_*[^a-zA-Z]+_*|_+)")
-	regExpMySQLFKName = regexp.MustCompile("(_*[^a-zA-Z]+_*|_+)")
+	//foreign key matcher
+	regExpFKName = regexp.MustCompile("(_*[^a-zA-Z]+_*|_+)")
+	//used in Quote to replace all periods with quote-period-quote
+	regExpPeriod = regexp.MustCompile("\\.")
 )

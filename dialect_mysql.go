@@ -31,8 +31,8 @@ func (mysql) GetName() string {
 	return "mysql"
 }
 
-func (mysql) Quote(key string) string {
-	return fmt.Sprintf("`%s`", key)
+func (mysql) GetQuoter() string {
+	return "`"
 }
 
 // Get Data Type for MySQL Dialect
@@ -117,20 +117,21 @@ func (mysql) DataTypeOf(field *StructField) string {
 	return fmt.Sprintf("%v %v", sqlType, additionalType)
 }
 
-func (s mysql) RemoveIndex(tableName string, indexName string) error {
-	_, err := s.db.Exec(fmt.Sprintf(MYSQL_DROP_INDEX, indexName, s.Quote(tableName)))
+func (dialect *mysql) RemoveIndex(tableName string, indexName string) error {
+	//TODO : @Badu - test if Quote(tableName, dialect) works correctly here
+	_, err := dialect.db.Exec(fmt.Sprintf(MYSQL_DROP_INDEX, indexName, Quote(tableName, dialect)))
 	return err
 }
 
-func (s mysql) HasForeignKey(tableName string, foreignKeyName string) bool {
+func (dialect mysql) HasForeignKey(tableName string, foreignKeyName string) bool {
 	var count int
 
-	s.db.QueryRow(MYSQL_HAS_FOREIGN_KEY, s.CurrentDatabase(), tableName, foreignKeyName).Scan(&count)
+	dialect.db.QueryRow(MYSQL_HAS_FOREIGN_KEY, dialect.CurrentDatabase(), tableName, foreignKeyName).Scan(&count)
 	return count > 0
 }
 
-func (s mysql) CurrentDatabase() (name string) {
-	s.db.QueryRow(MYSQL_SELECT_DB).Scan(&name)
+func (dialect mysql) CurrentDatabase() (name string) {
+	dialect.db.QueryRow(MYSQL_SELECT_DB).Scan(&name)
 	return
 }
 
@@ -138,8 +139,8 @@ func (mysql) SelectFromDummyTable() string {
 	return "FROM DUAL"
 }
 
-func (s mysql) BuildForeignKeyName(tableName, field, dest string) string {
-	keyName := s.commonDialect.BuildForeignKeyName(tableName, field, dest)
+func (dialect mysql) BuildForeignKeyName(tableName, field, dest string) string {
+	keyName := dialect.commonDialect.BuildForeignKeyName(tableName, field, dest)
 	if utf8.RuneCountInString(keyName) <= 64 {
 		return keyName
 	}
@@ -148,7 +149,7 @@ func (s mysql) BuildForeignKeyName(tableName, field, dest string) string {
 	bs := h.Sum(nil)
 
 	// sha1 is 40 digits, keep first 24 characters of destination
-	destRunes := []rune(regExpMySQLFKName.ReplaceAllString(dest, "_"))
+	destRunes := []rune(regExpFKName.ReplaceAllString(dest, "_"))
 	if len(destRunes) > 24 {
 		destRunes = destRunes[:24]
 	}

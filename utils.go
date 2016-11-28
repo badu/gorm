@@ -43,16 +43,8 @@ func addExtraSpaceIfExist(str string) string {
 
 //quotes a field - called almost everywhere - using inline advantage
 func Quote(field string, dialect Dialect) string {
-	//TODO : investigate there is no faster way to check for period rune
-	if strings.Index(field, ".") != -1 {
-		newStrs := []string{}
-		//TODO : @Badu - investigate optimize - Split + Join = Replace ?
-		for _, str := range strings.Split(field, ".") {
-			newStrs = append(newStrs, dialect.Quote(str))
-		}
-		return strings.Join(newStrs, ".")
-	}
-	return dialect.Quote(field)
+	q := dialect.GetQuoter()
+	return q + regExpPeriod.ReplaceAllString(field, q+"."+q) + q
 }
 
 //using inline advantage
@@ -395,18 +387,18 @@ func Open(dialectName string, args ...interface{}) (*DBCon, error) {
 		dbSQL = value
 	}
 	//TODO : dialects map should disappear - instead of dialectName we should receive directly the Dialect
-	var commontDialect Dialect
+	var conDialect Dialect
 	if value, ok := dialectsMap[dialectName]; ok {
-		commontDialect = reflect.New(reflect.TypeOf(value).Elem()).Interface().(Dialect)
-		commontDialect.SetDB(dbSQL.(*sql.DB))
+		conDialect = reflect.New(reflect.TypeOf(value).Elem()).Interface().(Dialect)
+		conDialect.SetDB(dbSQL.(*sql.DB))
 	} else {
 		fmt.Printf("`%v` is not officially supported, running under compatibility mode.\n", dialectName)
-		commontDialect = &commonDialect{}
-		commontDialect.SetDB(dbSQL.(*sql.DB))
+		conDialect = &commonDialect{}
+		conDialect.SetDB(dbSQL.(*sql.DB))
 	}
 
 	db = DBCon{
-		dialect:  commontDialect,
+		dialect:  conDialect,
 		logger:   defaultLogger,
 		callback: &Callback{},
 		settings: map[uint64]interface{}{},

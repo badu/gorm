@@ -83,36 +83,36 @@ func (postgres) DataTypeOf(field *StructField) string {
 	return fmt.Sprintf("%v %v", sqlType, additionalType)
 }
 
-func (s postgres) HasIndex(tableName string, indexName string) bool {
+func (dialect postgres) HasIndex(tableName string, indexName string) bool {
 	var count int
-	s.db.QueryRow("SELECT count(*) FROM pg_indexes WHERE tablename = $1 AND indexname = $2", tableName, indexName).Scan(&count)
+	dialect.db.QueryRow("SELECT count(*) FROM pg_indexes WHERE tablename = $1 AND indexname = $2", tableName, indexName).Scan(&count)
 	return count > 0
 }
 
-func (s postgres) HasForeignKey(tableName string, foreignKeyName string) bool {
+func (dialect postgres) HasForeignKey(tableName string, foreignKeyName string) bool {
 	var count int
-	s.db.QueryRow("SELECT count(con.conname) FROM pg_constraint con WHERE $1::regclass::oid = con.conrelid AND con.conname = $2 AND con.contype='f'", tableName, foreignKeyName).Scan(&count)
+	dialect.db.QueryRow("SELECT count(con.conname) FROM pg_constraint con WHERE $1::regclass::oid = con.conrelid AND con.conname = $2 AND con.contype='f'", tableName, foreignKeyName).Scan(&count)
 	return count > 0
 }
 
-func (s postgres) HasTable(tableName string) bool {
+func (dialect postgres) HasTable(tableName string) bool {
 	var count int
-	s.db.QueryRow("SELECT count(*) FROM INFORMATION_SCHEMA.tables WHERE table_name = $1 AND table_type = 'BASE TABLE'", tableName).Scan(&count)
+	dialect.db.QueryRow("SELECT count(*) FROM INFORMATION_SCHEMA.tables WHERE table_name = $1 AND table_type = 'BASE TABLE'", tableName).Scan(&count)
 	return count > 0
 }
 
-func (s postgres) HasColumn(tableName string, columnName string) bool {
+func (dialect postgres) HasColumn(tableName string, columnName string) bool {
 	var count int
-	s.db.QueryRow("SELECT count(*) FROM INFORMATION_SCHEMA.columns WHERE table_name = $1 AND column_name = $2", tableName, columnName).Scan(&count)
+	dialect.db.QueryRow("SELECT count(*) FROM INFORMATION_SCHEMA.columns WHERE table_name = $1 AND column_name = $2", tableName, columnName).Scan(&count)
 	return count > 0
 }
 
-func (s postgres) CurrentDatabase() (name string) {
-	s.db.QueryRow("SELECT CURRENT_DATABASE()").Scan(&name)
+func (dialect postgres) CurrentDatabase() (name string) {
+	dialect.db.QueryRow("SELECT CURRENT_DATABASE()").Scan(&name)
 	return
 }
 
-func (s postgres) LastInsertIDReturningSuffix(tableName, key string) string {
+func (dialect postgres) LastInsertIDReturningSuffix(tableName, key string) string {
 	return fmt.Sprintf("RETURNING %v.%v", tableName, key)
 }
 

@@ -31,16 +31,16 @@ func (commonDialect) GetName() string {
 	return DIALECT_COMMON_NAME
 }
 
-func (s *commonDialect) SetDB(db *sql.DB) {
-	s.db = db
+func (dialect *commonDialect) SetDB(db *sql.DB) {
+	dialect.db = db
 }
 
 func (commonDialect) BindVar(i int) string {
 	return "$$"
 }
 
-func (commonDialect) Quote(key string) string {
-	return fmt.Sprintf(`"%s"`, key)
+func (commonDialect) GetQuoter() string {
+	return "\""
 }
 
 func (commonDialect) DataTypeOf(field *StructField) string {
@@ -95,35 +95,35 @@ func (commonDialect) DataTypeOf(field *StructField) string {
 	return fmt.Sprintf("%v %v", sqlType, additionalType)
 }
 
-func (s commonDialect) HasIndex(tableName string, indexName string) bool {
+func (dialect commonDialect) HasIndex(tableName string, indexName string) bool {
 	var count int
-	s.db.QueryRow(COMMON_HASINDEXSQL, s.CurrentDatabase(), tableName, indexName).Scan(&count)
+	dialect.db.QueryRow(COMMON_HASINDEXSQL, dialect.CurrentDatabase(), tableName, indexName).Scan(&count)
 	return count > 0
 }
 
-func (s commonDialect) RemoveIndex(tableName string, indexName string) error {
-	_, err := s.db.Exec(fmt.Sprintf(COMMON_DROPINDEX, indexName))
+func (dialect commonDialect) RemoveIndex(tableName string, indexName string) error {
+	_, err := dialect.db.Exec(fmt.Sprintf(COMMON_DROPINDEX, indexName))
 	return err
 }
 
-func (s commonDialect) HasForeignKey(tableName string, foreignKeyName string) bool {
+func (commonDialect) HasForeignKey(tableName string, foreignKeyName string) bool {
 	return false
 }
 
-func (s commonDialect) HasTable(tableName string) bool {
+func (dialect commonDialect) HasTable(tableName string) bool {
 	var count int
-	s.db.QueryRow(COMMON_HASTABLE_SQL, s.CurrentDatabase(), tableName).Scan(&count)
+	dialect.db.QueryRow(COMMON_HASTABLE_SQL, dialect.CurrentDatabase(), tableName).Scan(&count)
 	return count > 0
 }
 
-func (s commonDialect) HasColumn(tableName string, columnName string) bool {
+func (dialect commonDialect) HasColumn(tableName string, columnName string) bool {
 	var count int
-	s.db.QueryRow(COMMON_HASCOLUMN_SQL, s.CurrentDatabase(), tableName, columnName).Scan(&count)
+	dialect.db.QueryRow(COMMON_HASCOLUMN_SQL, dialect.CurrentDatabase(), tableName, columnName).Scan(&count)
 	return count > 0
 }
 
-func (s commonDialect) CurrentDatabase() (name string) {
-	s.db.QueryRow(COMMON_SELECT_DB).Scan(&name)
+func (dialect commonDialect) CurrentDatabase() (name string) {
+	dialect.db.QueryRow(COMMON_SELECT_DB).Scan(&name)
 	return
 }
 

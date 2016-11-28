@@ -28,8 +28,9 @@ type (
 
 var (
 	//regexpSelf = regexp.MustCompile(`badu/gorm/.*.go`)
-	regexpSelf = regexp.MustCompile(`/gorm/.*.go`)
-	regexpTest = regexp.MustCompile(`/gorm/tests/.*.go`)
+	regexpSelf   = regexp.MustCompile(`/gorm/.*.go`)
+	regexpTest   = regexp.MustCompile(`/gorm/tests/.*.go`)
+	regExpLogger = regexp.MustCompile(`(\$\d+)|\?`)
 )
 
 func isPrintable(s string) bool {
@@ -97,7 +98,7 @@ func (logger Logger) Print(values ...interface{}) {
 			}
 
 			var formattedValuesLength = len(formattedValues)
-			for index, value := range regexp.MustCompile(`(\$\d+)|\?`).Split(values[3].(string), -1) {
+			for index, value := range regExpLogger.Split(values[3].(string), -1) {
 				sql += value
 				if index < formattedValuesLength {
 					sql += formattedValues[index]
