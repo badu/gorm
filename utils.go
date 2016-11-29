@@ -57,6 +57,19 @@ func QuoteIfPossible(str string, dialect Dialect) string {
 }
 
 //using inline advantage
+// QuotedTableName return quoted table name
+func QuotedTableName(scope *Scope) string {
+	if scope.Search != nil && scope.Search.tableName != "" {
+		if strings.Index(scope.Search.tableName, " ") != -1 {
+			return scope.Search.tableName
+		}
+		return Quote(scope.Search.tableName, scope.con.parent.dialect)
+	}
+
+	return Quote(scope.TableName(), scope.con.parent.dialect)
+}
+
+//using inline advantage
 func toQueryCondition(columns StrSlice, dialect Dialect) string {
 	var newColumns []string
 	for _, column := range columns {
@@ -326,6 +339,7 @@ func getValueFromFields(s StrSlice, value reflect.Value) []interface{} {
 	return results
 }
 
+//using inline advantage
 func getSearchMap(jth JoinTableHandler, con *DBCon, sources ...interface{}) map[string]interface{} {
 	values := map[string]interface{}{}
 

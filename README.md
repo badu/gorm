@@ -23,6 +23,9 @@
 
 # Changes log
 
+## 29.11.2016
+- [x] Stringer for Relationship, ModelStruct and StructField
+
 ## 28.11.2016
 - [x] Benchmark Quote with regexp, runes, runes conversion and byte shifting
 - [x] Optimized Quote in utils : uses "prepared" regexp 

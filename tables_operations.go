@@ -93,7 +93,7 @@ func createTable(scope *Scope) {
 	scope.Raw(
 		fmt.Sprintf(
 			"CREATE TABLE %v (%v %v) %s",
-			scope.QuotedTableName(),
+			QuotedTableName(scope),
 			strings.Join(tags, ","),
 			primaryKeyStr,
 			scope.getTableOptions(),
@@ -128,7 +128,7 @@ func addIndex(scope *Scope, unique bool, indexName string, column ...string) {
 			"%s %v ON %v(%v) %v",
 			sqlCreate,
 			indexName,
-			scope.QuotedTableName(),
+			QuotedTableName(scope),
 			strings.Join(columns, ", "),
 			scope.Search.whereSQL(scope),
 		),
@@ -139,7 +139,7 @@ func addIndex(scope *Scope, unique bool, indexName string, column ...string) {
 func autoMigrate(scope *Scope) {
 	var (
 		tableName       = scope.TableName()
-		quotedTableName = scope.QuotedTableName()
+		quotedTableName = QuotedTableName(scope)
 		//because we're using it in a for, we're getting it once
 		dialect = scope.con.parent.dialect
 	)

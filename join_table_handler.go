@@ -141,7 +141,12 @@ func (jth JoinTableHandler) JoinWith(handler JoinTableHandlerInterface, con *DBC
 	)
 
 	if jth.Source.ModelType == scope.GetModelStruct().ModelType {
-		destinationTableName := con.NewScope(reflect.New(jth.Destination.ModelType).Interface()).QuotedTableName()
+		destinationTableName := QuotedTableName(
+			con.NewScope(
+				reflect.New(jth.Destination.ModelType).Interface(),
+			),
+		)
+
 		for _, foreignKey := range jth.Destination.ForeignKeys {
 			joinConditions = append(
 				joinConditions,

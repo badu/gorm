@@ -886,9 +886,6 @@ func OpenTestConnection() (db *gorm.DBCon, err error) {
 		db, err = gorm.Open("sqlite3", "test.db?cache=shared&mode=memory")
 	}
 
-	// db.SetLogger(Logger{log.New(os.Stdout, "\r\n", 0)})
-	// db.SetLogger(log.New(os.Stdout, "\r\n", 0))
-
 	db.DB().SetMaxIdleConns(10)
 	return
 }

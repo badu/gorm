@@ -382,16 +382,79 @@ func (field *StructField) ParseFieldStructForDialect() (
 }
 
 //implementation of Stringer
-//TODO : fully implement it
 func (field StructField) String() string {
-	result := fmt.Sprintf("%q:%q", "FieldName", field.Struct.Name)
+	var collector Collector
+	collector.add("%s = %q\n", "Name", field.DBName)
+	for _, n := range field.Names {
+		collector.add("\t%s = %q\n", "name", n)
+	}
+
+	collector.add("Flags")
+	if field.flags&(1<<IS_PRIMARYKEY) != 0 {
+		collector.add(" PrimaryKey")
+	}
+	if field.flags&(1<<IS_NORMAL) != 0 {
+		collector.add(" IsNormal")
+	}
+	if field.flags&(1<<IS_IGNORED) != 0 {
+		collector.add(" IsIgnored")
+	}
+	if field.flags&(1<<IS_SCANNER) != 0 {
+		collector.add(" IsScanner")
+	}
+	if field.flags&(1<<IS_TIME) != 0 {
+		collector.add(" IsTime")
+	}
+	if field.flags&(1<<HAS_DEFAULT_VALUE) != 0 {
+		collector.add(" HasDefaultValue")
+	}
+	if field.flags&(1<<IS_FOREIGNKEY) != 0 {
+		collector.add(" IsForeignKey")
+	}
+	if field.flags&(1<<IS_BLANK) != 0 {
+		collector.add(" IsBlank")
+	}
+	if field.flags&(1<<IS_SLICE) != 0 {
+		collector.add(" IsSlice")
+	}
+	if field.flags&(1<<IS_STRUCT) != 0 {
+		collector.add(" IsStruct")
+	}
+	if field.flags&(1<<HAS_RELATIONS) != 0 {
+		collector.add(" HasRelations")
+	}
+	if field.flags&(1<<IS_EMBED_OR_ANON) != 0 {
+		collector.add(" IsEmbedAnon")
+	}
+	if field.flags&(1<<IS_AUTOINCREMENT) != 0 {
+		collector.add(" IsAutoincrement")
+	}
+	if field.flags&(1<<IS_POINTER) != 0 {
+		collector.add(" IsPointer")
+	}
+	if field.flags&(1<<IS_OMITTED) != 0 {
+		collector.add(" IsOmmited")
+	}
+	if field.flags&(1<<IS_INCLUDED) != 0 {
+		collector.add(" HasIncluded")
+	}
+	collector.add("\n")
+
+	collector.add("%s = %s\n", "Struct Name", field.Struct.Name)
 	if field.Struct.PkgPath != "" {
-		result += fmt.Sprintf(",%q:%q", "PkgPath", field.Struct.PkgPath)
+		collector.add("%s = %s\n", "Struct PkgPath", field.Struct.PkgPath)
 	}
 	if field.tagSettings.len() > 0 {
-		result += fmt.Sprintf(",%q:%s", "Tags", field.tagSettings)
+		collector.add("%s = %q\n", "Tags", field.tagSettings)
 	}
-	return fmt.Sprint(result)
+	if field.Type != nil {
+		collector.add("%s = %s\n", "Type", field.Type.String())
+	}
+	collector.add("%s = %s\n", "Value", field.Value.String())
+	if field.Relationship != nil {
+		collector.add("%s\n%s", "Relationship", field.Relationship)
+	}
+	return collector.String()
 }
 
 ////////////////////////////////////////////////////////////////////////////////

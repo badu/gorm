@@ -184,3 +184,18 @@ func (modelStruct *ModelStruct) processRelations(scope *Scope) {
 		}
 	}
 }
+
+//implementation of Stringer
+func (modelStruct ModelStruct) String() string {
+	var collector Collector
+	collector.add("%s = %s\n", "Table name", modelStruct.defaultTableName)
+	if modelStruct.ModelType == nil {
+		collector.add("%s = %s\n", "NoType")
+	} else {
+		collector.add("%s = %s\n", "Type", modelStruct.ModelType.String())
+	}
+	for fn, f := range modelStruct.fieldsMap.fields {
+		collector.add("%s = %s\n%s", "Field", fn, f)
+	}
+	return collector.String()
+}

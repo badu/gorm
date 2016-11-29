@@ -187,19 +187,21 @@ func (scope *Scope) FieldByName(name string) (*StructField, bool) {
 
 // SetColumn to set the column's value, column could be field or field's name/dbname
 func (scope *Scope) SetColumn(column interface{}, value interface{}) error {
-	var updateAttrs = map[string]interface{}{}
+	var (
+		updateAttrs = map[string]interface{}{}
+	)
 	if attrs, ok := scope.InstanceGet(UPDATE_ATTRS_SETTING); ok {
 		updateAttrs = attrs.(map[string]interface{})
 		defer scope.InstanceSet(UPDATE_ATTRS_SETTING, updateAttrs)
 	}
-	//TODO : @Badu - make switch .(type)
-	if field, ok := column.(*StructField); ok {
-		updateAttrs[field.DBName] = value
-		return field.Set(value)
-	} else if name, ok := column.(string); ok {
-		//TODO : @Badu - looks like Scope.FieldByName
+	switch colType := column.(type) {
+	case *StructField:
+		updateAttrs[colType.DBName] = value
+		return colType.Set(value)
+	case string:
+		//looks like Scope.FieldByName
 		var (
-			dbName           = NamesMap.ToDBName(name)
+			dbName           = NamesMap.ToDBName(colType)
 			mostMatchedField *StructField
 		)
 		for _, field := range scope.Fields() {
@@ -207,7 +209,7 @@ func (scope *Scope) SetColumn(column interface{}, value interface{}) error {
 				updateAttrs[field.DBName] = value
 				return field.Set(value)
 			}
-			if (field.DBName == dbName) || (field.GetStructName() == name && mostMatchedField == nil) {
+			if (field.DBName == dbName) || (field.GetStructName() == colType && mostMatchedField == nil) {
 				mostMatchedField = field
 			}
 		}
@@ -250,21 +252,10 @@ func (scope *Scope) TableName() string {
 	return scope.GetModelStruct().TableName(scope.con.Model(scope.Value))
 }
 
-// QuotedTableName return quoted table name
-func (scope *Scope) QuotedTableName() string {
-	if scope.Search != nil && scope.Search.tableName != "" {
-		if strings.Index(scope.Search.tableName, " ") != -1 {
-			return scope.Search.tableName
-		}
-		return Quote(scope.Search.tableName, scope.con.parent.dialect)
-	}
-
-	return Quote(scope.TableName(), scope.con.parent.dialect)
-}
-
 // Raw set raw sql
 func (scope *Scope) Raw(sql string) *Scope {
 	scope.Search.SQL = strings.Replace(sql, "$$", "?", -1)
+	scope.Search.SetRaw()
 	return scope
 }
 
@@ -1025,7 +1016,7 @@ func (scope *Scope) createCallback() {
 
 		var (
 			returningColumn = "*"
-			quotedTableName = scope.QuotedTableName()
+			quotedTableName = QuotedTableName(scope)
 			primaryField    = scope.PK()
 			extraOption     string
 		)
@@ -1050,7 +1041,7 @@ func (scope *Scope) createCallback() {
 		} else {
 			scope.Raw(fmt.Sprintf(
 				"INSERT INTO %v (%v) VALUES (%v)%v%v",
-				scope.QuotedTableName(),
+				QuotedTableName(scope),
 				strings.Join(columns, ","),
 				strings.Join(placeholders, ","),
 				addExtraSpaceIfExist(extraOption),
@@ -1275,7 +1266,7 @@ func (scope *Scope) updateCallback() {
 		if len(sqls) > 0 {
 			scope.Raw(fmt.Sprintf(
 				"UPDATE %v SET %v%v%v",
-				scope.QuotedTableName(),
+				QuotedTableName(scope),
 				strings.Join(sqls, ", "),
 				addExtraSpaceIfExist(scope.Search.combinedConditionSql(scope)),
 				addExtraSpaceIfExist(extraOption),
@@ -1314,7 +1305,7 @@ func (scope *Scope) queryCallback() {
 
 	if orderBy, ok := scope.Get(ORDER_BY_PK_SETTING); ok {
 		if primaryField := scope.PK(); primaryField != nil {
-			scope.Search.Order(fmt.Sprintf("%v.%v %v", scope.QuotedTableName(), Quote(primaryField.DBName, dialect), orderBy))
+			scope.Search.Order(fmt.Sprintf("%v.%v %v", QuotedTableName(scope), Quote(primaryField.DBName, dialect), orderBy))
 		}
 	}
 
@@ -1482,7 +1473,7 @@ func (scope *Scope) deleteCallback() {
 		if !scope.Search.isUnscoped() && scope.GetModelStruct().HasColumn("DeletedAt") {
 			scope.Raw(fmt.Sprintf(
 				"UPDATE %v SET deleted_at=%v%v%v",
-				scope.QuotedTableName(),
+				QuotedTableName(scope),
 				scope.Search.addToVars(NowFunc(), scope.con.parent.dialect),
 				addExtraSpaceIfExist(scope.Search.combinedConditionSql(scope)),
 				addExtraSpaceIfExist(extraOption),
@@ -1490,7 +1481,7 @@ func (scope *Scope) deleteCallback() {
 		} else {
 			scope.Raw(fmt.Sprintf(
 				"DELETE FROM %v%v%v",
-				scope.QuotedTableName(),
+				QuotedTableName(scope),
 				addExtraSpaceIfExist(scope.Search.combinedConditionSql(scope)),
 				addExtraSpaceIfExist(extraOption),
 			)).Exec()

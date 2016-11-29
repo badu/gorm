@@ -360,7 +360,7 @@ func (association *Association) Count() int {
 		conn = conn.Where(
 			fmt.Sprintf(
 				"%v.%v = ?",
-				scope.NewScope(fieldValue).QuotedTableName(),
+				QuotedTableName(scope.NewScope(fieldValue)),
 				Quote(relationship.PolymorphicDBName, dialect),
 			),
 			relationship.PolymorphicValue,

@@ -540,7 +540,7 @@ func (con *DBCon) DropTable(values ...interface{}) *DBCon {
 		scope.Raw(
 			fmt.Sprintf(
 				"DROP TABLE %v",
-				scope.QuotedTableName(),
+				QuotedTableName(scope),
 			),
 		).Exec()
 		conn = scope.con
@@ -595,7 +595,7 @@ func (con *DBCon) ModifyColumn(column string, typ string) *DBCon {
 	scope.Raw(
 		fmt.Sprintf(
 			"ALTER TABLE %v MODIFY %v %v",
-			scope.QuotedTableName(),
+			QuotedTableName(scope),
 			Quote(column, con.parent.dialect),
 			typ,
 		),
@@ -609,7 +609,7 @@ func (con *DBCon) DropColumn(column string) *DBCon {
 	scope.Raw(
 		fmt.Sprintf(
 			"ALTER TABLE %v DROP COLUMN %v",
-			scope.QuotedTableName(),
+			QuotedTableName(scope),
 			Quote(column, scope.con.parent.dialect),
 		),
 	).Exec()
@@ -656,7 +656,7 @@ func (con *DBCon) AddForeignKey(field string, dest string, onDelete string, onUp
 	scope.Raw(
 		fmt.Sprintf(
 			query,
-			scope.QuotedTableName(),
+			QuotedTableName(scope),
 			QuoteIfPossible(keyName, dialect),
 			QuoteIfPossible(field, dialect),
 			dest,

@@ -8,10 +8,10 @@ import (
 
 const (
 	poly_field_not_found_warn string = "rel : polymorphic field %q not found on model struct %q"
-	fk_field_not_found_warn string = "rel [%q]: foreign key field %q not found on model struct %q"
-	afk_field_not_found_warn string = "rel [%q]: association foreign key field %q not found on model struct %q"
-	length_err               string = "rel [%q]: invalid foreign keys, should have same length"
-	poly_type                string = "Type"
+	fk_field_not_found_warn   string = "rel [%q]: foreign key field %q not found on model struct %q"
+	afk_field_not_found_warn  string = "rel [%q]: association foreign key field %q not found on model struct %q"
+	length_err                string = "rel [%q]: invalid foreign keys, should have same length"
+	poly_type                 string = "Type"
 )
 
 func (r *Relationship) Poly(field *StructField, toModel *ModelStruct, fromScope, toScope *Scope) string {
@@ -288,4 +288,40 @@ func (r *Relationship) collectFKsAndAFKs(field *StructField,
 		}
 	}
 	return foreignKeys, associationForeignKeys
+}
+
+//implementation of Stringer
+func (r Relationship) String() string {
+	var collector Collector
+	vKind := "Unknown"
+	switch r.Kind {
+	case BELONGS_TO:
+		vKind = "Belongs_To"
+	case HAS_MANY:
+		vKind = "Has_Many"
+	case HAS_ONE:
+		vKind = "Has_One"
+	case MANY_TO_MANY:
+		vKind = "Many_To_Many"
+	}
+	collector.add("%s = %s (%d)\n", "Kind", vKind, r.Kind)
+	collector.add("%s = %q\n", "Poly type", r.PolymorphicType)
+	collector.add("%s = %q\n", "Poly value", r.PolymorphicValue)
+	collector.add("%s = %s\n", "DB Name", r.PolymorphicDBName)
+	for _, fn := range r.ForeignFieldNames {
+		collector.add("%s = %s\n", "Foreign field name", fn)
+	}
+	for _, fn := range r.ForeignDBNames {
+		collector.add("%s = %s\n", "Foreign db name", fn)
+	}
+	for _, fn := range r.AssociationForeignFieldNames {
+		collector.add("%s = %s\n", "Foreign assoc field name", fn)
+	}
+	for _, fn := range r.AssociationForeignDBNames {
+		collector.add("%s = %s\n", "Foreign assoc db name", fn)
+	}
+	if r.JoinTableHandler != nil {
+		collector.add("\thas JoinTableHandler.\n")
+	}
+	return collector.String()
 }
