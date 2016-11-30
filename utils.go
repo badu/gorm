@@ -133,18 +133,12 @@ func generatePreloadDBWithConditions(preloadDB *DBCon, conditions []interface{})
 func getColumnAsArray(columns StrSlice, values ...interface{}) [][]interface{} {
 	var results [][]interface{}
 	for _, value := range values {
-		indirectValue := reflect.ValueOf(value)
-		for indirectValue.Kind() == reflect.Ptr {
-			indirectValue = indirectValue.Elem()
-		}
+		indirectValue := IndirectValue(value)
 		switch indirectValue.Kind() {
 		case reflect.Slice:
 			for i := 0; i < indirectValue.Len(); i++ {
 				var result []interface{}
-				var object = indirectValue.Index(i)
-				for object.Kind() == reflect.Ptr {
-					object = object.Elem()
-				}
+				object := FieldValue(indirectValue, i)
 				var hasValue = false
 				for _, column := range columns {
 					field := object.FieldByName(column)
@@ -179,7 +173,7 @@ func getColumnAsArray(columns StrSlice, values ...interface{}) [][]interface{} {
 //using inline advantage
 //returns the scope of a slice or struct column
 func getColumnAsScope(column string, scope *Scope) *Scope {
-	indirectScopeValue := IndirectValue(scope)
+	indirectScopeValue := IndirectValue(scope.Value)
 
 	switch indirectScopeValue.Kind() {
 	case reflect.Slice:
@@ -193,16 +187,8 @@ func getColumnAsScope(column string, scope *Scope) *Scope {
 			results := reflect.New(reflect.SliceOf(reflect.PtrTo(fieldType))).Elem()
 
 			for i := 0; i < indirectScopeValue.Len(); i++ {
-				reflectValue := indirectScopeValue.Index(i)
-				for reflectValue.Kind() == reflect.Ptr {
-					reflectValue = reflectValue.Elem()
-				}
-
-				fieldRef := reflectValue.FieldByName(column)
-				for fieldRef.Kind() == reflect.Ptr {
-					fieldRef = fieldRef.Elem()
-				}
-
+				reflectValue := FieldValue(indirectScopeValue, i)
+				fieldRef := FieldColumn(reflectValue, column)
 				if fieldRef.Kind() == reflect.Slice {
 					for j := 0; j < fieldRef.Len(); j++ {
 						if elem := fieldRef.Index(j); elem.CanAddr() && resultsMap[elem.Addr()] != true {
@@ -290,7 +276,7 @@ func argsToInterface(args ...interface{}) interface{} {
 
 //using inline advantage
 func updatedAttrsWithValues(scope *Scope, value interface{}) (map[string]interface{}, bool) {
-	if IndirectValue(scope).Kind() != reflect.Struct {
+	if IndirectValue(scope.Value).Kind() != reflect.Struct {
 		return convertInterfaceToMap(value, false), true
 	}
 
@@ -298,7 +284,8 @@ func updatedAttrsWithValues(scope *Scope, value interface{}) (map[string]interfa
 	hasUpdate := false
 
 	for key, value := range convertInterfaceToMap(value, true) {
-		if field, ok := scope.FieldByName(key); ok && scope.changeableField(field) {
+		field, ok := scope.FieldByName(key)
+		if ok && scope.Search.changeableField(field) {
 			if _, ok := value.(*SqlPair); ok {
 				hasUpdate = true
 				results[field.DBName] = value
@@ -366,22 +353,52 @@ func getSearchMap(jth JoinTableHandler, con *DBCon, sources ...interface{}) map[
 
 //using inline advantage
 // IndirectValue return scope's reflect value's indirect value
-func IndirectValue(scope *Scope) reflect.Value {
-	reflectValue := reflect.ValueOf(scope.Value)
-	for reflectValue.Kind() == reflect.Ptr {
-		reflectValue = reflectValue.Elem()
+func IndirectValue(value interface{}) reflect.Value {
+	result := reflect.ValueOf(value)
+	for result.Kind() == reflect.Ptr {
+		result = result.Elem()
 	}
-	return reflectValue
+	return result
 }
 
 //using inline advantage
 func FieldValue(value reflect.Value, index int) reflect.Value {
-	reflectValue := value.Index(index)
-	for reflectValue.Kind() == reflect.Ptr {
-		reflectValue = reflectValue.Elem()
+	result := value.Index(index)
+	for result.Kind() == reflect.Ptr {
+		result = result.Elem()
 	}
-	return reflectValue
+	return result
 }
+
+//using inline advantage
+func FieldColumn(value reflect.Value, name string) reflect.Value {
+	result := value.FieldByName(name)
+	for result.Kind() == reflect.Ptr {
+		result = result.Elem()
+	}
+	return result
+}
+
+func GetType(value interface{}) reflect.Type {
+	result := IndirectValue(value).Type()
+
+	for result.Kind() == reflect.Slice || result.Kind() == reflect.Ptr {
+		result = result.Elem()
+	}
+
+	return result
+}
+
+func GetTType(value interface{}) reflect.Type {
+	result := reflect.ValueOf(value).Type()
+
+	for result.Kind() == reflect.Slice || result.Kind() == reflect.Ptr {
+		result = result.Elem()
+	}
+
+	return result
+}
+
 // Open initialize a new db connection, need to import driver first, e.g:
 //
 //     import _ "github.com/go-sql-driver/mysql"

@@ -22,7 +22,7 @@
 # Changes log
 
 ## 30.11.2016
-- [ ] Simplify reflections everywhere
+- [x] Simplify reflections
 
 ## 29.11.2016
 - [x] Stringer for Relationship, ModelStruct and StructField

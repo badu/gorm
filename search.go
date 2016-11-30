@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"runtime"
 	"strconv"
 	"strings"
 )
@@ -436,6 +437,10 @@ func (s *Search) addToVars(value interface{}, dialect Dialect) string {
 		for _, arg := range pair.args {
 			exp = strings.Replace(exp, "?", s.addToVars(arg, dialect), 1)
 		}
+		_, file, line, ok := runtime.Caller(1)
+		if ok {
+			fmt.Printf("%s %s %d\n", exp, file, line)
+		}
 		return exp
 	}
 	s.SQLVars = append(s.SQLVars, value)
@@ -487,8 +492,8 @@ func (s *Search) whereSQL(scope *Scope) string {
 
 	orSQL := strings.Join(orConditions, " OR ")
 	combinedSQL := strings.Join(andConditions, " AND ")
-	if len(combinedSQL) > 0 {
-		if len(orSQL) > 0 {
+	if combinedSQL != "" {
+		if orSQL != "" {
 			combinedSQL = combinedSQL + " OR " + orSQL
 		}
 	} else {
@@ -497,10 +502,10 @@ func (s *Search) whereSQL(scope *Scope) string {
 
 	if len(primaryConditions) > 0 {
 		str = "WHERE " + strings.Join(primaryConditions, " AND ")
-		if len(combinedSQL) > 0 {
+		if combinedSQL != "" {
 			str = str + " AND (" + combinedSQL + ")"
 		}
-	} else if len(combinedSQL) > 0 {
+	} else if combinedSQL != "" {
 		str = "WHERE " + combinedSQL
 	}
 	return str
@@ -606,6 +611,8 @@ func (s *Search) buildNotCondition(fromPair SqlPair, scope *Scope) string {
 		primaryKey      = scope.PKName()
 		quotedTableName = QuotedTableName(scope)
 		dialect         = scope.con.parent.dialect
+		sqls            []string
+		tempMarks       []string
 	)
 	switch exprType := fromPair.expression.(type) {
 	case string:
@@ -630,7 +637,6 @@ func (s *Search) buildNotCondition(fromPair SqlPair, scope *Scope) string {
 		}
 		return ""
 	case map[string]interface{}:
-		var sqls []string
 		for key, value := range exprType {
 			if value != nil {
 				sqls = append(sqls,
@@ -653,7 +659,6 @@ func (s *Search) buildNotCondition(fromPair SqlPair, scope *Scope) string {
 		}
 		return strings.Join(sqls, " AND ")
 	case interface{}:
-		var sqls []string
 		var newScope = scope.NewScope(exprType)
 		for _, field := range newScope.Fields() {
 			if !field.IsBlank() {
@@ -676,7 +681,7 @@ func (s *Search) buildNotCondition(fromPair SqlPair, scope *Scope) string {
 			if bytes, ok := arg.([]byte); ok {
 				str = strings.Replace(str, "?", s.addToVars(bytes, dialect), 1)
 			} else if values := reflect.ValueOf(arg); values.Len() > 0 {
-				var tempMarks []string
+
 				for i := 0; i < values.Len(); i++ {
 					tempMarks = append(tempMarks, s.addToVars(values.Index(i).Interface(), dialect))
 				}
@@ -696,10 +701,15 @@ func (s *Search) buildNotCondition(fromPair SqlPair, scope *Scope) string {
 
 // CombinedConditionSql return combined condition sql
 func (s *Search) combinedConditionSql(scope *Scope) string {
-	dialect := scope.con.parent.dialect
+	var (
+		dialect        = scope.con.parent.dialect
+		joinConditions []string
+		orders         []string
+		andConditions  []string
+	)
+
 	//Attention : if we don't build joinSql first, joins will fail (it's mixing up the where clauses of the joins)
 	//-= creating Joins =-
-	var joinConditions []string
 
 	for _, pair := range s.Conditions[joins_query] {
 		if aStr := s.buildWhereCondition(pair, scope); aStr != "" {
@@ -725,7 +735,7 @@ func (s *Search) combinedConditionSql(scope *Scope) string {
 	//-= creating Having =-
 	havingSQL := ""
 	if s.hasHaving() {
-		var andConditions []string
+
 		for _, pair := range s.Conditions[having_query] {
 			if aStr := s.buildWhereCondition(pair, scope); aStr != "" {
 				andConditions = append(andConditions, aStr)
@@ -741,7 +751,7 @@ func (s *Search) combinedConditionSql(scope *Scope) string {
 	//-= creating Order =-
 	orderSQL := ""
 	if s.hasOrder() && !s.isCounting() {
-		var orders []string
+
 		for _, orderPair := range s.Conditions[Order_query] {
 			if str, ok := orderPair.args[0].(string); ok {
 				orders = append(orders, QuoteIfPossible(str, dialect))
@@ -777,6 +787,9 @@ func (s *Search) combinedConditionSql(scope *Scope) string {
 }
 
 func (s *Search) prepareQuerySQL(scope *Scope) {
+	var (
+		tempMarks []string
+	)
 	if s.IsRaw() {
 		scope.Raw(s.combinedConditionSql(scope))
 	} else {
@@ -798,7 +811,7 @@ func (s *Search) prepareQuerySQL(scope *Scope) {
 					switch reflect.ValueOf(arg).Kind() {
 					case reflect.Slice:
 						values := reflect.ValueOf(arg)
-						var tempMarks []string
+
 						for i := 0; i < values.Len(); i++ {
 							tempMarks = append(tempMarks,
 								s.addToVars(
@@ -900,7 +913,7 @@ func (s *Search) doPreload(scope *Scope) {
 func handleHasOneOrManyPreload(scope *Scope, field *StructField, conditions []interface{}) {
 
 	var (
-		indirectScopeValue = IndirectValue(scope)
+		indirectScopeValue = IndirectValue(scope.Value)
 		relation           = field.Relationship
 		dialect            = scope.con.parent.dialect
 	)
@@ -988,7 +1001,7 @@ func handleHasOneOrManyPreload(scope *Scope, field *StructField, conditions []in
 // handleBelongsToPreload used to preload belongs to associations
 func handleBelongsToPreload(scope *Scope, field *StructField, conditions []interface{}) {
 	var (
-		indirectScopeValue = IndirectValue(scope)
+		indirectScopeValue = IndirectValue(scope.Value)
 		relation           = field.Relationship
 		dialect            = scope.con.parent.dialect
 	)
@@ -1045,7 +1058,7 @@ func handleManyToManyPreload(scope *Scope, field *StructField, conditions []inte
 		foreignKeyValue    interface{}
 		foreignKeyType     = reflect.ValueOf(&foreignKeyValue).Type()
 		linkHash           = map[string][]reflect.Value{}
-		indirectScopeValue = IndirectValue(scope)
+		indirectScopeValue = IndirectValue(scope.Value)
 		fieldsSourceMap    = map[string][]reflect.Value{}
 		foreignFieldNames  = StrSlice{}
 		sourceKeys         = []string{}
@@ -1144,4 +1157,26 @@ func handleManyToManyPreload(scope *Scope, field *StructField, conditions []inte
 		}
 
 	}
+}
+
+func (s *Search) changeableField(field *StructField) bool {
+	if s.hasSelect() {
+		if s.checkFieldIncluded(field) {
+			return true
+		}
+		return false
+	}
+
+	if s.checkFieldOmitted(field) {
+		return false
+	}
+
+	return true
+}
+
+func (s *Search) canProcessField(field *StructField) bool {
+	if !s.changeableField(field) || field.IsBlank() || field.IsIgnored() {
+		return false
+	}
+	return true
 }

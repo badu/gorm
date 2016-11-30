@@ -87,7 +87,7 @@ func (scope *Scope) SkipLeft() {
 // Fields get value's fields from ModelStruct
 func (scope *Scope) Fields() StructFields {
 	if scope.fields == nil {
-		scope.fields = scope.GetModelStruct().cloneFieldsToScope(IndirectValue(scope))
+		scope.fields = scope.GetModelStruct().cloneFieldsToScope(IndirectValue(scope.Value))
 	}
 	return *scope.fields
 }
@@ -220,7 +220,7 @@ func (scope *Scope) CallMethod(methodName string) {
 		return
 	}
 
-	if indirectScopeValue := IndirectValue(scope); indirectScopeValue.Kind() == reflect.Slice {
+	if indirectScopeValue := IndirectValue(scope.Value); indirectScopeValue.Kind() == reflect.Slice {
 		for i := 0; i < indirectScopeValue.Len(); i++ {
 			scope.callMethod(methodName, indirectScopeValue.Index(i))
 		}
@@ -306,11 +306,7 @@ func (scope *Scope) GetModelStruct() *ModelStruct {
 		return &modelStruct
 	}
 
-	reflectType := reflect.ValueOf(scope.Value).Type()
-	for reflectType.Kind() == reflect.Slice || reflectType.Kind() == reflect.Ptr {
-		//dereference
-		reflectType = reflectType.Elem()
-	}
+	reflectType := GetTType(scope.Value)
 
 	if reflectType.Kind() != reflect.Struct {
 		//TODO : @Badu - why we are not returning an error?
@@ -386,14 +382,18 @@ func (scope *Scope) scan(rows *sql.Rows, columns []string, fields StructFields) 
 		}
 
 		for fieldIndex, field := range selectFields {
+
 			if field.DBName == column {
-				if field.Value.Kind() == reflect.Ptr {
+
+				switch field.Value.Kind() {
+				case reflect.Ptr:
 					values[index] = field.Value.Addr().Interface()
-				} else {
+				default:
 					reflectValue := field.PtrToValue()
 					reflectValue.Elem().Set(field.Value.Addr())
 					values[index] = reflectValue.Interface()
 					resetFields[index] = field
+
 				}
 
 				selectedColumnsMap[column] = fieldIndex
@@ -485,36 +485,11 @@ func (scope *Scope) count(value interface{}) *Scope {
 	return scope
 }
 
-func (scope *Scope) typeName() string {
-	typ := IndirectValue(scope).Type()
-
-	for typ.Kind() == reflect.Slice || typ.Kind() == reflect.Ptr {
-		typ = typ.Elem()
-	}
-
-	return typ.Name()
-}
-
 // trace print sql log
 func (scope *Scope) trace(t time.Time) {
 	if scope.Search.SQL != "" {
 		scope.con.slog(scope.Search.SQL, t, scope.Search.SQLVars...)
 	}
-}
-
-func (scope *Scope) changeableField(field *StructField) bool {
-	if scope.Search.hasSelect() {
-		if scope.Search.checkFieldIncluded(field) {
-			return true
-		}
-		return false
-	}
-
-	if scope.Search.checkFieldOmitted(field) {
-		return false
-	}
-
-	return true
 }
 
 func (scope *Scope) shouldSaveAssociations() bool {
@@ -532,7 +507,7 @@ func (scope *Scope) shouldSaveAssociations() bool {
 func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
 	toScope := scope.con.NewScope(value)
 	//TODO : @Badu - boilerplate string
-	allKeys := append(foreignKeys, toScope.typeName()+"Id", scope.typeName()+"Id")
+	allKeys := append(foreignKeys, GetType(toScope.Value).Name()+"Id", GetType(scope.Value).Name()+"Id")
 
 	//because we're using it in a for, we're getting it once
 	dialect := scope.con.parent.dialect
@@ -626,18 +601,21 @@ func (scope *Scope) getTableOptions() string {
 }
 
 func (scope *Scope) saveFieldAsAssociation(field *StructField) (bool, *Relationship) {
-	if scope.changeableField(field) && !field.IsBlank() && !field.IsIgnored() {
-		//TODO : @Badu - make field WillSaveAssociations FLAG
-		if field.HasSetting(SAVE_ASSOCIATIONS) {
-			set := field.GetSetting(SAVE_ASSOCIATIONS)
-			if set == "false" || set == "skip" {
-				return false, nil
-			}
-		}
-		if relationship := field.Relationship; relationship != nil {
-			return true, relationship
+	if !scope.Search.canProcessField(field) {
+		return false, nil
+	}
+
+	//TODO : @Badu - make field WillSaveAssociations FLAG
+	if field.HasSetting(SAVE_ASSOCIATIONS) {
+		set := field.GetSetting(SAVE_ASSOCIATIONS)
+		if set == "false" || set == "skip" {
+			return false, nil
 		}
 	}
+	if relationship := field.Relationship; relationship != nil {
+		return true, relationship
+	}
+
 	return false, nil
 }
 
@@ -669,46 +647,51 @@ func (scope *Scope) updateTimeStampForCreateCallback() {
 
 // createCallback the callback used to insert data into database
 func (scope *Scope) createCallback() {
+	var (
+		columns, placeholders        StrSlice
+		blankColumnsWithDefaultValue StrSlice
+		//because we're using it in a for, we're getting it once
+		dialect         = scope.con.parent.dialect
+		returningColumn = "*"
+		quotedTableName = QuotedTableName(scope)
+		primaryField    = scope.PK()
+		extraOption     string
+	)
+
 	if !scope.HasError() {
 		//avoid call if we don't need to
 		if scope.con.logMode == 2 {
 			defer scope.trace(NowFunc())
 		}
-		var (
-			columns, placeholders        StrSlice
-			blankColumnsWithDefaultValue StrSlice
-			//because we're using it in a for, we're getting it once
-			dialect = scope.con.parent.dialect
-		)
 
 		for _, field := range scope.Fields() {
-			if scope.changeableField(field) {
-				if field.IsNormal() {
-					if field.IsBlank() && field.HasDefaultValue() {
-						blankColumnsWithDefaultValue.add(Quote(field.DBName, dialect))
-						scope.InstanceSet(BLANK_COLS_DEFAULT_SETTING, blankColumnsWithDefaultValue)
-					} else if !field.IsPrimaryKey() || !field.IsBlank() {
-						columns.add(Quote(field.DBName, dialect))
-						placeholders.add(scope.Search.addToVars(field.Value.Interface(), dialect))
-					}
-				} else if field.Relationship != nil && field.Relationship.Kind == BELONGS_TO {
-					for _, foreignKey := range field.Relationship.ForeignDBNames {
-						if foreignField, ok := scope.FieldByName(foreignKey); ok &&
-							!scope.changeableField(foreignField) {
+			if !scope.Search.changeableField(field) {
+				continue
+			}
+			if field.IsNormal() {
+				isBlankWithDefaultValue := field.IsBlank() && field.HasDefaultValue()
+				isNotPKOrBlank := !field.IsPrimaryKey() || !field.IsBlank()
+				if isBlankWithDefaultValue {
+					blankColumnsWithDefaultValue.add(Quote(field.DBName, dialect))
+					scope.InstanceSet(BLANK_COLS_DEFAULT_SETTING, blankColumnsWithDefaultValue)
+				} else if isNotPKOrBlank {
+					columns.add(Quote(field.DBName, dialect))
+					placeholders.add(scope.Search.addToVars(field.Value.Interface(), dialect))
+				}
+			} else {
+				relationship := field.Relationship
+				if relationship != nil && relationship.Kind == BELONGS_TO {
+					for _, foreignKey := range relationship.ForeignDBNames {
+						foreignField, ok := scope.FieldByName(foreignKey)
+						if ok && !scope.Search.changeableField(foreignField) {
 							columns.add(Quote(foreignField.DBName, dialect))
 							placeholders.add(scope.Search.addToVars(foreignField.Value.Interface(), dialect))
 						}
 					}
 				}
 			}
-		}
 
-		var (
-			returningColumn = "*"
-			quotedTableName = QuotedTableName(scope)
-			primaryField    = scope.PK()
-			extraOption     string
-		)
+		}
 
 		if str, ok := scope.Get(INSERT_OPT_SETTING); ok {
 			extraOption = fmt.Sprint(str)
@@ -797,17 +780,18 @@ func (scope *Scope) saveBeforeAssociationsCallback() {
 		return
 	}
 	for _, field := range scope.Fields() {
-		if scope.changeableField(field) && !field.IsBlank() && !field.IsIgnored() {
-			if ok, relationship := scope.saveFieldAsAssociation(field); ok && relationship.Kind == BELONGS_TO {
-				fieldValue := field.Value.Addr().Interface()
-				scope.Err(newCon(scope.con).Save(fieldValue).Error)
-				if relationship.ForeignFieldNames.len() != 0 {
-					// set value's foreign key
-					for idx, fieldName := range relationship.ForeignFieldNames {
-						associationForeignName := relationship.AssociationForeignDBNames[idx]
-						if foreignField, ok := scope.NewScope(fieldValue).FieldByName(associationForeignName); ok {
-							scope.Err(scope.SetColumn(fieldName, foreignField.Value.Interface()))
-						}
+		if !scope.Search.canProcessField(field) {
+			continue
+		}
+		if ok, relationship := scope.saveFieldAsAssociation(field); ok && relationship.Kind == BELONGS_TO {
+			fieldValue := field.Value.Addr().Interface()
+			scope.Err(newCon(scope.con).Save(fieldValue).Error)
+			if relationship.ForeignFieldNames.len() != 0 {
+				// set value's foreign key
+				for idx, fieldName := range relationship.ForeignFieldNames {
+					associationForeignName := relationship.AssociationForeignDBNames[idx]
+					if foreignField, ok := scope.NewScope(fieldValue).FieldByName(associationForeignName); ok {
+						scope.Err(scope.SetColumn(fieldName, foreignField.Value.Interface()))
 					}
 				}
 			}
@@ -820,45 +804,23 @@ func (scope *Scope) saveAfterAssociationsCallback() {
 		return
 	}
 	for _, field := range scope.Fields() {
-		if scope.changeableField(field) && !field.IsBlank() && !field.IsIgnored() {
-			//Attention : relationship.Kind <= HAS_ONE
-			if ok, relationship := scope.saveFieldAsAssociation(field); ok && relationship.Kind <= HAS_ONE {
-				value := field.Value
+		if !scope.Search.canProcessField(field) {
+			continue
+		}
 
-				switch value.Kind() {
-				case reflect.Slice:
-					for i := 0; i < value.Len(); i++ {
-						//TODO : @Badu - cloneCon without copy, then NewScope which clone's con - but with copy
-						newCon := newCon(scope.con)
-						elem := value.Index(i).Addr().Interface()
-						newScope := newCon.NewScope(elem)
+		//Attention : relationship.Kind <= HAS_ONE
+		if ok, relationship := scope.saveFieldAsAssociation(field); ok && relationship.Kind <= HAS_ONE {
+			value := field.Value
 
-						if relationship.JoinTableHandler == nil && relationship.ForeignFieldNames.len() != 0 {
-							for idx, fieldName := range relationship.ForeignFieldNames {
-								associationForeignName := relationship.AssociationForeignDBNames[idx]
-								if f, ok := scope.FieldByName(associationForeignName); ok {
-									scope.Err(newScope.SetColumn(fieldName, f.Value.Interface()))
-								}
-							}
-						}
+			switch value.Kind() {
+			case reflect.Slice:
+				for i := 0; i < value.Len(); i++ {
+					//TODO : @Badu - cloneCon without copy, then NewScope which clone's con - but with copy
+					newCon := newCon(scope.con)
+					elem := value.Index(i).Addr().Interface()
+					newScope := newCon.NewScope(elem)
 
-						if relationship.PolymorphicType != "" {
-							scope.Err(
-								newScope.SetColumn(
-									relationship.PolymorphicType,
-									relationship.PolymorphicValue))
-						}
-
-						scope.Err(newCon.Save(elem).Error)
-
-						if joinTableHandler := relationship.JoinTableHandler; joinTableHandler != nil {
-							scope.Err(joinTableHandler.Add(joinTableHandler, newCon, scope.Value, newScope.Value))
-						}
-					}
-				default:
-					elem := value.Addr().Interface()
-					newScope := scope.NewScope(elem)
-					if relationship.ForeignFieldNames.len() != 0 {
+					if relationship.JoinTableHandler == nil && relationship.ForeignFieldNames.len() != 0 {
 						for idx, fieldName := range relationship.ForeignFieldNames {
 							associationForeignName := relationship.AssociationForeignDBNames[idx]
 							if f, ok := scope.FieldByName(associationForeignName); ok {
@@ -868,12 +830,37 @@ func (scope *Scope) saveAfterAssociationsCallback() {
 					}
 
 					if relationship.PolymorphicType != "" {
-						scope.Err(newScope.SetColumn(relationship.PolymorphicType, relationship.PolymorphicValue))
+						scope.Err(
+							newScope.SetColumn(
+								relationship.PolymorphicType,
+								relationship.PolymorphicValue))
 					}
-					scope.Err(newCon(scope.con).Save(elem).Error)
+
+					scope.Err(newCon.Save(elem).Error)
+
+					if joinTableHandler := relationship.JoinTableHandler; joinTableHandler != nil {
+						scope.Err(joinTableHandler.Add(joinTableHandler, newCon, scope.Value, newScope.Value))
+					}
 				}
+			default:
+				elem := value.Addr().Interface()
+				newScope := scope.NewScope(elem)
+				if relationship.ForeignFieldNames.len() != 0 {
+					for idx, fieldName := range relationship.ForeignFieldNames {
+						associationForeignName := relationship.AssociationForeignDBNames[idx]
+						if f, ok := scope.FieldByName(associationForeignName); ok {
+							scope.Err(newScope.SetColumn(fieldName, f.Value.Interface()))
+						}
+					}
+				}
+
+				if relationship.PolymorphicType != "" {
+					scope.Err(newScope.SetColumn(relationship.PolymorphicType, relationship.PolymorphicValue))
+				}
+				scope.Err(newCon(scope.con).Save(elem).Error)
 			}
 		}
+
 	}
 }
 
@@ -912,42 +899,61 @@ func (scope *Scope) updateTimeStampForUpdateCallback() {
 
 // updateCallback the callback used to update data to database
 func (scope *Scope) updateCallback() {
-	if !scope.HasError() {
-		var sqls []string
-
+	var (
+		sqls []string
 		//because we're using it in a for, we're getting it once
-		scopeDialect := scope.con.parent.dialect
+		scopeDialect = scope.con.parent.dialect
+		extraOption  string
+	)
+	if !scope.HasError() {
 
 		if updateAttrs, ok := scope.InstanceGet(UPDATE_ATTRS_SETTING); ok {
 			for column, value := range updateAttrs.(map[string]interface{}) {
-				sqls = append(sqls, fmt.Sprintf("%v = %v", Quote(column, scopeDialect), scope.Search.addToVars(value, scopeDialect)))
+				sqls = append(sqls,
+					fmt.Sprintf(
+						"%v = %v",
+						Quote(column, scopeDialect),
+						scope.Search.addToVars(value, scopeDialect),
+					),
+				)
 			}
 		} else {
 			for _, field := range scope.Fields() {
-				if scope.changeableField(field) {
-					if !field.IsPrimaryKey() && field.IsNormal() {
-						sqls = append(sqls,
-							fmt.Sprintf(
-								"%v = %v",
-								Quote(field.DBName, scopeDialect),
-								scope.Search.addToVars(field.Value.Interface(), scopeDialect)))
-					} else if relationship := field.Relationship; relationship != nil && relationship.Kind == BELONGS_TO {
+				if !scope.Search.changeableField(field) {
+					continue
+				}
+				if !field.IsPrimaryKey() && field.IsNormal() {
+					sqls = append(sqls,
+						fmt.Sprintf(
+							"%v = %v",
+							Quote(field.DBName, scopeDialect),
+							scope.Search.addToVars(field.Value.Interface(), scopeDialect),
+						),
+					)
+				} else {
+					relationship := field.Relationship
+					if relationship != nil && relationship.Kind == BELONGS_TO {
 						for _, foreignKey := range relationship.ForeignDBNames {
-							if foreignField, ok := scope.FieldByName(foreignKey); ok &&
-								!scope.changeableField(foreignField) {
+							foreignField, ok := scope.FieldByName(foreignKey)
+							if ok && !scope.Search.changeableField(foreignField) {
 								sqls = append(sqls,
 									fmt.Sprintf(
 										"%v = %v",
 										Quote(foreignField.DBName, scopeDialect),
-										scope.Search.addToVars(foreignField.Value.Interface(), scopeDialect)))
+										scope.Search.addToVars(
+											foreignField.Value.Interface(),
+											scopeDialect,
+										),
+									),
+								)
 							}
 						}
 					}
 				}
+
 			}
 		}
 
-		var extraOption string
 		if str, ok := scope.Get(UPDATE_OPT_SETTING); ok {
 			extraOption = fmt.Sprint(str)
 		}
@@ -988,21 +994,26 @@ func (scope *Scope) queryCallback() {
 	var (
 		isSlice, isPtr bool
 		resultType     reflect.Type
-		results        = IndirectValue(scope)
+		results        = IndirectValue(scope.Value)
 		dialect        = scope.con.parent.dialect
 	)
 
 	if orderBy, ok := scope.Get(ORDER_BY_PK_SETTING); ok {
 		if primaryField := scope.PK(); primaryField != nil {
-			scope.Search.Order(fmt.Sprintf("%v.%v %v", QuotedTableName(scope), Quote(primaryField.DBName, dialect), orderBy))
+			scope.Search.Order(
+				fmt.Sprintf(
+					"%v.%v %v",
+					QuotedTableName(scope),
+					Quote(primaryField.DBName, dialect), orderBy),
+			)
 		}
 	}
 
 	if value, ok := scope.Get(QUERY_DEST_SETTING); ok {
 		results = reflect.Indirect(reflect.ValueOf(value))
 	}
-
-	if kind := results.Kind(); kind == reflect.Slice {
+	switch results.Kind() {
+	case reflect.Slice:
 		isSlice = true
 		resultType = results.Type().Elem()
 		results.Set(reflect.MakeSlice(results.Type(), 0, 0))
@@ -1011,7 +1022,8 @@ func (scope *Scope) queryCallback() {
 			isPtr = true
 			resultType = resultType.Elem()
 		}
-	} else if kind != reflect.Struct {
+	case reflect.Struct:
+	default:
 		scope.Err(errors.New("SCOPE : unsupported destination, should be slice or struct"))
 		return
 	}
@@ -1069,7 +1081,6 @@ func (scope *Scope) preloadCallback() {
 	if !scope.Search.hasPreload() || scope.HasError() {
 		return
 	}
-
 	scope.Search.doPreload(scope)
 }
 

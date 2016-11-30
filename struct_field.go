@@ -277,6 +277,7 @@ func (field *StructField) Set(value interface{}) error {
 	if !field.Value.CanAddr() {
 		return ErrUnaddressable
 	}
+	//TODO : @Badu - we have this kind of information in our field ...
 	//type cast to value
 	reflectValue, ok := value.(reflect.Value)
 	if !ok {
@@ -322,29 +323,12 @@ func (field *StructField) Set(value interface{}) error {
 	return err
 }
 
-/**
-reflect.StructField{
-	// Name is the field name.
-	Name string
-	// PkgPath is the package path that qualifies a lower case (unexported)
-	// field name. It is empty for upper case (exported) field names.
-	// See https://golang.org/ref/spec#Uniqueness_of_identifiers
-	PkgPath string
-
-	Type      Type      // field type
-	Tag       StructTag // field tag string
-	Offset    uintptr   // offset within struct, in bytes
-	Index     []int     // index sequence for Type.FieldByIndex
-	Anonymous bool      // is an embedded field
-}
-*/
-
 func (field *StructField) ParseFieldStructForDialect() (
 	fieldValue reflect.Value,
 	sqlType string,
 	size int,
 	additionalType string) {
-
+	//TODO : @Badu - we have the below info in our field...
 	// Get redirected field type
 	var reflectType = field.Struct.Type
 	for reflectType.Kind() == reflect.Ptr {
@@ -540,12 +524,7 @@ func (field *StructField) makeSlice() (interface{}, reflect.Value) {
 	sliceType := reflect.SliceOf(basicType)
 	slice := reflect.New(sliceType)
 	slice.Elem().Set(reflect.MakeSlice(sliceType, 0, 0))
-	sliceInterf := slice.Interface()
-	sliceValue := reflect.ValueOf(sliceInterf)
-	for sliceValue.Kind() == reflect.Ptr {
-		sliceValue = sliceValue.Elem()
-	}
-	return sliceInterf, sliceValue
+	return slice.Interface(), IndirectValue(slice.Interface())
 }
 
 func (field *StructField) getForeignKeys() StrSlice {
