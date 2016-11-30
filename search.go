@@ -874,10 +874,8 @@ func (s *Search) doPreload(scope *Scope) {
 					}
 
 					switch field.Relationship.Kind {
-					case HAS_ONE, HAS_MANY:
-						handleHasOneOrManyPreload(currentScope, field, currentPreloadConditions)
-					case BELONGS_TO:
-						handleBelongsToPreload(currentScope, field, currentPreloadConditions)
+					case HAS_ONE, HAS_MANY, BELONGS_TO:
+						handleRelationPreload(currentScope, field, currentPreloadConditions)
 					case MANY_TO_MANY:
 						handleManyToManyPreload(currentScope, field, currentPreloadConditions)
 					default:
@@ -910,17 +908,23 @@ func (s *Search) doPreload(scope *Scope) {
 	}
 }
 
-// handleHasOnePreload used to preload has one associations
-func handleHasOneOrManyPreload(scope *Scope, field *StructField, conditions []interface{}) {
+// handleRelationPreload to preload has one, has many and belongs to associations
+func handleRelationPreload(scope *Scope, field *StructField, conditions []interface{}) {
 
 	var (
 		indirectScopeValue = IndirectValue(scope.Value)
 		relation           = field.Relationship
 		dialect            = scope.con.parent.dialect
+		query              = ""
+		primaryKeys        [][]interface{}
 	)
 
 	// get relations's primary keys
-	primaryKeys := getColumnAsArray(relation.AssociationForeignFieldNames, scope.Value)
+	if relation.Kind == BELONGS_TO {
+		primaryKeys = getColumnAsArray(relation.ForeignFieldNames, scope.Value)
+	} else {
+		primaryKeys = getColumnAsArray(relation.AssociationForeignFieldNames, scope.Value)
+	}
 
 	if len(primaryKeys) == 0 {
 		return
@@ -929,15 +933,23 @@ func handleHasOneOrManyPreload(scope *Scope, field *StructField, conditions []in
 	// preload conditions
 	preloadDB, preloadConditions := generatePreloadDBWithConditions(newCon(scope.con), conditions)
 
-	// find relations
-	query := fmt.Sprintf(
-		"%v IN (%v)",
-		toQueryCondition(relation.ForeignDBNames, dialect),
-		toQueryMarks(primaryKeys))
 	values := toQueryValues(primaryKeys)
-	if relation.PolymorphicType != "" {
-		query += fmt.Sprintf(" AND %v = ?", Quote(relation.PolymorphicDBName, dialect))
-		values = append(values, relation.PolymorphicValue)
+
+	// find relations
+	if relation.Kind == BELONGS_TO {
+		query = fmt.Sprintf(
+			"%v IN (%v)",
+			toQueryCondition(relation.AssociationForeignDBNames, dialect),
+			toQueryMarks(primaryKeys))
+	} else {
+		query = fmt.Sprintf(
+			"%v IN (%v)",
+			toQueryCondition(relation.ForeignDBNames, dialect),
+			toQueryMarks(primaryKeys))
+		if relation.PolymorphicType != "" {
+			query += fmt.Sprintf(" AND %v = ?", Quote(relation.PolymorphicDBName, dialect))
+			values = append(values, relation.PolymorphicValue)
+		}
 	}
 
 	results, resultsValue := field.makeSlice()
@@ -995,59 +1007,29 @@ func handleHasOneOrManyPreload(scope *Scope, field *StructField, conditions []in
 			scope.Err(field.Set(resultsValue))
 
 		}
-	}
-
-}
-
-// handleBelongsToPreload used to preload belongs to associations
-func handleBelongsToPreload(scope *Scope, field *StructField, conditions []interface{}) {
-	var (
-		indirectScopeValue = IndirectValue(scope.Value)
-		relation           = field.Relationship
-		dialect            = scope.con.parent.dialect
-	)
-	// get relations's primary keys
-	primaryKeys := getColumnAsArray(relation.ForeignFieldNames, scope.Value)
-	if len(primaryKeys) == 0 {
-		return
-	}
-
-	// preload conditions
-	preloadDB, preloadConditions := generatePreloadDBWithConditions(newCon(scope.con), conditions)
-
-	// find relations
-	results, resultsValue := field.makeSlice()
-
-	query := fmt.Sprintf(
-		"%v IN (%v)",
-		toQueryCondition(relation.AssociationForeignDBNames, dialect),
-		toQueryMarks(primaryKeys))
-	values := toQueryValues(primaryKeys)
-
-	scope.Err(preloadDB.Where(query, values...).Find(results, preloadConditions...).Error)
-
-	// assign find results
-
-	for i := 0; i < resultsValue.Len(); i++ {
-		result := resultsValue.Index(i)
-		if indirectScopeValue.Kind() == reflect.Slice {
-			value := getValueFromFields(relation.AssociationForeignFieldNames, result)
-			for j := 0; j < indirectScopeValue.Len(); j++ {
-				reflectValue := FieldValue(indirectScopeValue, j)
-				if equalAsString(
-					getValueFromFields(
-						relation.ForeignFieldNames,
-						reflectValue,
-					),
-					value,
-				) {
-					reflectValue.FieldByName(field.GetStructName()).Set(result)
+	case BELONGS_TO:
+		for i := 0; i < resultsValue.Len(); i++ {
+			result := resultsValue.Index(i)
+			if indirectScopeValue.Kind() == reflect.Slice {
+				value := getValueFromFields(relation.AssociationForeignFieldNames, result)
+				for j := 0; j < indirectScopeValue.Len(); j++ {
+					reflectValue := FieldValue(indirectScopeValue, j)
+					if equalAsString(
+						getValueFromFields(
+							relation.ForeignFieldNames,
+							reflectValue,
+						),
+						value,
+					) {
+						reflectValue.FieldByName(field.GetStructName()).Set(result)
+					}
 				}
+			} else {
+				scope.Err(field.Set(result))
 			}
-		} else {
-			scope.Err(field.Set(result))
 		}
 	}
+
 }
 
 // handleManyToManyPreload used to preload many to many associations

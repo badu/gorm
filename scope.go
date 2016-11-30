@@ -404,7 +404,7 @@ func (scope *Scope) scan(rows *sql.Rows, columns []string, fields StructFields) 
 				case reflect.Ptr:
 					values[index] = field.Value.Addr().Interface()
 				default:
-					reflectValue := field.PtrToValue()
+					reflectValue := field.ptrToLoad()
 					reflectValue.Elem().Set(field.Value.Addr())
 					values[index] = reflectValue.Interface()
 					resetFields[index] = field

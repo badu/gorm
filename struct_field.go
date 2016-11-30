@@ -143,7 +143,7 @@ func NewStructField(fromStruct reflect.StructField) (*StructField, error) {
 	return result, err
 }
 
-func (field *StructField) PtrToValue() reflect.Value {
+func (field *StructField) ptrToLoad() reflect.Value {
 	return reflect.New(reflect.PtrTo(field.Value.Type()))
 }
 
@@ -281,7 +281,6 @@ func (field *StructField) SetJoinTableFK(value string) {
 	field.tagSettings.set(IS_JOINTABLE_FOREIGNKEY, value)
 }
 
-// ParseFieldStructForDialect parse field struct for dialect
 func (field *StructField) Set(value interface{}) error {
 	var (
 		err        error
@@ -340,22 +339,15 @@ func (field *StructField) Set(value interface{}) error {
 	return err
 }
 
+// ParseFieldStructForDialect parse field struct for dialect
 func (field *StructField) ParseFieldStructForDialect() (reflect.Value, string, int, string) {
 	var (
-		size = 0
+		size       = 0
+		fieldValue = reflect.Indirect(reflect.New(field.Type))
 	)
 
-	fieldValue := reflect.Indirect(reflect.New(field.Type))
-
 	// Get scanner's real value
-	var getScannerValue func(reflect.Value)
-	getScannerValue = func(value reflect.Value) {
-		fieldValue = value
-		if _, isScanner := reflect.New(fieldValue.Type()).Interface().(sql.Scanner); isScanner && fieldValue.Kind() == reflect.Struct {
-			getScannerValue(fieldValue.Field(0))
-		}
-	}
-	getScannerValue(fieldValue)
+	fieldValue = getScannerValue(fieldValue)
 
 	// Default Size
 	if num := field.GetSetting(SIZE); num != "" {

@@ -398,7 +398,13 @@ func GetTType(value interface{}) reflect.Type {
 
 	return result
 }
-
+func getScannerValue(value reflect.Value) reflect.Value {
+	fieldValue := value
+	if _, isScanner := reflect.New(fieldValue.Type()).Interface().(sql.Scanner); isScanner && fieldValue.Kind() == reflect.Struct {
+		return getScannerValue(fieldValue.Field(0))
+	}
+	return fieldValue
+}
 // Open initialize a new db connection, need to import driver first, e.g:
 //
 //     import _ "github.com/go-sql-driver/mysql"
