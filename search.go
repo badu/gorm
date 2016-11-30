@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"runtime"
 	"strconv"
 	"strings"
 )
@@ -437,10 +436,12 @@ func (s *Search) addToVars(value interface{}, dialect Dialect) string {
 		for _, arg := range pair.args {
 			exp = strings.Replace(exp, "?", s.addToVars(arg, dialect), 1)
 		}
+		/**
 		_, file, line, ok := runtime.Caller(1)
 		if ok {
 			fmt.Printf("%s %s %d\n", exp, file, line)
 		}
+		**/
 		return exp
 	}
 	s.SQLVars = append(s.SQLVars, value)

@@ -453,8 +453,6 @@ func Open(dialectName string, args ...interface{}) (*DBCon, error) {
 		settings: map[uint64]interface{}{},
 		sqli:     dbSQL,
 	}
-	//register all default callbacks
-	db.callback.registerGORMDefaultCallbacks()
 	//TODO : @Badu - don't like that it points itself
 	db.parent = &db
 

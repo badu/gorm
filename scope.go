@@ -79,11 +79,6 @@ func (scope *Scope) Warn(v ...interface{}) {
 	//scope.con.warnLog(v...)
 }
 
-// SkipLeft skip remaining callbacks
-func (scope *Scope) SkipLeft() {
-	scope.skipLeft = true
-}
-
 // Fields get value's fields from ModelStruct
 func (scope *Scope) Fields() StructFields {
 	if scope.fields == nil {
@@ -214,21 +209,6 @@ func (scope *Scope) SetColumn(column interface{}, value interface{}) error {
 	return errors.New("SCOPE : could not convert column to field")
 }
 
-// CallMethod call scope value's method, if it is a slice, will call its element's method one by one
-func (scope *Scope) CallMethod(methodName string) {
-	if scope.Value == nil {
-		return
-	}
-
-	if indirectScopeValue := IndirectValue(scope.Value); indirectScopeValue.Kind() == reflect.Slice {
-		for i := 0; i < indirectScopeValue.Len(); i++ {
-			scope.callMethod(methodName, indirectScopeValue.Index(i))
-		}
-	} else {
-		scope.callMethod(methodName, indirectScopeValue)
-	}
-}
-
 // TableName return table name
 func (scope *Scope) TableName() string {
 	if scope.Search != nil && scope.Search.tableName != "" {
@@ -264,39 +244,6 @@ func (scope *Scope) Exec() *Scope {
 	return scope
 }
 
-// Begin start a transaction
-func (scope *Scope) Begin() *Scope {
-	if db, ok := scope.con.sqli.(sqlDb); ok {
-		//parent db implements Begin() -> call Begin()
-		if tx, err := db.Begin(); err == nil {
-			//TODO : @Badu - maybe the parent should do so, since it's owner of db.db
-			//parent db.db implements Exec(), Prepare(), Query() and QueryRow()
-			//TODO : @Badu - it's paired with commit or rollback - see below
-			scope.con.sqli = interface{}(tx).(sqlInterf)
-			scope.InstanceSet(STARTED_TX_SETTING, true)
-		}
-	}
-	return scope
-}
-
-// CommitOrRollback commit current transaction if no error happened, otherwise will rollback it
-func (scope *Scope) CommitOrRollback() *Scope {
-	if _, ok := scope.InstanceGet(STARTED_TX_SETTING); ok {
-		if db, ok := scope.con.sqli.(sqlTx); ok {
-			if scope.HasError() {
-				//orm.db implements Commit() and Rollback() -> call Rollback()
-				db.Rollback()
-			} else {
-				//orm.db implements Commit() and Rollback() -> call Commit()
-				scope.Err(db.Commit())
-			}
-			//TODO : @Badu - it's paired with begin - see above
-			scope.con.sqli = scope.con.parent.sqli
-		}
-	}
-	return scope
-}
-
 // GetModelStruct get value's model struct, relationships based on struct and tag definition
 func (scope *Scope) GetModelStruct() *ModelStruct {
 	var modelStruct ModelStruct
@@ -328,6 +275,70 @@ func (scope *Scope) GetModelStruct() *ModelStruct {
 	modelStruct.processRelations(scope)
 
 	return &modelStruct
+}
+
+// CallMethod call scope value's method, if it is a slice, will call its element's method one by one
+func (scope *Scope) CallMethod(methodName string) {
+	if scope.Value == nil {
+		return
+	}
+
+	if indirectScopeValue := IndirectValue(scope.Value); indirectScopeValue.Kind() == reflect.Slice {
+		for i := 0; i < indirectScopeValue.Len(); i++ {
+			scope.callMethod(methodName, indirectScopeValue.Index(i))
+		}
+	} else {
+		scope.callMethod(methodName, indirectScopeValue)
+	}
+}
+
+//calls methods after creation
+func (scope *Scope) PostCreate() *Scope {
+	return scope.
+		Begin().
+		beforeCreateCallback().
+		saveBeforeAssociationsCallback().
+		updateTimeStampForCreateCallback().
+		createCallback().
+		forceReloadAfterCreateCallback().
+		saveAfterAssociationsCallback().
+		afterCreateCallback().
+		CommitOrRollback()
+}
+
+//calls methods after deletion
+func (scope *Scope) PostDelete() *Scope {
+	return scope.
+		Begin().
+		beforeDeleteCallback().
+		deleteCallback().
+		afterDeleteCallback().
+		CommitOrRollback()
+}
+
+//calls methods after query
+func (scope *Scope) PostQuery() *Scope {
+	return scope.
+		queryCallback().
+		preloadCallback().
+		afterQueryCallback()
+}
+
+//calls methods after update
+func (scope *Scope) PostUpdate() *Scope {
+	_, willContinue := scope.assignUpdatingAttributesCallback()
+	if !willContinue {
+		return scope
+	}
+	return scope.
+		Begin().
+		beforeUpdateCallback().
+		saveBeforeAssociationsCallback().
+		updateTimeStampForUpdateCallback().
+		updateCallback().
+		saveAfterAssociationsCallback().
+		afterUpdateCallback().
+		CommitOrRollback()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -412,18 +423,6 @@ func (scope *Scope) scan(rows *sql.Rows, columns []string, fields StructFields) 
 			field.Value.Set(v)
 		}
 	}
-}
-
-func (scope *Scope) callCallbacks(funcs ScopedFuncs) *Scope {
-	for _, f := range funcs {
-		//was (*f)(scope) - but IDE went balistic
-		rf := *f
-		rf(scope)
-		if scope.skipLeft {
-			break
-		}
-	}
-	return scope
 }
 
 func (scope *Scope) row() *sql.Row {
@@ -619,34 +618,86 @@ func (scope *Scope) saveFieldAsAssociation(field *StructField) (bool, *Relations
 	return false, nil
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// moved here from callback functions
-////////////////////////////////////////////////////////////////////////////////
+func (scope *Scope) callCallbacks(funcs ScopedFuncs) *Scope {
+	for _, f := range funcs {
+		//was (*f)(scope) - but IDE went balistic
+		rf := *f
+		rf(scope)
+	}
+	return scope
+}
 
-//============================================
-//Callback create functions
-//============================================
+////////////////////////////////////////////////////////////////////////////////
+// after create functions
+////////////////////////////////////////////////////////////////////////////////
+//[create step 1] [delete step 1] [update step 2]
+// Begin start a transaction
+func (scope *Scope) Begin() *Scope {
+	if db, ok := scope.con.sqli.(sqlDb); ok {
+		//parent db implements Begin() -> call Begin()
+		if tx, err := db.Begin(); err == nil {
+			//TODO : @Badu - maybe the parent should do so, since it's owner of db.db
+			//parent db.db implements Exec(), Prepare(), Query() and QueryRow()
+			//TODO : @Badu - it's paired with commit or rollback - see below
+			scope.con.sqli = interface{}(tx).(sqlInterf)
+			scope.InstanceSet(STARTED_TX_SETTING, true)
+		}
+	}
+	return scope
+}
+
+//[create step 2]
 // beforeCreateCallback will invoke `BeforeSave`, `BeforeCreate` method before creating
-func (scope *Scope) beforeCreateCallback() {
+func (scope *Scope) beforeCreateCallback() *Scope {
 	if !scope.HasError() {
 		scope.CallMethod("BeforeSave")
 	}
 	if !scope.HasError() {
 		scope.CallMethod("BeforeCreate")
 	}
+	return scope
 }
 
+//[create step 3] [update step 4]
+func (scope *Scope) saveBeforeAssociationsCallback() *Scope {
+	if !scope.shouldSaveAssociations() {
+		return scope
+	}
+	for _, field := range scope.Fields() {
+		if !scope.Search.canProcessField(field) {
+			continue
+		}
+		if ok, relationship := scope.saveFieldAsAssociation(field); ok && relationship.Kind == BELONGS_TO {
+			fieldValue := field.Value.Addr().Interface()
+			scope.Err(newCon(scope.con).Save(fieldValue).Error)
+			if relationship.ForeignFieldNames.len() != 0 {
+				// set value's foreign key
+				for idx, fieldName := range relationship.ForeignFieldNames {
+					associationForeignName := relationship.AssociationForeignDBNames[idx]
+					if foreignField, ok := scope.NewScope(fieldValue).FieldByName(associationForeignName); ok {
+						scope.Err(scope.SetColumn(fieldName, foreignField.Value.Interface()))
+					}
+				}
+			}
+		}
+	}
+	return scope
+}
+
+//[create step 4]
 // updateTimeStampForCreateCallback will set `CreatedAt`, `UpdatedAt` when creating
-func (scope *Scope) updateTimeStampForCreateCallback() {
+func (scope *Scope) updateTimeStampForCreateCallback() *Scope {
 	if !scope.HasError() {
 		now := NowFunc()
 		scope.SetColumn("CreatedAt", now)
 		scope.SetColumn("UpdatedAt", now)
 	}
+	return scope
 }
 
+//[create step 5]
 // createCallback the callback used to insert data into database
-func (scope *Scope) createCallback() {
+func (scope *Scope) createCallback() *Scope {
 	var (
 		columns, placeholders        StrSlice
 		blankColumnsWithDefaultValue StrSlice
@@ -742,10 +793,12 @@ func (scope *Scope) createCallback() {
 			}
 		}
 	}
+	return scope
 }
 
+//[create step 6]
 // forceReloadAfterCreateCallback will reload columns that having default value, and set it back to current object
-func (scope *Scope) forceReloadAfterCreateCallback() {
+func (scope *Scope) forceReloadAfterCreateCallback() *Scope {
 	if blankColumnsWithDefaultValue, ok := scope.InstanceGet(BLANK_COLS_DEFAULT_SETTING); ok {
 		sSlice, yes := blankColumnsWithDefaultValue.(StrSlice)
 		if !yes {
@@ -760,48 +813,13 @@ func (scope *Scope) forceReloadAfterCreateCallback() {
 
 		db.Scan(scope.Value)
 	}
+	return scope
 }
 
-// afterCreateCallback will invoke `AfterCreate`, `AfterSave` method after creating
-func (scope *Scope) afterCreateCallback() {
-	if !scope.HasError() {
-		scope.CallMethod("AfterCreate")
-	}
-	if !scope.HasError() {
-		scope.CallMethod("AfterSave")
-	}
-}
-
-//============================================
-// Callback save functions
-//============================================
-func (scope *Scope) saveBeforeAssociationsCallback() {
+//[create step 7] [update step 7]
+func (scope *Scope) saveAfterAssociationsCallback() *Scope {
 	if !scope.shouldSaveAssociations() {
-		return
-	}
-	for _, field := range scope.Fields() {
-		if !scope.Search.canProcessField(field) {
-			continue
-		}
-		if ok, relationship := scope.saveFieldAsAssociation(field); ok && relationship.Kind == BELONGS_TO {
-			fieldValue := field.Value.Addr().Interface()
-			scope.Err(newCon(scope.con).Save(fieldValue).Error)
-			if relationship.ForeignFieldNames.len() != 0 {
-				// set value's foreign key
-				for idx, fieldName := range relationship.ForeignFieldNames {
-					associationForeignName := relationship.AssociationForeignDBNames[idx]
-					if foreignField, ok := scope.NewScope(fieldValue).FieldByName(associationForeignName); ok {
-						scope.Err(scope.SetColumn(fieldName, foreignField.Value.Interface()))
-					}
-				}
-			}
-		}
-	}
-}
-
-func (scope *Scope) saveAfterAssociationsCallback() {
-	if !scope.shouldSaveAssociations() {
-		return
+		return scope
 	}
 	for _, field := range scope.Fields() {
 		if !scope.Search.canProcessField(field) {
@@ -862,24 +880,206 @@ func (scope *Scope) saveAfterAssociationsCallback() {
 		}
 
 	}
+	return scope
 }
 
-//============================================
-// Callback update functions
-//============================================
+//[create step 8]
+// afterCreateCallback will invoke `AfterCreate`, `AfterSave` method after creating
+func (scope *Scope) afterCreateCallback() *Scope {
+	if !scope.HasError() {
+		scope.CallMethod("AfterCreate")
+	}
+	if !scope.HasError() {
+		scope.CallMethod("AfterSave")
+	}
+	return scope
+}
+
+//[create step 9] [delete step 5] [update step 9]
+// CommitOrRollback commit current transaction if no error happened, otherwise will rollback it
+func (scope *Scope) CommitOrRollback() *Scope {
+	if _, ok := scope.InstanceGet(STARTED_TX_SETTING); ok {
+		if db, ok := scope.con.sqli.(sqlTx); ok {
+			if scope.HasError() {
+				//orm.db implements Commit() and Rollback() -> call Rollback()
+				db.Rollback()
+			} else {
+				//orm.db implements Commit() and Rollback() -> call Commit()
+				scope.Err(db.Commit())
+			}
+			//TODO : @Badu - it's paired with begin - see above
+			scope.con.sqli = scope.con.parent.sqli
+		}
+	}
+	return scope
+}
+
+//[delete step 2]
+// beforeDeleteCallback will invoke `BeforeDelete` method before deleting
+func (scope *Scope) beforeDeleteCallback() *Scope {
+	if !scope.HasError() {
+		scope.CallMethod("BeforeDelete")
+	}
+	return scope
+}
+
+//[delete step 3]
+// deleteCallback used to delete data from database or set deleted_at to current time (when using with soft delete)
+func (scope *Scope) deleteCallback() *Scope {
+	if !scope.HasError() {
+		var extraOption string
+		if str, ok := scope.Get(DELETE_OPT_SETTING); ok {
+			extraOption = fmt.Sprint(str)
+		}
+
+		if !scope.Search.isUnscoped() && scope.GetModelStruct().HasColumn("DeletedAt") {
+			scope.Raw(fmt.Sprintf(
+				"UPDATE %v SET deleted_at=%v%v%v",
+				QuotedTableName(scope),
+				scope.Search.addToVars(NowFunc(), scope.con.parent.dialect),
+				addExtraSpaceIfExist(scope.Search.combinedConditionSql(scope)),
+				addExtraSpaceIfExist(extraOption),
+			)).Exec()
+		} else {
+			scope.Raw(fmt.Sprintf(
+				"DELETE FROM %v%v%v",
+				QuotedTableName(scope),
+				addExtraSpaceIfExist(scope.Search.combinedConditionSql(scope)),
+				addExtraSpaceIfExist(extraOption),
+			)).Exec()
+		}
+	}
+	return scope
+}
+
+//[delete step 4]
+// afterDeleteCallback will invoke `AfterDelete` method after deleting
+func (scope *Scope) afterDeleteCallback() *Scope {
+	if !scope.HasError() {
+		scope.CallMethod("AfterDelete")
+	}
+	return scope
+}
+
+// [query step 1]
+// queryCallback used to query data from database
+func (scope *Scope) queryCallback() *Scope {
+	//avoid call if we don't need to
+	if scope.con.logMode == 2 {
+		defer scope.trace(NowFunc())
+	}
+	var (
+		isSlice, isPtr bool
+		resultType     reflect.Type
+		results        = IndirectValue(scope.Value)
+		dialect        = scope.con.parent.dialect
+	)
+
+	if orderBy, ok := scope.Get(ORDER_BY_PK_SETTING); ok {
+		if primaryField := scope.PK(); primaryField != nil {
+			scope.Search.Order(
+				fmt.Sprintf(
+					"%v.%v %v",
+					QuotedTableName(scope),
+					Quote(primaryField.DBName, dialect), orderBy),
+			)
+		}
+	}
+
+	if value, ok := scope.Get(QUERY_DEST_SETTING); ok {
+		results = reflect.Indirect(reflect.ValueOf(value))
+	}
+	switch results.Kind() {
+	case reflect.Slice:
+		isSlice = true
+		resultType = results.Type().Elem()
+		results.Set(reflect.MakeSlice(results.Type(), 0, 0))
+
+		if resultType.Kind() == reflect.Ptr {
+			isPtr = true
+			resultType = resultType.Elem()
+		}
+	case reflect.Struct:
+	default:
+		scope.Err(errors.New("SCOPE : unsupported destination, should be slice or struct"))
+		return scope
+	}
+
+	scope.Search.prepareQuerySQL(scope)
+
+	if !scope.HasError() {
+		scope.con.RowsAffected = 0
+		if str, ok := scope.Get(QUERY_OPT_SETTING); ok {
+			scope.Search.SQL += addExtraSpaceIfExist(fmt.Sprint(str))
+		}
+
+		if rows, err := scope.Search.Query(scope); scope.Err(err) == nil {
+			defer rows.Close()
+
+			columns, _ := rows.Columns()
+			for rows.Next() {
+				scope.con.RowsAffected++
+
+				elem := results
+				if isSlice {
+					elem = reflect.New(resultType).Elem()
+				}
+
+				scope.scan(rows, columns, scope.NewScope(elem.Addr().Interface()).Fields())
+
+				if isSlice {
+					if isPtr {
+						results.Set(reflect.Append(results, elem.Addr()))
+					} else {
+						results.Set(reflect.Append(results, elem))
+					}
+				}
+			}
+
+			if scope.con.RowsAffected == 0 && !isSlice {
+				scope.Err(ErrRecordNotFound)
+			}
+		}
+	}
+	return scope
+}
+
+// [query step 2]
+// preloadCallback used to preload associations
+func (scope *Scope) preloadCallback() *Scope {
+	if !scope.Search.hasPreload() || scope.HasError() {
+		return scope
+	}
+	scope.Search.doPreload(scope)
+	return scope
+}
+
+// [query step 3]
+// afterQueryCallback will invoke `AfterFind` method after querying
+func (scope *Scope) afterQueryCallback() *Scope {
+	if !scope.HasError() {
+		scope.CallMethod("AfterFind")
+	}
+	return scope
+}
+
+// [update step 1]
 // assignUpdatingAttributesCallback assign updating attributes to model
-func (scope *Scope) assignUpdatingAttributesCallback() {
+func (scope *Scope) assignUpdatingAttributesCallback() (*Scope, bool) {
 	if attrs, ok := scope.InstanceGet(UPDATE_INTERF_SETTING); ok {
 		if updateMaps, hasUpdate := updatedAttrsWithValues(scope, attrs); hasUpdate {
 			scope.InstanceSet(UPDATE_ATTRS_SETTING, updateMaps)
 		} else {
-			scope.SkipLeft()
+			//signal we stop chain calls
+			return scope, false
 		}
 	}
+	return scope, true
 }
 
+// [update step 3]
 // beforeUpdateCallback will invoke `BeforeSave`, `BeforeUpdate` method before updating
-func (scope *Scope) beforeUpdateCallback() {
+func (scope *Scope) beforeUpdateCallback() *Scope {
 	if _, ok := scope.Get(UPDATE_COLUMN_SETTING); !ok {
 		if !scope.HasError() {
 			scope.CallMethod("BeforeSave")
@@ -888,17 +1088,21 @@ func (scope *Scope) beforeUpdateCallback() {
 			scope.CallMethod("BeforeUpdate")
 		}
 	}
+	return scope
 }
 
+// [update step 5]
 // updateTimeStampForUpdateCallback will set `UpdatedAt` when updating
-func (scope *Scope) updateTimeStampForUpdateCallback() {
+func (scope *Scope) updateTimeStampForUpdateCallback() *Scope {
 	if _, ok := scope.Get(UPDATE_COLUMN_SETTING); !ok {
 		scope.SetColumn("UpdatedAt", NowFunc())
 	}
+	return scope
 }
 
+// [update step 6]
 // updateCallback the callback used to update data to database
-func (scope *Scope) updateCallback() {
+func (scope *Scope) updateCallback() *Scope {
 	var (
 		sqls []string
 		//because we're using it in a for, we're getting it once
@@ -968,10 +1172,12 @@ func (scope *Scope) updateCallback() {
 			)).Exec()
 		}
 	}
+	return scope
 }
 
+// [update step 8]
 // afterUpdateCallback will invoke `AfterUpdate`, `AfterSave` method after updating
-func (scope *Scope) afterUpdateCallback() {
+func (scope *Scope) afterUpdateCallback() *Scope {
 	if _, ok := scope.Get(UPDATE_COLUMN_SETTING); !ok {
 		if !scope.HasError() {
 			scope.CallMethod("AfterUpdate")
@@ -980,150 +1186,5 @@ func (scope *Scope) afterUpdateCallback() {
 			scope.CallMethod("AfterSave")
 		}
 	}
-}
-
-//============================================
-// Callback query functions
-//============================================
-// queryCallback used to query data from database
-func (scope *Scope) queryCallback() {
-	//avoid call if we don't need to
-	if scope.con.logMode == 2 {
-		defer scope.trace(NowFunc())
-	}
-	var (
-		isSlice, isPtr bool
-		resultType     reflect.Type
-		results        = IndirectValue(scope.Value)
-		dialect        = scope.con.parent.dialect
-	)
-
-	if orderBy, ok := scope.Get(ORDER_BY_PK_SETTING); ok {
-		if primaryField := scope.PK(); primaryField != nil {
-			scope.Search.Order(
-				fmt.Sprintf(
-					"%v.%v %v",
-					QuotedTableName(scope),
-					Quote(primaryField.DBName, dialect), orderBy),
-			)
-		}
-	}
-
-	if value, ok := scope.Get(QUERY_DEST_SETTING); ok {
-		results = reflect.Indirect(reflect.ValueOf(value))
-	}
-	switch results.Kind() {
-	case reflect.Slice:
-		isSlice = true
-		resultType = results.Type().Elem()
-		results.Set(reflect.MakeSlice(results.Type(), 0, 0))
-
-		if resultType.Kind() == reflect.Ptr {
-			isPtr = true
-			resultType = resultType.Elem()
-		}
-	case reflect.Struct:
-	default:
-		scope.Err(errors.New("SCOPE : unsupported destination, should be slice or struct"))
-		return
-	}
-
-	scope.Search.prepareQuerySQL(scope)
-
-	if !scope.HasError() {
-		scope.con.RowsAffected = 0
-		if str, ok := scope.Get(QUERY_OPT_SETTING); ok {
-			scope.Search.SQL += addExtraSpaceIfExist(fmt.Sprint(str))
-		}
-
-		if rows, err := scope.Search.Query(scope); scope.Err(err) == nil {
-			defer rows.Close()
-
-			columns, _ := rows.Columns()
-			for rows.Next() {
-				scope.con.RowsAffected++
-
-				elem := results
-				if isSlice {
-					elem = reflect.New(resultType).Elem()
-				}
-
-				scope.scan(rows, columns, scope.NewScope(elem.Addr().Interface()).Fields())
-
-				if isSlice {
-					if isPtr {
-						results.Set(reflect.Append(results, elem.Addr()))
-					} else {
-						results.Set(reflect.Append(results, elem))
-					}
-				}
-			}
-
-			if scope.con.RowsAffected == 0 && !isSlice {
-				scope.Err(ErrRecordNotFound)
-			}
-		}
-	}
-}
-
-// afterQueryCallback will invoke `AfterFind` method after querying
-func (scope *Scope) afterQueryCallback() {
-	if !scope.HasError() {
-		scope.CallMethod("AfterFind")
-	}
-}
-
-//============================================
-// Callback query preload function
-//============================================
-// preloadCallback used to preload associations
-func (scope *Scope) preloadCallback() {
-	if !scope.Search.hasPreload() || scope.HasError() {
-		return
-	}
-	scope.Search.doPreload(scope)
-}
-
-//============================================
-// Callback delete functions
-//============================================
-// beforeDeleteCallback will invoke `BeforeDelete` method before deleting
-func (scope *Scope) beforeDeleteCallback() {
-	if !scope.HasError() {
-		scope.CallMethod("BeforeDelete")
-	}
-}
-
-// deleteCallback used to delete data from database or set deleted_at to current time (when using with soft delete)
-func (scope *Scope) deleteCallback() {
-	if !scope.HasError() {
-		var extraOption string
-		if str, ok := scope.Get(DELETE_OPT_SETTING); ok {
-			extraOption = fmt.Sprint(str)
-		}
-
-		if !scope.Search.isUnscoped() && scope.GetModelStruct().HasColumn("DeletedAt") {
-			scope.Raw(fmt.Sprintf(
-				"UPDATE %v SET deleted_at=%v%v%v",
-				QuotedTableName(scope),
-				scope.Search.addToVars(NowFunc(), scope.con.parent.dialect),
-				addExtraSpaceIfExist(scope.Search.combinedConditionSql(scope)),
-				addExtraSpaceIfExist(extraOption),
-			)).Exec()
-		} else {
-			scope.Raw(fmt.Sprintf(
-				"DELETE FROM %v%v%v",
-				QuotedTableName(scope),
-				addExtraSpaceIfExist(scope.Search.combinedConditionSql(scope)),
-				addExtraSpaceIfExist(extraOption),
-			)).Exec()
-		}
-	}
-}
-
-// afterDeleteCallback will invoke `AfterDelete` method after deleting
-func (scope *Scope) afterDeleteCallback() {
-	if !scope.HasError() {
-		scope.CallMethod("AfterDelete")
-	}
+	return scope
 }

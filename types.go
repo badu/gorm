@@ -94,7 +94,6 @@ type (
 		Search     *Search
 		instanceID uint64
 		fields     *StructFields //cached version of cloned struct fields
-		skipLeft   bool          //skip left remaining callbacks
 		Value      interface{}
 		//TODO : @Badu - add Type of Value here to avoid "so much reflection" effect
 	}

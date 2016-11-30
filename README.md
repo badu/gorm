@@ -23,6 +23,7 @@
 
 ## 30.11.2016
 - [x] Simplify reflections
+- [x] Removed the way internal callbacks were called - gorm can't be broken by un-registering internal callbacks
 
 ## 29.11.2016
 - [x] Stringer for Relationship, ModelStruct and StructField
