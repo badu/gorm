@@ -33,11 +33,11 @@ const (
 //TODO : @Badu - benchmark discarding settings (except those with value) while keeping the flags
 func NewStructField(fromStruct reflect.StructField) (*StructField, error) {
 	result := &StructField{
-		Struct: fromStruct,
-		Names:  []string{fromStruct.Name},
+		StructName: fromStruct.Name,
+		Names:      []string{fromStruct.Name},
 	}
 	//field should process itself the tag settings
-	err := result.parseTagSettings()
+	err := result.parseTagSettings(fromStruct.Tag)
 
 	if result.tagSettings.has(IGNORED) {
 		result.setFlag(IS_IGNORED)
@@ -132,11 +132,9 @@ func NewStructField(fromStruct reflect.StructField) (*StructField, error) {
 
 	if !result.IsIgnored() && !result.IsScanner() && !result.IsTime() && !result.IsEmbedOrAnon() {
 		if result.IsSlice() {
-			//marker for later processing of relationships
-			result.SetHasRelations()
+			result.SetHasRelations() //marker for later processing of relationships
 		} else if result.IsStruct() {
-			//marker for later processing of relationships
-			result.SetHasRelations()
+			result.SetHasRelations() //marker for later processing of relationships
 		} else {
 			result.SetIsNormal()
 		}
@@ -146,7 +144,18 @@ func NewStructField(fromStruct reflect.StructField) (*StructField, error) {
 }
 
 func (field *StructField) PtrToValue() reflect.Value {
-	return reflect.New(reflect.PtrTo(field.Struct.Type))
+	return reflect.New(reflect.PtrTo(field.Value.Type()))
+}
+
+func (field *StructField) makeSlice() (interface{}, reflect.Value) {
+	basicType := field.Type
+	if field.IsPointer() {
+		basicType = reflect.PtrTo(field.Type)
+	}
+	sliceType := reflect.SliceOf(basicType)
+	slice := reflect.New(sliceType)
+	slice.Elem().Set(reflect.MakeSlice(sliceType, 0, 0))
+	return slice.Interface(), IndirectValue(slice.Interface())
 }
 
 func (field *StructField) Interface() interface{} {
@@ -159,6 +168,10 @@ func (field *StructField) IsPrimaryKey() bool {
 
 func (field *StructField) IsNormal() bool {
 	return field.flags&(1<<IS_NORMAL) != 0
+}
+
+func (field *StructField) IsPointer() bool {
+	return field.flags&(1<<IS_POINTER) != 0
 }
 
 func (field *StructField) SetIsNormal() {
@@ -222,6 +235,7 @@ func (field *StructField) IsOmmited() bool {
 	return field.flags&(1<<IS_OMITTED) != 0
 }
 
+//TODO : @Badu - make field aware of "it's include or not"
 func (field *StructField) SetIsOmmitted() {
 	field.flags = field.flags | (1 << IS_OMITTED)
 }
@@ -231,6 +245,7 @@ func (field *StructField) IsIncluded() bool {
 	return field.flags&(1<<IS_INCLUDED) != 0
 }
 
+//TODO : @Badu - make field aware of "it's include or not"
 func (field *StructField) SetIsIncluded() {
 	field.flags = field.flags | (1 << IS_INCLUDED)
 }
@@ -245,7 +260,7 @@ func (field *StructField) SetIsAutoIncrement() {
 }
 
 func (field *StructField) GetStructName() string {
-	return field.Struct.Name
+	return field.StructName
 }
 
 //checks if has such a key (for code readability)
@@ -268,7 +283,10 @@ func (field *StructField) SetJoinTableFK(value string) {
 
 // ParseFieldStructForDialect parse field struct for dialect
 func (field *StructField) Set(value interface{}) error {
-	var err error
+	var (
+		err        error
+		fieldValue = field.Value
+	)
 	if !field.Value.IsValid() {
 		//TODO : @Badu - make errors more explicit : which field...
 		return errors.New("StructField : field value not valid")
@@ -285,7 +303,6 @@ func (field *StructField) Set(value interface{}) error {
 		reflectValue = reflect.ValueOf(value)
 	}
 
-	fieldValue := field.Value
 	if reflectValue.IsValid() {
 		if reflectValue.Type().ConvertibleTo(fieldValue.Type()) {
 			//we set it
@@ -295,7 +312,7 @@ func (field *StructField) Set(value interface{}) error {
 				//it's a pointer
 				if fieldValue.IsNil() {
 					//and it's NIL : we have to build it
-					fieldValue.Set(reflect.New(field.Struct.Type.Elem()))
+					fieldValue.Set(reflect.New(field.Type))
 				}
 				//we dereference it
 				fieldValue = fieldValue.Elem()
@@ -323,20 +340,12 @@ func (field *StructField) Set(value interface{}) error {
 	return err
 }
 
-func (field *StructField) ParseFieldStructForDialect() (
-	fieldValue reflect.Value,
-	sqlType string,
-	size int,
-	additionalType string) {
-	//TODO : @Badu - we have the below info in our field...
-	// Get redirected field type
-	var reflectType = field.Struct.Type
-	for reflectType.Kind() == reflect.Ptr {
-		reflectType = reflectType.Elem()
-	}
+func (field *StructField) ParseFieldStructForDialect() (reflect.Value, string, int, string) {
+	var (
+		size = 0
+	)
 
-	// Get redirected field value
-	fieldValue = reflect.Indirect(reflect.New(reflectType))
+	fieldValue := reflect.Indirect(reflect.New(field.Type))
 
 	// Get scanner's real value
 	var getScannerValue func(reflect.Value)
@@ -357,7 +366,7 @@ func (field *StructField) ParseFieldStructForDialect() (
 
 	//TODO : @Badu - what if the settings below are empty?
 	// Default type from tag setting
-	additionalType = field.GetSetting(NOT_NULL) + " " + field.GetSetting(UNIQUE)
+	additionalType := field.GetSetting(NOT_NULL) + " " + field.GetSetting(UNIQUE)
 	if value := field.GetSetting(DEFAULT); value != "" {
 		additionalType = additionalType + " DEFAULT " + value
 	}
@@ -373,7 +382,7 @@ func (field StructField) String() string {
 		collector.add("\t%s = %q\n", "name", n)
 	}
 
-	collector.add("Flags")
+	collector.add("Flags:")
 	if field.flags&(1<<IS_PRIMARYKEY) != 0 {
 		collector.add(" PrimaryKey")
 	}
@@ -424,19 +433,15 @@ func (field StructField) String() string {
 	}
 	collector.add("\n")
 
-	collector.add("%s = %s\n", "Struct Name", field.Struct.Name)
-	if field.Struct.PkgPath != "" {
-		collector.add("%s = %s\n", "Struct PkgPath", field.Struct.PkgPath)
-	}
 	if field.tagSettings.len() > 0 {
-		collector.add("%s = %q\n", "Tags", field.tagSettings)
+		collector.add("%s = %q\n", "Tags:", field.tagSettings)
 	}
 	if field.Type != nil {
-		collector.add("%s = %s\n", "Type", field.Type.String())
+		collector.add("%s = %s\n", "Type:", field.Type.String())
 	}
-	collector.add("%s = %s\n", "Value", field.Value.String())
+	collector.add("%s = %s\n", "Value:", field.Value.String())
 	if field.Relationship != nil {
-		collector.add("%s\n%s", "Relationship", field.Relationship)
+		collector.add("%s\n%s", "Relationship:", field.Relationship)
 	}
 	return collector.String()
 }
@@ -444,10 +449,6 @@ func (field StructField) String() string {
 ////////////////////////////////////////////////////////////////////////////////
 // Private methods
 ////////////////////////////////////////////////////////////////////////////////
-func (field StructField) hasFlag(value uint16) bool {
-	return field.flags&(1<<value) != 0
-}
-
 func (field *StructField) setFlag(value uint16) {
 	field.flags = field.flags | (1 << value)
 }
@@ -462,7 +463,7 @@ func (field *StructField) clone() *StructField {
 		DBName:       field.DBName,
 		Names:        field.Names,
 		tagSettings:  field.tagSettings.clone(),
-		Struct:       field.Struct,
+		StructName:   field.StructName,
 		Relationship: field.Relationship,
 		Type:         field.Type,
 	}
@@ -476,7 +477,7 @@ func (field *StructField) cloneWithValue(value reflect.Value) *StructField {
 		DBName:       field.DBName,
 		Names:        field.Names,
 		tagSettings:  field.tagSettings.clone(),
-		Struct:       field.Struct,
+		StructName:   field.StructName,
 		Relationship: field.Relationship,
 		Value:        value,
 		Type:         field.Type,
@@ -487,9 +488,8 @@ func (field *StructField) cloneWithValue(value reflect.Value) *StructField {
 }
 
 //Function collects information from tags named `sql:""` and `gorm:""`
-func (field *StructField) parseTagSettings() error {
+func (field *StructField) parseTagSettings(tag reflect.StructTag) error {
 	field.tagSettings = TagSettings{Uint8Map: make(map[uint8]string)}
-	tag := field.Struct.Tag
 	for _, str := range []string{tag.Get(TAG_SQL), tag.Get(TAG_GORM)} {
 		err := field.tagSettings.loadFromTags(str)
 		if err != nil {
@@ -508,23 +508,6 @@ func (field *StructField) setIsBlank() {
 	} else {
 		field.unsetFlag(IS_BLANK)
 	}
-}
-
-func (field *StructField) makeSlice() (interface{}, reflect.Value) {
-	//TODO : @Badu - make warning
-	/**
-	if !field.IsSlice(){
-		fmt.Printf("Warning : making a %q slice, but field is not slice.\n", field.Type.Name())
-	}
-	**/
-	basicType := field.Type
-	if field.hasFlag(IS_POINTER) {
-		basicType = reflect.PtrTo(field.Type)
-	}
-	sliceType := reflect.SliceOf(basicType)
-	slice := reflect.New(sliceType)
-	slice.Elem().Set(reflect.MakeSlice(sliceType, 0, 0))
-	return slice.Interface(), IndirectValue(slice.Interface())
 }
 
 func (field *StructField) getForeignKeys() StrSlice {

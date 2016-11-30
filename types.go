@@ -44,11 +44,11 @@ type (
 	// StructField model field's struct definition
 	//TODO : @Badu - a StructField should support multiple relationships
 	StructField struct {
-		flags        uint16
-		DBName       string
-		Names        []string
-		tagSettings  TagSettings
-		Struct       reflect.StructField
+		flags       uint16
+		DBName      string
+		StructName  string
+		Names       []string
+		tagSettings TagSettings
 		Value        reflect.Value
 		Type         reflect.Type
 		Relationship *Relationship

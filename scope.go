@@ -326,9 +326,13 @@ func (scope *Scope) PostQuery() *Scope {
 
 //calls methods after update
 func (scope *Scope) PostUpdate() *Scope {
-	_, willContinue := scope.assignUpdatingAttributesCallback()
-	if !willContinue {
-		return scope
+	if attrs, ok := scope.InstanceGet(UPDATE_INTERF_SETTING); ok {
+		if updateMaps, hasUpdate := updatedAttrsWithValues(scope, attrs); hasUpdate {
+			scope.InstanceSet(UPDATE_ATTRS_SETTING, updateMaps)
+		} else {
+			//we stop chain calls
+			return scope
+		}
 	}
 	return scope.
 		Begin().
@@ -630,7 +634,7 @@ func (scope *Scope) callCallbacks(funcs ScopedFuncs) *Scope {
 ////////////////////////////////////////////////////////////////////////////////
 // after create functions
 ////////////////////////////////////////////////////////////////////////////////
-//[create step 1] [delete step 1] [update step 2]
+//[create step 1] [delete step 1] [update step 1]
 // Begin start a transaction
 func (scope *Scope) Begin() *Scope {
 	if db, ok := scope.con.sqli.(sqlDb); ok {
@@ -658,7 +662,7 @@ func (scope *Scope) beforeCreateCallback() *Scope {
 	return scope
 }
 
-//[create step 3] [update step 4]
+//[create step 3] [update step 3]
 func (scope *Scope) saveBeforeAssociationsCallback() *Scope {
 	if !scope.shouldSaveAssociations() {
 		return scope
@@ -816,7 +820,7 @@ func (scope *Scope) forceReloadAfterCreateCallback() *Scope {
 	return scope
 }
 
-//[create step 7] [update step 7]
+//[create step 7] [update step 6]
 func (scope *Scope) saveAfterAssociationsCallback() *Scope {
 	if !scope.shouldSaveAssociations() {
 		return scope
@@ -895,7 +899,7 @@ func (scope *Scope) afterCreateCallback() *Scope {
 	return scope
 }
 
-//[create step 9] [delete step 5] [update step 9]
+//[create step 9] [delete step 5] [update step 8]
 // CommitOrRollback commit current transaction if no error happened, otherwise will rollback it
 func (scope *Scope) CommitOrRollback() *Scope {
 	if _, ok := scope.InstanceGet(STARTED_TX_SETTING); ok {
@@ -1063,21 +1067,7 @@ func (scope *Scope) afterQueryCallback() *Scope {
 	return scope
 }
 
-// [update step 1]
-// assignUpdatingAttributesCallback assign updating attributes to model
-func (scope *Scope) assignUpdatingAttributesCallback() (*Scope, bool) {
-	if attrs, ok := scope.InstanceGet(UPDATE_INTERF_SETTING); ok {
-		if updateMaps, hasUpdate := updatedAttrsWithValues(scope, attrs); hasUpdate {
-			scope.InstanceSet(UPDATE_ATTRS_SETTING, updateMaps)
-		} else {
-			//signal we stop chain calls
-			return scope, false
-		}
-	}
-	return scope, true
-}
-
-// [update step 3]
+// [update step 2]
 // beforeUpdateCallback will invoke `BeforeSave`, `BeforeUpdate` method before updating
 func (scope *Scope) beforeUpdateCallback() *Scope {
 	if _, ok := scope.Get(UPDATE_COLUMN_SETTING); !ok {
@@ -1091,7 +1081,7 @@ func (scope *Scope) beforeUpdateCallback() *Scope {
 	return scope
 }
 
-// [update step 5]
+// [update step 4]
 // updateTimeStampForUpdateCallback will set `UpdatedAt` when updating
 func (scope *Scope) updateTimeStampForUpdateCallback() *Scope {
 	if _, ok := scope.Get(UPDATE_COLUMN_SETTING); !ok {
@@ -1100,7 +1090,7 @@ func (scope *Scope) updateTimeStampForUpdateCallback() *Scope {
 	return scope
 }
 
-// [update step 6]
+// [update step 5]
 // updateCallback the callback used to update data to database
 func (scope *Scope) updateCallback() *Scope {
 	var (
@@ -1175,7 +1165,7 @@ func (scope *Scope) updateCallback() *Scope {
 	return scope
 }
 
-// [update step 8]
+// [update step 7]
 // afterUpdateCallback will invoke `AfterUpdate`, `AfterSave` method after updating
 func (scope *Scope) afterUpdateCallback() *Scope {
 	if _, ok := scope.Get(UPDATE_COLUMN_SETTING); !ok {

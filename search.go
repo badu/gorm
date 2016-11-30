@@ -1055,7 +1055,7 @@ func handleManyToManyPreload(scope *Scope, field *StructField, conditions []inte
 	var (
 		relation           = field.Relationship
 		joinTableHandler   = relation.JoinTableHandler
-		fieldType, isPtr   = field.Type, field.hasFlag(IS_POINTER)
+		fieldType, isPtr   = field.Type, field.IsPointer()
 		foreignKeyValue    interface{}
 		foreignKeyType     = reflect.ValueOf(&foreignKeyValue).Type()
 		linkHash           = map[string][]reflect.Value{}

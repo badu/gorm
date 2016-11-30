@@ -33,7 +33,7 @@ func (modelStruct *ModelStruct) HasColumn(column string) bool {
 	field, ok := modelStruct.fieldsMap.Get(column)
 	if ok {
 		//TODO : @Badu only if it's normal it's declared ?
-		if field.hasFlag(IS_NORMAL) {
+		if field.IsNormal() {
 			return true
 		}
 	}
