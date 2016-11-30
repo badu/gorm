@@ -1,15 +1,13 @@
 # Todo
 - [ ] Debug SQL string even when it fails 
 - [ ] Documentation for tests and build examples
-- [ ] Stringer implementation on all structs for debugging
 - [ ] Relationships should be kept by ModelStruct (to accept many)
-- [ ] Simplify reflections everywhere
 - [ ] Generated SQL let's the SQL engine cast : SELECT * FROM aTable WHERE id = '1' (id being int). I think it's a bad practice and it should be fixed
 
 # Comments and thoughts 
 - As a general idea on golang projects : "fail fast" type of logic is the best approach
 - When a function is called everytime, best idea is to allow golang to inline it
-- regexp.MustCompile is slow inside inline functions (10 times slower)
+- regexp.MustCompile is slow inside functions (10 times slower)
 
 # Last merge
 - #1242 - "Omit duplicates and zero-value ids in preload queries. Resolves #854 and #1054." 
@@ -22,6 +20,9 @@
 - Removed MSSQL support - out of my concerns with this project
 
 # Changes log
+
+## 30.11.2016
+- [ ] Simplify reflections everywhere
 
 ## 29.11.2016
 - [x] Stringer for Relationship, ModelStruct and StructField

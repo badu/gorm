@@ -681,12 +681,12 @@ func (con *DBCon) Association(column string) *Association {
 	} else {
 		if field, ok := scope.FieldByName(column); ok {
 			if field.Relationship == nil || field.Relationship.ForeignFieldNames.len() == 0 {
-				err = fmt.Errorf("invalid association %v for %v", column, scope.IndirectValue().Type())
+				err = fmt.Errorf("invalid association %v for %v", column, IndirectValue(scope).Type())
 			} else {
 				return &Association{scope: scope, column: column, field: field}
 			}
 		} else {
-			err = fmt.Errorf("%v doesn't have column %v", scope.IndirectValue().Type(), column)
+			err = fmt.Errorf("%v doesn't have column %v", IndirectValue(scope).Type(), column)
 		}
 	}
 

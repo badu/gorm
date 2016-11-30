@@ -179,7 +179,7 @@ func getColumnAsArray(columns StrSlice, values ...interface{}) [][]interface{} {
 //using inline advantage
 //returns the scope of a slice or struct column
 func getColumnAsScope(column string, scope *Scope) *Scope {
-	indirectScopeValue := scope.IndirectValue()
+	indirectScopeValue := IndirectValue(scope)
 
 	switch indirectScopeValue.Kind() {
 	case reflect.Slice:
@@ -290,7 +290,7 @@ func argsToInterface(args ...interface{}) interface{} {
 
 //using inline advantage
 func updatedAttrsWithValues(scope *Scope, value interface{}) (map[string]interface{}, bool) {
-	if scope.IndirectValue().Kind() != reflect.Struct {
+	if IndirectValue(scope).Kind() != reflect.Struct {
 		return convertInterfaceToMap(value, false), true
 	}
 
@@ -364,6 +364,24 @@ func getSearchMap(jth JoinTableHandler, con *DBCon, sources ...interface{}) map[
 	return values
 }
 
+//using inline advantage
+// IndirectValue return scope's reflect value's indirect value
+func IndirectValue(scope *Scope) reflect.Value {
+	reflectValue := reflect.ValueOf(scope.Value)
+	for reflectValue.Kind() == reflect.Ptr {
+		reflectValue = reflectValue.Elem()
+	}
+	return reflectValue
+}
+
+//using inline advantage
+func FieldValue(value reflect.Value, index int) reflect.Value {
+	reflectValue := value.Index(index)
+	for reflectValue.Kind() == reflect.Ptr {
+		reflectValue = reflectValue.Elem()
+	}
+	return reflectValue
+}
 // Open initialize a new db connection, need to import driver first, e.g:
 //
 //     import _ "github.com/go-sql-driver/mysql"

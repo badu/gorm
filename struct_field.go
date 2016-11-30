@@ -526,7 +526,7 @@ func (field *StructField) setIsBlank() {
 	}
 }
 
-func (field *StructField) makeSlice() interface{} {
+func (field *StructField) makeSlice() (interface{}, reflect.Value) {
 	//TODO : @Badu - make warning
 	/**
 	if !field.IsSlice(){
@@ -540,7 +540,12 @@ func (field *StructField) makeSlice() interface{} {
 	sliceType := reflect.SliceOf(basicType)
 	slice := reflect.New(sliceType)
 	slice.Elem().Set(reflect.MakeSlice(sliceType, 0, 0))
-	return slice.Interface()
+	sliceInterf := slice.Interface()
+	sliceValue := reflect.ValueOf(sliceInterf)
+	for sliceValue.Kind() == reflect.Ptr {
+		sliceValue = sliceValue.Elem()
+	}
+	return sliceInterf, sliceValue
 }
 
 func (field *StructField) getForeignKeys() StrSlice {
