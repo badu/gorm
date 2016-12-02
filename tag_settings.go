@@ -1,9 +1,8 @@
 package gorm
 
 import (
-	"errors"
 	"fmt"
-	"strings"
+	"sync"
 )
 
 const (
@@ -49,9 +48,7 @@ const (
 )
 
 var (
-	//TODO : @Badu - make this concurrent map
 	//this is a map for transforming strings into uint8 when reading tags of structs
-	//@See : &StructField{}.ParseTagSettings()
 	tagSettingMap = map[string]uint8{
 		many_to_many:            MANY2MANY,
 		index:                   INDEX,
@@ -84,72 +81,26 @@ func reverseTagSettingsMap() map[uint8]string {
 	return cachedReverseTagSettingsMap
 }
 
-func (ts *TagSettings) loadFromTags(field *StructField, str string) error {
-	tags := strings.Split(str, ";")
-
-	for _, value := range tags {
-		v := strings.Split(value, ":")
-		if len(v) > 0 {
-			k := strings.TrimSpace(strings.ToUpper(v[0]))
-			//avoid empty keys : original gorm didn't mind creating them
-			if k != "" {
-				//setting some flags directly
-				switch k {
-				case ignored:
-					field.setFlag(IS_IGNORED)
-				case primary_key:
-					field.setFlag(IS_PRIMARYKEY)
-				case auto_increment:
-					field.setFlag(IS_AUTOINCREMENT)
-				case embedded:
-					field.setFlag(IS_EMBED_OR_ANON)
-				default:
-					if k == default_str {
-						field.setFlag(HAS_DEFAULT_VALUE)
-					}
-					uint8Key, ok := tagSettingMap[k]
-					if ok {
-						if len(v) >= 2 {
-							ts.set(uint8Key, strings.Join(v[1:], ":"))
-						} else {
-							ts.set(uint8Key, k)
-						}
-					} else {
-						return errors.New(fmt.Sprintf(key_not_found_err, k, str))
-					}
-				}
-
-			}
-		}
-
-	}
-	if field.IsAutoIncrement() && !field.IsPrimaryKey() {
-		field.setFlag(HAS_DEFAULT_VALUE)
-	}
-	return nil
-}
-
 //returns a clone of tag settings (used in cloning StructField)
 func (t *TagSettings) clone() TagSettings {
-	clone := TagSettings{Uint8Map: make(map[uint8]string)}
+	clone := TagSettings{Uint8Map: make(map[uint8]string), l: new(sync.RWMutex)}
 	for key, value := range t.Uint8Map {
 		clone.Uint8Map[key] = value
 	}
 	return clone
 }
 
-//deletes a key from the settings map
-func (t *TagSettings) unset(named uint8) {
-	delete(t.Uint8Map, named)
-}
-
 //adds a key to the settings map
 func (t *TagSettings) set(named uint8, value string) {
+	t.l.Lock()
+	defer t.l.Unlock()
 	t.Uint8Map[named] = value
 }
 
 //checks if has such a key (for code readability)
 func (t *TagSettings) has(named uint8) bool {
+	t.l.Lock()
+	defer t.l.Unlock()
 	//test for a key without retrieving the value
 	_, ok := t.Uint8Map[named]
 	return ok
@@ -157,6 +108,8 @@ func (t *TagSettings) has(named uint8) bool {
 
 //gets the string value of a certain key
 func (t *TagSettings) get(named uint8) string {
+	t.l.Lock()
+	defer t.l.Unlock()
 	value, ok := t.Uint8Map[named]
 	if !ok {
 		return ""

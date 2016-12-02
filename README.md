@@ -43,7 +43,8 @@
 
 ## 02.12.2016
 - [x] tag settings are kept only if they have values - flags are set in parent StructField
-
+- [x] tag settings is concurrent map
+- [x] StructField Set method invalid logic : after setting it to zero, we don't verify is blank, we just set the flag
 ## 30.11.2016
 - [x] Simplify reflections
 - [x] Removed the way internal callbacks were called - gorm can't be broken by un-registering internal callbacks

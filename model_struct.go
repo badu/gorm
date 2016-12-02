@@ -59,7 +59,7 @@ func (modelStruct *ModelStruct) Create(reflectType reflect.Type, scope *Scope) {
 	modelStruct.ModelType = reflectType
 	modelStruct.fieldsMap = fieldsMap{
 		aliases: make(map[string]*StructField),
-		locker:  new(sync.RWMutex),
+		l:  new(sync.RWMutex),
 	}
 
 	//implements tabler?

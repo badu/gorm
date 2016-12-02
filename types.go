@@ -6,6 +6,7 @@ import (
 	"os"
 	"reflect"
 	"regexp"
+	"sync"
 	"time"
 )
 
@@ -40,15 +41,16 @@ type (
 	//since there is no other way of embedding a map
 	TagSettings struct {
 		Uint8Map
+		l *sync.RWMutex
 	}
 	// StructField model field's struct definition
 	//TODO : @Badu - a StructField should support multiple relationships
 	StructField struct {
-		flags       uint16
-		DBName      string
-		StructName  string
-		Names       []string
-		tagSettings TagSettings
+		flags        uint16
+		DBName       string
+		StructName   string
+		Names        []string
+		tagSettings  TagSettings
 		Value        reflect.Value
 		Type         reflect.Type
 		Relationship *Relationship
@@ -347,7 +349,6 @@ var (
 	regExpFKName = regexp.MustCompile("(_*[^a-zA-Z]+_*|_+)")
 	//used in Quote to replace all periods with quote-period-quote
 	regExpPeriod = regexp.MustCompile("\\.")
-
 
 	//positiveIntegerMatcher = regexp.MustCompile("/^\\d+$/")
 	//negativeIntegerMatcher= regexp.MustCompile("/^-\\d+$/")

@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -32,8 +33,9 @@ const (
 
 func NewStructField(fromStruct reflect.StructField) (*StructField, error) {
 	result := &StructField{
-		StructName: fromStruct.Name,
-		Names:      []string{fromStruct.Name},
+		StructName:  fromStruct.Name,
+		Names:       []string{fromStruct.Name},
+		tagSettings: TagSettings{Uint8Map: make(map[uint8]string), l: new(sync.RWMutex)},
 	}
 	//field should process itself the tag settings
 	err := result.parseTagSettings(fromStruct.Tag)
@@ -98,6 +100,8 @@ func NewStructField(fromStruct reflect.StructField) (*StructField, error) {
 		result.setFlag(IS_STRUCT)
 		if !result.IsIgnored() && result.IsScanner() {
 			for i := 0; i < result.Type.NumField(); i++ {
+				result.parseTagSettings(result.Type.Field(i).Tag)
+				/**
 				tag := result.Type.Field(i).Tag
 				for _, str := range []string{tag.Get(TAG_SQL), tag.Get(TAG_GORM)} {
 					err := result.tagSettings.loadFromTags(result, str)
@@ -105,6 +109,7 @@ func NewStructField(fromStruct reflect.StructField) (*StructField, error) {
 						return nil, err
 					}
 				}
+				**/
 			}
 		}
 	}
@@ -259,16 +264,16 @@ func (field *StructField) Set(value interface{}) error {
 		err        error
 		fieldValue = field.Value
 	)
-	if !field.Value.IsValid() {
+
+	if !fieldValue.IsValid() {
 		//TODO : @Badu - make errors more explicit : which field...
 		return errors.New("StructField : field value not valid")
 	}
 
-	if !field.Value.CanAddr() {
+	if !fieldValue.CanAddr() {
 		return ErrUnaddressable
 	}
-	//TODO : @Badu - we have this kind of information in our field ...
-	//type cast to value
+
 	reflectValue, ok := value.(reflect.Value)
 	if !ok {
 		//couldn't cast - reflecting it
@@ -280,6 +285,7 @@ func (field *StructField) Set(value interface{}) error {
 			//we set it
 			fieldValue.Set(reflectValue.Convert(fieldValue.Type()))
 		} else {
+			//we're working with a pointer?
 			if fieldValue.Kind() == reflect.Ptr {
 				//it's a pointer
 				if fieldValue.IsNil() {
@@ -289,11 +295,14 @@ func (field *StructField) Set(value interface{}) error {
 				//we dereference it
 				fieldValue = fieldValue.Elem()
 			}
-			//#fix (chore) : if implements scanner don't attempt to convert, just pass it over
-			if scanner, ok := fieldValue.Addr().Interface().(sql.Scanner); ok {
+
+			scanner, isScanner := fieldValue.Addr().Interface().(sql.Scanner)
+			if isScanner {
 				//implements Scanner - we pass it over
 				err = scanner.Scan(reflectValue.Interface())
+
 			} else if reflectValue.Type().ConvertibleTo(fieldValue.Type()) {
+				//last attempt to set it
 				fieldValue.Set(reflectValue.Convert(fieldValue.Type()))
 			} else {
 				//Oops
@@ -301,14 +310,15 @@ func (field *StructField) Set(value interface{}) error {
 				err = fmt.Errorf("could not convert argument of field %s from %s to %s", field.StructName, reflectValue.Type(), fieldValue.Type())
 			}
 		}
+		//then we check if the value is blank
+		field.checkIsBlank()
 	} else {
+		//set is blank
+		field.setFlag(IS_BLANK)
 		//it's not valid
 		field.Value.Set(reflect.Zero(field.Value.Type()))
 	}
-	//TODO : @Badu - seems invalid logic : above we set it ot zero if it's not valid
-	//then we check if the value is blank
-	//check if the value is blank
-	field.checkIsBlank()
+
 	return err
 }
 
@@ -322,24 +332,35 @@ func (field *StructField) ParseFieldStructForDialect() (reflect.Value, string, i
 	// Get scanner's real value
 	fieldValue = getScannerValue(fieldValue)
 
-	// Default Size
-	if num := field.GetSetting(SIZE); num != "" {
-		size, _ = strconv.Atoi(num)
+	if field.tagSettings.has(SIZE) {
+		// Default Size
+		size, _ = strconv.Atoi(field.tagSettings.get(SIZE))
 	} else {
 		size = 255
 	}
 
-	//TODO : @Badu - what if the settings below are empty?
 	// Default type from tag setting
-	additionalType := field.GetSetting(NOT_NULL) + " " + field.GetSetting(UNIQUE)
+	additionalType := ""
 
-	if field.tagSettings.has(DEFAULT) {
-		if value := field.GetSetting(DEFAULT); value != "" {
-			additionalType = additionalType + " DEFAULT " + value
-		}
+	if field.tagSettings.has(NOT_NULL) {
+		additionalType = field.tagSettings.get(NOT_NULL)
 	}
 
-	return fieldValue, field.GetSetting(TYPE), size, strings.TrimSpace(additionalType)
+	if field.tagSettings.has(UNIQUE) {
+		if additionalType != "" {
+			additionalType += " "
+		}
+		additionalType += field.tagSettings.get(UNIQUE)
+	}
+
+	if field.tagSettings.has(DEFAULT) {
+		if additionalType != "" {
+			additionalType += " "
+		}
+		additionalType += "DEFAULT " + field.tagSettings.get(DEFAULT)
+	}
+
+	return fieldValue, field.tagSettings.get(TYPE), size, strings.TrimSpace(additionalType)
 }
 
 func (field *StructField) clone() *StructField {
@@ -374,11 +395,48 @@ func (field *StructField) cloneWithValue(value reflect.Value) *StructField {
 
 //Function collects information from tags named `sql:""` and `gorm:""`
 func (field *StructField) parseTagSettings(tag reflect.StructTag) error {
-	field.tagSettings = TagSettings{Uint8Map: make(map[uint8]string)}
 	for _, str := range []string{tag.Get(TAG_SQL), tag.Get(TAG_GORM)} {
-		err := field.tagSettings.loadFromTags(field, str)
-		if err != nil {
-			return err
+		tags := strings.Split(str, ";")
+
+		for _, value := range tags {
+			v := strings.Split(value, ":")
+			if len(v) > 0 {
+				k := strings.TrimSpace(strings.ToUpper(v[0]))
+				//avoid empty keys : original gorm didn't mind creating them
+				if k != "" {
+					//set some flags directly
+					switch k {
+					case ignored:
+						field.setFlag(IS_IGNORED)
+					case primary_key:
+						field.setFlag(IS_PRIMARYKEY)
+					case auto_increment:
+						field.setFlag(IS_AUTOINCREMENT)
+					case embedded:
+						field.setFlag(IS_EMBED_OR_ANON)
+					default:
+						if k == default_str {
+							field.setFlag(HAS_DEFAULT_VALUE)
+						}
+						//other settings are kept in the map
+						uint8Key, ok := tagSettingMap[k]
+						if ok {
+							if len(v) >= 2 {
+								field.tagSettings.set(uint8Key, strings.Join(v[1:], ":"))
+							} else {
+								field.tagSettings.set(uint8Key, k)
+							}
+						} else {
+							return errors.New(fmt.Sprintf(key_not_found_err, k, str))
+						}
+					}
+
+				}
+			}
+
+		}
+		if field.IsAutoIncrement() && !field.IsPrimaryKey() {
+			field.setFlag(HAS_DEFAULT_VALUE)
 		}
 	}
 	return nil
@@ -397,16 +455,16 @@ func (field *StructField) checkIsBlank() {
 
 func (field *StructField) getForeignKeys() StrSlice {
 	var result StrSlice
-	if foreignKey := field.GetSetting(FOREIGNKEY); foreignKey != "" {
-		result.commaLoad(foreignKey)
+	if field.tagSettings.has(FOREIGNKEY) {
+		result.commaLoad(field.tagSettings.get(FOREIGNKEY))
 	}
 	return result
 }
 
 func (field *StructField) getAssocForeignKeys() StrSlice {
 	var result StrSlice
-	if foreignKey := field.GetSetting(ASSOCIATIONFOREIGNKEY); foreignKey != "" {
-		result.commaLoad(foreignKey)
+	if field.tagSettings.has(ASSOCIATIONFOREIGNKEY) {
+		result.commaLoad(field.tagSettings.get(ASSOCIATIONFOREIGNKEY))
 	}
 	return result
 }
