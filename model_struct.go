@@ -191,12 +191,13 @@ func (modelStruct ModelStruct) String() string {
 	var collector Collector
 	collector.add("%s = %s\n", "Table name", modelStruct.defaultTableName)
 	if modelStruct.ModelType == nil {
-		collector.add("%s = %s\n", "NoType")
+		collector.add("%s = %s\n", "UNTYPED!!!")
 	} else {
 		collector.add("%s = %s\n", "Type", modelStruct.ModelType.String())
 	}
+	collector.add("Fields:\n\n")
 	for fn, f := range modelStruct.fieldsMap.fields {
-		collector.add("%s #%d\n%s\n", "Field", fn, f)
+		collector.add("#%d\n%s\n", fn+1, f)
 	}
 	return collector.String()
 }

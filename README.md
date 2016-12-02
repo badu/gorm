@@ -49,6 +49,7 @@
 - [x] tag settings is concurrent map
 - [x] StructField Set method invalid logic : after setting it to zero, we don't verify is blank, we just set the flag
 - [x] Rearranged tests, with a form of benchmarking
+- [x] Removed SetJoinTableFK from StructField (unused) 
 
 ## 30.11.2016
 - [x] Simplify reflections

@@ -22,7 +22,6 @@ func createJoinTable(scope *Scope, field *StructField) {
 					clonedField := field.clone()
 					clonedField.UnsetIsPrimaryKey()
 					//TODO : @Badu - document that you cannot use IS_JOINTABLE_FOREIGNKEY in conjunction with AUTO_INCREMENT
-					clonedField.SetJoinTableFK("true")
 					clonedField.UnsetIsAutoIncrement()
 					sqlTypes = append(sqlTypes, Quote(relationship.ForeignDBNames[idx], dialect)+" "+dialect.DataTypeOf(clonedField))
 					primaryKeys = append(primaryKeys, Quote(relationship.ForeignDBNames[idx], dialect))
@@ -34,7 +33,6 @@ func createJoinTable(scope *Scope, field *StructField) {
 					clonedField := field.clone()
 					clonedField.UnsetIsPrimaryKey()
 					//TODO : @Badu - document that you cannot use IS_JOINTABLE_FOREIGNKEY in conjunction with AUTO_INCREMENT
-					clonedField.SetJoinTableFK("true")
 					clonedField.UnsetIsAutoIncrement()
 					sqlTypes = append(sqlTypes, Quote(relationship.AssociationForeignDBNames[idx], dialect)+" "+dialect.DataTypeOf(clonedField))
 					primaryKeys = append(primaryKeys, Quote(relationship.AssociationForeignDBNames[idx], dialect))

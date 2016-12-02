@@ -304,24 +304,26 @@ func (r Relationship) String() string {
 	case MANY_TO_MANY:
 		vKind = "Many_To_Many"
 	}
-	collector.add("%s = %s (%d)\n", "Kind", vKind, r.Kind)
-	collector.add("%s = %q\n", "Poly type", r.PolymorphicType)
-	collector.add("%s = %q\n", "Poly value", r.PolymorphicValue)
-	collector.add("%s = %s\n", "DB Name", r.PolymorphicDBName)
+	collector.add("\t%s = %s (%d)\n", "Kind", vKind, r.Kind)
+	if r.PolymorphicType!="" {
+		collector.add("\t%s = %q\n", "Poly type", r.PolymorphicType)
+		collector.add("\t%s = %q\n", "Poly value", r.PolymorphicValue)
+	}
+	collector.add("\t%s = %q\n", "DB Name", r.PolymorphicDBName)
 	for _, fn := range r.ForeignFieldNames {
-		collector.add("%s = %s\n", "Foreign field name", fn)
+		collector.add("\t%s = %q\n", "Foreign field name", fn)
 	}
 	for _, fn := range r.ForeignDBNames {
-		collector.add("%s = %s\n", "Foreign db name", fn)
+		collector.add("\t%s = %q\n", "Foreign db name", fn)
 	}
 	for _, fn := range r.AssociationForeignFieldNames {
-		collector.add("%s = %s\n", "Foreign assoc field name", fn)
+		collector.add("\t%s = %q\n", "Foreign assoc field name", fn)
 	}
 	for _, fn := range r.AssociationForeignDBNames {
-		collector.add("%s = %s\n", "Foreign assoc db name", fn)
+		collector.add("\t%s = %q\n", "Foreign assoc db name", fn)
 	}
 	if r.JoinTableHandler != nil {
-		collector.add("\thas JoinTableHandler.\n")
+		collector.add("\t\thas JoinTableHandler.\n")
 	}
 	return collector.String()
 }

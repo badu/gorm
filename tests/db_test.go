@@ -1067,9 +1067,16 @@ func TestEverything(t *testing.T) {
 	}
 
 	t.Logf("%s , %d allocs, %d bytes.", totals.duration, totals.netAllocs, totals.netBytes)
-	/**
+}
+
+func TempTestAuto(t *testing.T){
+	measureAndRun(t, "0) Open connection", OpenTestConnection)
+	if TestDBErr != nil {
+		t.Fatalf("No error should happen when connecting to test database, but got err=%+v", TestDBErr)
+	}
+	measureAndRun(t, "1) RunMigration", RunMigration)
+
 	for _, value := range gorm.ModelStructsMap.M() {
 		t.Logf("%v", value)
 	}
-	**/
 }

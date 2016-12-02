@@ -254,11 +254,6 @@ func (field *StructField) GetSetting(named uint8) string {
 	return field.tagSettings.get(named)
 }
 
-func (field *StructField) SetJoinTableFK(value string) {
-	//TODO : @Badu - set IS_FOREIGNKEY
-	field.tagSettings.set(IS_JOINTABLE_FOREIGNKEY, value)
-}
-
 func (field *StructField) Set(value interface{}) error {
 	var (
 		err        error
@@ -482,7 +477,7 @@ func (field StructField) String() string {
 	var collector Collector
 	collector.add("%s = %q\n", "Name", field.DBName)
 	for _, n := range field.Names {
-		collector.add("\t%s = %q\n", "name", n)
+		collector.add("\t%s = %q\n", "names", n)
 	}
 
 	collector.add("Flags:")
