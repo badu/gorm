@@ -13,7 +13,7 @@ type (
 )
 
 var (
-	modelStructsMap = &safeModelStructsMap{l: new(sync.RWMutex), m: make(map[reflect.Type]*ModelStruct)}
+	ModelStructsMap = &safeModelStructsMap{l: new(sync.RWMutex), m: make(map[reflect.Type]*ModelStruct)}
 )
 
 
@@ -27,4 +27,10 @@ func (s *safeModelStructsMap) Get(key reflect.Type) *ModelStruct {
 	s.l.RLock()
 	defer s.l.RUnlock()
 	return s.m[key]
+}
+//for listing in debug mode
+func (s *safeModelStructsMap) M() map[reflect.Type]*ModelStruct{
+	s.l.RLock()
+	defer s.l.RUnlock()
+	return s.m
 }

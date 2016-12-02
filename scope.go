@@ -262,14 +262,14 @@ func (scope *Scope) GetModelStruct() *ModelStruct {
 	}
 
 	// Get Cached model struct
-	if value := modelStructsMap.Get(reflectType); value != nil {
+	if value := ModelStructsMap.Get(reflectType); value != nil {
 		return value
 	}
 
 	modelStruct.Create(reflectType, scope)
 
 	//set cached ModelStruc
-	modelStructsMap.Set(reflectType, &modelStruct)
+	ModelStructsMap.Set(reflectType, &modelStruct)
 	// ATTN : first we add it to cache map, otherwise will infinite cycle
 	// build relationships
 	modelStruct.processRelations(scope)

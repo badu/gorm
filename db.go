@@ -239,7 +239,7 @@ func (con *DBCon) LogMode(enable bool) *DBCon {
 
 // SingularTable use singular table by default
 func (con *DBCon) SingularTable(enable bool) {
-	modelStructsMap = &safeModelStructsMap{l: new(sync.RWMutex), m: make(map[reflect.Type]*ModelStruct)}
+	ModelStructsMap = &safeModelStructsMap{l: new(sync.RWMutex), m: make(map[reflect.Type]*ModelStruct)}
 	con.parent.singularTable = enable
 }
 

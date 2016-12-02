@@ -830,7 +830,7 @@ func OpenTestConnection(t *testing.T) {
 		fmt.Println("testing foundation...")
 		TestDB, TestDBErr = gorm.Open("foundation", "dbname=gorm port=15432 sslmode=disable")
 	default:
-		fmt.Println("testing sqlite3...")
+
 		TestDB, TestDBErr = gorm.Open("sqlite3", "test.db?cache=shared&mode=memory")
 	}
 
@@ -881,20 +881,23 @@ func RunMigration(t *testing.T) {
 
 func measureAndRun(t *testing.T, name string, f func(t *testing.T)) bool {
 	runtime.ReadMemStats(&memStats)
-	b := &Measure{
+	measurement := &Measure{
 		startAllocs: memStats.Mallocs,
 		startBytes:  memStats.TotalAlloc,
-		start:       time.Now(),
 		name:        name,
 	}
 
+	measurement.start = time.Now()
 	result := t.Run(name, f)
+	measurement.duration += time.Now().Sub(measurement.start)
 
 	runtime.ReadMemStats(&memStats)
-	b.netAllocs += memStats.Mallocs - b.startAllocs
-	b.netBytes += memStats.TotalAlloc - b.startBytes
-	b.duration += time.Now().Sub(b.start)
-	measuresData = append(measuresData, b)
+
+	measurement.netAllocs += memStats.Mallocs - measurement.startAllocs
+	measurement.netBytes += memStats.TotalAlloc - measurement.startBytes
+
+	measuresData = append(measuresData, measurement)
+
 	return result
 }
 
@@ -1049,7 +1052,24 @@ func TestEverything(t *testing.T) {
 	measureAndRun(t, "147) Test fix #1214 : FirstAndLastWithRaw", FirstAndLastWithRaw)
 
 	t.Logf("TESTS SUMMARY:")
-	for _, measurement := range measuresData {
-		t.Logf("%s , %d allocs, %d bytes for %q", measurement.duration, measurement.netAllocs, measurement.netBytes, measurement.name)
+	totals := &Measure{
+		netAllocs: 0,
+		netBytes:  0,
+		name:      "TOTAL:",
+		duration:  0,
 	}
+
+	for _, measurement := range measuresData {
+		totals.netAllocs += measurement.netAllocs
+		totals.netBytes += measurement.netBytes
+		totals.duration += measurement.duration
+		t.Logf("%s : %s , %d allocs, %d bytes", measurement.name, measurement.duration, measurement.netAllocs, measurement.netBytes)
+	}
+
+	t.Logf("%s , %d allocs, %d bytes.", totals.duration, totals.netAllocs, totals.netBytes)
+	/**
+	for _, value := range gorm.ModelStructsMap.M() {
+		t.Logf("%v", value)
+	}
+	**/
 }

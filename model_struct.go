@@ -196,7 +196,7 @@ func (modelStruct ModelStruct) String() string {
 		collector.add("%s = %s\n", "Type", modelStruct.ModelType.String())
 	}
 	for fn, f := range modelStruct.fieldsMap.fields {
-		collector.add("%s = %s\n%s", "Field", fn, f)
+		collector.add("%s #%d\n%s\n", "Field", fn, f)
 	}
 	return collector.String()
 }
