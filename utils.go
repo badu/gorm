@@ -405,6 +405,7 @@ func getScannerValue(value reflect.Value) reflect.Value {
 	}
 	return fieldValue
 }
+
 // Open initialize a new db connection, need to import driver first, e.g:
 //
 //     import _ "github.com/go-sql-driver/mysql"

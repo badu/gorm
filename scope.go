@@ -161,7 +161,7 @@ func (scope *Scope) FieldByName(name string) (*StructField, bool) {
 	)
 
 	for _, field := range scope.Fields() {
-		if field.GetStructName() == name || field.DBName == name {
+		if field.StructName == name || field.DBName == name {
 			return field, true
 		}
 		if field.DBName == dbName {
@@ -195,7 +195,7 @@ func (scope *Scope) SetColumn(column interface{}, value interface{}) error {
 				updateAttrs[field.DBName] = value
 				return field.Set(value)
 			}
-			if (field.DBName == dbName) || (field.GetStructName() == colType && mostMatchedField == nil) {
+			if (field.DBName == dbName) || (field.StructName == colType && mostMatchedField == nil) {
 				mostMatchedField = field
 			}
 		}
@@ -792,7 +792,7 @@ func (scope *Scope) createCallback() *Scope {
 		} else {
 			if err := scope.Search.QueryRow(scope).
 				Scan(primaryField.Value.Addr().Interface()); scope.Err(err) == nil {
-				primaryField.unsetFlag(IS_BLANK)
+				primaryField.UnsetIsBlank()
 				scope.con.RowsAffected = 1
 			}
 		}

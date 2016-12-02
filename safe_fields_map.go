@@ -20,12 +20,12 @@ func (s *fieldsMap) Add(field *StructField) error {
 	}
 	s.locker.Lock()
 	defer s.locker.Unlock()
-	_, hasGetName := s.aliases[field.GetStructName()]
+	_, hasGetName := s.aliases[field.StructName]
 	_, hasDBName := s.aliases[field.DBName]
 	if hasGetName || hasDBName {
 		//replace in slice, even if we shouldn't (it's not correct to have this behavior)
 		for index, existingField := range s.fields {
-			if existingField.GetStructName() == field.GetStructName() || existingField.DBName == field.DBName {
+			if existingField.StructName == field.StructName || existingField.DBName == field.DBName {
 				s.fields[index] = field
 				break
 			}
@@ -34,7 +34,7 @@ func (s *fieldsMap) Add(field *StructField) error {
 	} else {
 		s.fields.add(field)
 	}
-	s.aliases[field.GetStructName()] = field
+	s.aliases[field.StructName] = field
 	s.aliases[field.DBName] = field
 	return nil
 }

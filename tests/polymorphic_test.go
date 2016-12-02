@@ -5,7 +5,7 @@ import (
 )
 
 func TestPolymorphic(t *testing.T) {
-	t.Log("76) TestPolymorphic")
+	//t.Log("76) TestPolymorphic")
 	cat := Cat{Name: "Mr. Bigglesworth", Toy: Toy{Name: "cat toy"}}
 	dog := Dog{Name: "Pluto", Toys: []Toy{{Name: "dog toy 1"}, {Name: "dog toy 2"}}}
 	TestDB.Save(&cat).Save(&dog)
@@ -189,7 +189,7 @@ func TestPolymorphic(t *testing.T) {
 }
 
 func TestNamedPolymorphic(t *testing.T) {
-	t.Log("77) TestNamedPolymorphic")
+	//t.Log("77) TestNamedPolymorphic")
 	hamster := Hamster{Name: "Mr. Hammond", PreferredToy: Toy{Name: "bike"}, OtherToy: Toy{Name: "treadmill"}}
 	TestDB.Save(&hamster)
 

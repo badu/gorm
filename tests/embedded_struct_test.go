@@ -3,7 +3,7 @@ package tests
 import "testing"
 
 func TestPrefixColumnNameForEmbeddedStruct(t *testing.T) {
-	t.Log("65) TestPrefixColumnNameForEmbeddedStruct")
+	//t.Log("65) TestPrefixColumnNameForEmbeddedStruct")
 	TestDB.NewScope(&EngadgetPost{})
 	dialect := TestDB.Dialect()
 	if !dialect.HasColumn(TestDB.NewScope(&EngadgetPost{}).TableName(), "author_name") || !dialect.HasColumn(TestDB.NewScope(&EngadgetPost{}).TableName(), "author_email") {
@@ -16,7 +16,7 @@ func TestPrefixColumnNameForEmbeddedStruct(t *testing.T) {
 }
 
 func TestSaveAndQueryEmbeddedStruct(t *testing.T) {
-	t.Log("66) TestSaveAndQueryEmbeddedStruct")
+	//t.Log("66) TestSaveAndQueryEmbeddedStruct")
 	TestDB.Save(&HNPost{BasePost: BasePost{Title: "news"}})
 	TestDB.Save(&HNPost{BasePost: BasePost{Title: "hn_news"}})
 	var news HNPost
@@ -39,7 +39,7 @@ func TestSaveAndQueryEmbeddedStruct(t *testing.T) {
 	}
 
 	for _, field := range TestDB.NewScope(&HNPost{}).Fields() {
-		if field.GetStructName() == "BasePost" {
+		if field.StructName == "BasePost" {
 			t.Errorf("scope Fields should not contain embedded struct")
 		}
 	}

@@ -6,7 +6,7 @@ import (
 )
 
 func TestToDBNameGenerateFriendlyName(t *testing.T) {
-	t.Log("144) TestToDBNameGenerateFriendlyName")
+	//t.Log("144) TestToDBNameGenerateFriendlyName")
 	var maps = map[string]string{
 		"":                          "",
 		"ThisIsATest":               "this_is_a_test",

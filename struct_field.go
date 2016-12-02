@@ -12,25 +12,24 @@ import (
 
 const (
 	//bit flags - flags are uint16, which means we can use 16 flags
-	IS_PRIMARYKEY     uint16 = 0
-	IS_NORMAL         uint16 = 1
-	IS_IGNORED        uint16 = 2
-	IS_SCANNER        uint16 = 3
-	IS_TIME           uint16 = 4
-	HAS_DEFAULT_VALUE uint16 = 5
-	IS_FOREIGNKEY     uint16 = 6
-	IS_BLANK          uint16 = 7
-	IS_SLICE          uint16 = 8
-	IS_STRUCT         uint16 = 9
-	HAS_RELATIONS     uint16 = 10
-	IS_EMBED_OR_ANON  uint16 = 11
-	IS_AUTOINCREMENT  uint16 = 12
-	IS_POINTER        uint16 = 13
-	IS_OMITTED        uint16 = 14
-	IS_INCLUDED       uint16 = 15
+	IS_PRIMARYKEY     uint8 = 0
+	IS_NORMAL         uint8 = 1
+	IS_IGNORED        uint8 = 2
+	IS_SCANNER        uint8 = 3
+	IS_TIME           uint8 = 4
+	HAS_DEFAULT_VALUE uint8 = 5
+	IS_FOREIGNKEY     uint8 = 6
+	IS_BLANK          uint8 = 7
+	IS_SLICE          uint8 = 8
+	IS_STRUCT         uint8 = 9
+	HAS_RELATIONS     uint8 = 10
+	IS_EMBED_OR_ANON  uint8 = 11
+	IS_AUTOINCREMENT  uint8 = 12
+	IS_POINTER        uint8 = 13
+	IS_OMITTED        uint8 = 14
+	IS_INCLUDED       uint8 = 15
 )
 
-//TODO : @Badu - benchmark discarding settings (except those with value) while keeping the flags
 func NewStructField(fromStruct reflect.StructField) (*StructField, error) {
 	result := &StructField{
 		StructName: fromStruct.Name,
@@ -39,27 +38,7 @@ func NewStructField(fromStruct reflect.StructField) (*StructField, error) {
 	//field should process itself the tag settings
 	err := result.parseTagSettings(fromStruct.Tag)
 
-	if result.tagSettings.has(IGNORED) {
-		result.setFlag(IS_IGNORED)
-	}
-
-	if result.tagSettings.has(PRIMARY_KEY) {
-		result.setFlag(IS_PRIMARYKEY)
-	}
-
-	if result.tagSettings.has(DEFAULT) {
-		result.setFlag(HAS_DEFAULT_VALUE)
-	}
-
-	if result.tagSettings.has(AUTO_INCREMENT) {
-		result.setFlag(IS_AUTOINCREMENT)
-		if !result.IsPrimaryKey() {
-			result.setFlag(HAS_DEFAULT_VALUE)
-		}
-	}
-
-	if result.HasSetting(EMBEDDED) || fromStruct.Anonymous {
-		//result.isEmbedOrAnon = true
+	if fromStruct.Anonymous {
 		result.setFlag(IS_EMBED_OR_ANON)
 	}
 
@@ -121,7 +100,7 @@ func NewStructField(fromStruct reflect.StructField) (*StructField, error) {
 			for i := 0; i < result.Type.NumField(); i++ {
 				tag := result.Type.Field(i).Tag
 				for _, str := range []string{tag.Get(TAG_SQL), tag.Get(TAG_GORM)} {
-					err := result.tagSettings.loadFromTags(str)
+					err := result.tagSettings.loadFromTags(result, str)
 					if err != nil {
 						return nil, err
 					}
@@ -132,11 +111,11 @@ func NewStructField(fromStruct reflect.StructField) (*StructField, error) {
 
 	if !result.IsIgnored() && !result.IsScanner() && !result.IsTime() && !result.IsEmbedOrAnon() {
 		if result.IsSlice() {
-			result.SetHasRelations() //marker for later processing of relationships
+			result.setFlag(HAS_RELATIONS) //marker for later processing of relationships
 		} else if result.IsStruct() {
-			result.SetHasRelations() //marker for later processing of relationships
+			result.setFlag(HAS_RELATIONS) //marker for later processing of relationships
 		} else {
-			result.SetIsNormal()
+			result.setFlag(IS_NORMAL)
 		}
 	}
 
@@ -174,10 +153,6 @@ func (field *StructField) IsPointer() bool {
 	return field.flags&(1<<IS_POINTER) != 0
 }
 
-func (field *StructField) SetIsNormal() {
-	field.flags = field.flags | (1 << IS_NORMAL)
-}
-
 func (field *StructField) IsIgnored() bool {
 	return field.flags&(1<<IS_IGNORED) != 0
 }
@@ -198,10 +173,6 @@ func (field *StructField) IsForeignKey() bool {
 	return field.flags&(1<<IS_FOREIGNKEY) != 0
 }
 
-func (field *StructField) SetIsForeignKey() {
-	field.flags = field.flags | (1 << IS_FOREIGNKEY)
-}
-
 func (field *StructField) IsBlank() bool {
 	return field.flags&(1<<IS_BLANK) != 0
 }
@@ -218,10 +189,6 @@ func (field *StructField) HasRelations() bool {
 	return field.flags&(1<<HAS_RELATIONS) != 0
 }
 
-func (field *StructField) SetHasRelations() {
-	field.flags = field.flags | (1 << HAS_RELATIONS)
-}
-
 func (field *StructField) IsEmbedOrAnon() bool {
 	return field.flags&(1<<IS_EMBED_OR_ANON) != 0
 }
@@ -236,18 +203,8 @@ func (field *StructField) IsOmmited() bool {
 }
 
 //TODO : @Badu - make field aware of "it's include or not"
-func (field *StructField) SetIsOmmitted() {
-	field.flags = field.flags | (1 << IS_OMITTED)
-}
-
-//TODO : @Badu - make field aware of "it's include or not"
 func (field *StructField) IsIncluded() bool {
 	return field.flags&(1<<IS_INCLUDED) != 0
-}
-
-//TODO : @Badu - make field aware of "it's include or not"
-func (field *StructField) SetIsIncluded() {
-	field.flags = field.flags | (1 << IS_INCLUDED)
 }
 
 func (field *StructField) UnsetIsAutoIncrement() {
@@ -259,13 +216,28 @@ func (field *StructField) SetIsAutoIncrement() {
 	field.setFlag(IS_AUTOINCREMENT)
 }
 
-func (field *StructField) GetStructName() string {
-	return field.StructName
+func (field *StructField) SetIsPrimaryKey() {
+	field.setFlag(IS_PRIMARYKEY)
 }
 
-//checks if has such a key (for code readability)
-func (field *StructField) GetTagSetting() TagSettings {
-	return field.tagSettings
+func (field *StructField) UnsetIsPrimaryKey() {
+	field.unsetFlag(IS_PRIMARYKEY)
+}
+
+func (field *StructField) SetIsNormal() {
+	field.setFlag(IS_NORMAL)
+}
+
+func (field *StructField) UnsetIsBlank() {
+	field.unsetFlag(IS_BLANK)
+}
+
+func (field *StructField) SetIsBlank() {
+	field.setFlag(IS_BLANK)
+}
+
+func (field *StructField) SetIsForeignKey() {
+	field.setFlag(IS_FOREIGNKEY)
 }
 
 //gets a key (for code readability)
@@ -278,6 +250,7 @@ func (field *StructField) GetSetting(named uint8) string {
 }
 
 func (field *StructField) SetJoinTableFK(value string) {
+	//TODO : @Badu - set IS_FOREIGNKEY
 	field.tagSettings.set(IS_JOINTABLE_FOREIGNKEY, value)
 }
 
@@ -325,7 +298,7 @@ func (field *StructField) Set(value interface{}) error {
 			} else {
 				//Oops
 				//TODO : @Badu - make errors more explicit
-				err = fmt.Errorf("could not convert argument of field %s from %s to %s", field.GetStructName(), reflectValue.Type(), fieldValue.Type())
+				err = fmt.Errorf("could not convert argument of field %s from %s to %s", field.StructName, reflectValue.Type(), fieldValue.Type())
 			}
 		}
 	} else {
@@ -335,7 +308,7 @@ func (field *StructField) Set(value interface{}) error {
 	//TODO : @Badu - seems invalid logic : above we set it ot zero if it's not valid
 	//then we check if the value is blank
 	//check if the value is blank
-	field.setIsBlank()
+	field.checkIsBlank()
 	return err
 }
 
@@ -359,11 +332,91 @@ func (field *StructField) ParseFieldStructForDialect() (reflect.Value, string, i
 	//TODO : @Badu - what if the settings below are empty?
 	// Default type from tag setting
 	additionalType := field.GetSetting(NOT_NULL) + " " + field.GetSetting(UNIQUE)
-	if value := field.GetSetting(DEFAULT); value != "" {
-		additionalType = additionalType + " DEFAULT " + value
+
+	if field.tagSettings.has(DEFAULT) {
+		if value := field.GetSetting(DEFAULT); value != "" {
+			additionalType = additionalType + " DEFAULT " + value
+		}
 	}
 
 	return fieldValue, field.GetSetting(TYPE), size, strings.TrimSpace(additionalType)
+}
+
+func (field *StructField) clone() *StructField {
+	clone := &StructField{
+		flags:        field.flags,
+		DBName:       field.DBName,
+		Names:        field.Names,
+		tagSettings:  field.tagSettings.clone(),
+		StructName:   field.StructName,
+		Relationship: field.Relationship,
+		Type:         field.Type,
+	}
+
+	return clone
+}
+
+func (field *StructField) cloneWithValue(value reflect.Value) *StructField {
+	clone := &StructField{
+		flags:        field.flags,
+		DBName:       field.DBName,
+		Names:        field.Names,
+		tagSettings:  field.tagSettings.clone(),
+		StructName:   field.StructName,
+		Relationship: field.Relationship,
+		Value:        value,
+		Type:         field.Type,
+	}
+	//check if the value is blank
+	clone.checkIsBlank()
+	return clone
+}
+
+//Function collects information from tags named `sql:""` and `gorm:""`
+func (field *StructField) parseTagSettings(tag reflect.StructTag) error {
+	field.tagSettings = TagSettings{Uint8Map: make(map[uint8]string)}
+	for _, str := range []string{tag.Get(TAG_SQL), tag.Get(TAG_GORM)} {
+		err := field.tagSettings.loadFromTags(field, str)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+//TODO : @Badu - seems expensive to be called everytime. Maybe a good solution would be to
+//change isBlank = true by default and modify the code to change it to false only when we have a value
+//to make this less expensive
+func (field *StructField) checkIsBlank() {
+	if reflect.DeepEqual(field.Value.Interface(), reflect.Zero(field.Value.Type()).Interface()) {
+		field.setFlag(IS_BLANK)
+	} else {
+		field.unsetFlag(IS_BLANK)
+	}
+}
+
+func (field *StructField) getForeignKeys() StrSlice {
+	var result StrSlice
+	if foreignKey := field.GetSetting(FOREIGNKEY); foreignKey != "" {
+		result.commaLoad(foreignKey)
+	}
+	return result
+}
+
+func (field *StructField) getAssocForeignKeys() StrSlice {
+	var result StrSlice
+	if foreignKey := field.GetSetting(ASSOCIATIONFOREIGNKEY); foreignKey != "" {
+		result.commaLoad(foreignKey)
+	}
+	return result
+}
+
+func (field *StructField) setFlag(value uint8) {
+	field.flags = field.flags | (1 << value)
+}
+
+func (field *StructField) unsetFlag(value uint8) {
+	field.flags = field.flags & ^(1 << value)
 }
 
 //implementation of Stringer
@@ -436,84 +489,4 @@ func (field StructField) String() string {
 		collector.add("%s\n%s", "Relationship:", field.Relationship)
 	}
 	return collector.String()
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Private methods
-////////////////////////////////////////////////////////////////////////////////
-func (field *StructField) setFlag(value uint16) {
-	field.flags = field.flags | (1 << value)
-}
-
-func (field *StructField) unsetFlag(value uint16) {
-	field.flags = field.flags & ^(1 << value)
-}
-
-func (field *StructField) clone() *StructField {
-	clone := &StructField{
-		flags:        field.flags,
-		DBName:       field.DBName,
-		Names:        field.Names,
-		tagSettings:  field.tagSettings.clone(),
-		StructName:   field.StructName,
-		Relationship: field.Relationship,
-		Type:         field.Type,
-	}
-
-	return clone
-}
-
-func (field *StructField) cloneWithValue(value reflect.Value) *StructField {
-	clone := &StructField{
-		flags:        field.flags,
-		DBName:       field.DBName,
-		Names:        field.Names,
-		tagSettings:  field.tagSettings.clone(),
-		StructName:   field.StructName,
-		Relationship: field.Relationship,
-		Value:        value,
-		Type:         field.Type,
-	}
-	//check if the value is blank
-	clone.setIsBlank()
-	return clone
-}
-
-//Function collects information from tags named `sql:""` and `gorm:""`
-func (field *StructField) parseTagSettings(tag reflect.StructTag) error {
-	field.tagSettings = TagSettings{Uint8Map: make(map[uint8]string)}
-	for _, str := range []string{tag.Get(TAG_SQL), tag.Get(TAG_GORM)} {
-		err := field.tagSettings.loadFromTags(str)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-//TODO : @Badu - seems expensive to be called everytime. Maybe a good solution would be to
-//change isBlank = true by default and modify the code to change it to false only when we have a value
-//to make this less expensive
-func (field *StructField) setIsBlank() {
-	if reflect.DeepEqual(field.Value.Interface(), reflect.Zero(field.Value.Type()).Interface()) {
-		field.setFlag(IS_BLANK)
-	} else {
-		field.unsetFlag(IS_BLANK)
-	}
-}
-
-func (field *StructField) getForeignKeys() StrSlice {
-	var result StrSlice
-	if foreignKey := field.GetSetting(FOREIGNKEY); foreignKey != "" {
-		result.commaLoad(foreignKey)
-	}
-	return result
-}
-
-func (field *StructField) getAssocForeignKeys() StrSlice {
-	var result StrSlice
-	if foreignKey := field.GetSetting(ASSOCIATIONFOREIGNKEY); foreignKey != "" {
-		result.commaLoad(foreignKey)
-	}
-	return result
 }

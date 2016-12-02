@@ -891,7 +891,7 @@ func OpenTestConnection() (db *gorm.DBCon, err error) {
 }
 
 func TestStringPrimaryKey(t *testing.T) {
-	t.Log("1) TestStringPrimaryKey")
+	//t.Log("1) TestStringPrimaryKey")
 	type UUIDStruct struct {
 		ID   string `gorm:"primary_key"`
 		Name string
@@ -911,7 +911,7 @@ func TestStringPrimaryKey(t *testing.T) {
 }
 
 func TestExceptionsWithInvalidSql(t *testing.T) {
-	t.Log("2) TestExceptionsWithInvalidSql")
+	//t.Log("2) TestExceptionsWithInvalidSql")
 	var columns []string
 	if TestDB.Where("sdsd.zaaa = ?", "sd;;;aa").Pluck("aaa", &columns).Error == nil {
 		t.Errorf("Should got error with invalid SQL")
@@ -942,7 +942,7 @@ func TestExceptionsWithInvalidSql(t *testing.T) {
 }
 
 func TestSetTable(t *testing.T) {
-	t.Log("3) TestSetTable")
+	//t.Log("3) TestSetTable")
 	TestDB.Create(getPreparedUser("pluck_user1", "pluck_user"))
 	TestDB.Create(getPreparedUser("pluck_user2", "pluck_user"))
 	TestDB.Create(getPreparedUser("pluck_user3", "pluck_user"))
@@ -984,7 +984,7 @@ func TestSetTable(t *testing.T) {
 }
 
 func TestHasTable(t *testing.T) {
-	t.Log("4) TestHasTable")
+	//t.Log("4) TestHasTable")
 	type Foo struct {
 		Id    int
 		Stuff string
@@ -1014,7 +1014,7 @@ func TestHasTable(t *testing.T) {
 }
 
 func TestTableName(t *testing.T) {
-	t.Log("5) TestTableName")
+	//t.Log("5) TestTableName")
 	DB := TestDB.Model("")
 	if DB.NewScope(Order{}).TableName() != "orders" {
 		t.Errorf("Order's table name should be orders")
@@ -1068,7 +1068,7 @@ func TestTableName(t *testing.T) {
 }
 
 func TestNullValues(t *testing.T) {
-	t.Log("6) TestNullValues")
+	//t.Log("6) TestNullValues")
 	TestDB.DropTable(&NullValue{})
 	TestDB.AutoMigrate(&NullValue{})
 
@@ -1120,7 +1120,7 @@ func TestNullValues(t *testing.T) {
 }
 
 func TestNullValuesWithFirstOrCreate(t *testing.T) {
-	t.Log("7) TestNullValuesWithFirstOrCreate")
+	//t.Log("7) TestNullValuesWithFirstOrCreate")
 	var nv1 = NullValue{
 		Name:   sql.NullString{String: "first_or_create", Valid: true},
 		Gender: &sql.NullString{String: "M", Valid: true},
@@ -1151,7 +1151,7 @@ func TestNullValuesWithFirstOrCreate(t *testing.T) {
 }
 
 func TestTransaction(t *testing.T) {
-	t.Log("8) TestTransaction")
+	//t.Log("8) TestTransaction")
 	tx := TestDB.Begin()
 	u := User{Name: "transcation"}
 	if err := tx.Save(&u).Error; err != nil {
@@ -1190,7 +1190,7 @@ func TestTransaction(t *testing.T) {
 }
 
 func TestRow(t *testing.T) {
-	t.Log("9) TestRow")
+	//t.Log("9) TestRow")
 	user1 := User{Name: "RowUser1", Age: 1, Birthday: parseTime("2000-1-1")}
 	user2 := User{Name: "RowUser2", Age: 10, Birthday: parseTime("2010-1-1")}
 	user3 := User{Name: "RowUser3", Age: 20, Birthday: parseTime("2020-1-1")}
@@ -1205,7 +1205,7 @@ func TestRow(t *testing.T) {
 }
 
 func TestRows(t *testing.T) {
-	t.Log("10) TestRows")
+	//t.Log("10) TestRows")
 	user1 := User{Name: "RowsUser1", Age: 1, Birthday: parseTime("2000-1-1")}
 	user2 := User{Name: "RowsUser2", Age: 10, Birthday: parseTime("2010-1-1")}
 	user3 := User{Name: "RowsUser3", Age: 20, Birthday: parseTime("2020-1-1")}
@@ -1230,7 +1230,7 @@ func TestRows(t *testing.T) {
 }
 
 func TestScanRows(t *testing.T) {
-	t.Log("11) TestScanRows")
+	//t.Log("11) TestScanRows")
 	user1 := User{Name: "ScanRowsUser1", Age: 1, Birthday: parseTime("2000-1-1")}
 	user2 := User{Name: "ScanRowsUser2", Age: 10, Birthday: parseTime("2010-1-1")}
 	user3 := User{Name: "ScanRowsUser3", Age: 20, Birthday: parseTime("2020-1-1")}
@@ -1261,7 +1261,7 @@ func TestScanRows(t *testing.T) {
 }
 
 func TestScan(t *testing.T) {
-	t.Log("12) TestScan")
+	//t.Log("12) TestScan")
 	user1 := User{Name: "ScanUser1", Age: 1, Birthday: parseTime("2000-1-1")}
 	user2 := User{Name: "ScanUser2", Age: 10, Birthday: parseTime("2010-1-1")}
 	user3 := User{Name: "ScanUser3", Age: 20, Birthday: parseTime("2020-1-1")}
@@ -1292,7 +1292,7 @@ func TestScan(t *testing.T) {
 }
 
 func TestRaw(t *testing.T) {
-	t.Log("13) TestRaw")
+	//t.Log("13) TestRaw")
 	user1 := User{Name: "ExecRawSqlUser1", Age: 1, Birthday: parseTime("2000-1-1")}
 	user2 := User{Name: "ExecRawSqlUser2", Age: 10, Birthday: parseTime("2010-1-1")}
 	user3 := User{Name: "ExecRawSqlUser3", Age: 20, Birthday: parseTime("2020-1-1")}
@@ -1325,7 +1325,7 @@ func TestRaw(t *testing.T) {
 }
 
 func TestGroup(t *testing.T) {
-	t.Log("14) TestGroup")
+	//t.Log("14) TestGroup")
 	rows, err := TestDB.Select("name").Table("users").Group("name").Rows()
 
 	if err == nil {
@@ -1340,7 +1340,7 @@ func TestGroup(t *testing.T) {
 }
 
 func TestJoins(t *testing.T) {
-	t.Log("15) TestJoins")
+	//t.Log("15) TestJoins")
 	var user = User{
 		Name:       "joins",
 		CreditCard: CreditCard{Number: "411111111111"},
@@ -1380,7 +1380,7 @@ func TestJoins(t *testing.T) {
 }
 
 func TestJoinsWithSelect(t *testing.T) {
-	t.Log("16) TestJoinsWithSelect")
+	//t.Log("16) TestJoinsWithSelect")
 	type result struct {
 		Name  string
 		Email string
@@ -1400,7 +1400,7 @@ func TestJoinsWithSelect(t *testing.T) {
 }
 
 func TestHaving(t *testing.T) {
-	t.Log("17) TestHaving")
+	//t.Log("17) TestHaving")
 	rows, err := TestDB.Select("name, count(*) as total").Table("users").Group("name").Having("name IN (?)", []string{"2", "3"}).Rows()
 
 	if err == nil {
@@ -1423,7 +1423,7 @@ func TestHaving(t *testing.T) {
 }
 
 func TestTimeWithZone(t *testing.T) {
-	t.Log("18) TestTimeWithZone")
+	//t.Log("18) TestTimeWithZone")
 	var format = "2006-01-02 15:04:05 -0700"
 	var times []time.Time
 	GMT8, _ := time.LoadLocation("Asia/Shanghai")
@@ -1465,7 +1465,7 @@ func TestTimeWithZone(t *testing.T) {
 }
 
 func TestHstore(t *testing.T) {
-	t.Log("19) TestHstore")
+	//t.Log("19) TestHstore")
 	type Details struct {
 		Id   int64
 		Bulk pgdialect.Hstore
@@ -1512,7 +1512,7 @@ func TestHstore(t *testing.T) {
 }
 
 func TestSetAndGet(t *testing.T) {
-	t.Log("20) TestSetAndGet")
+	//t.Log("20) TestSetAndGet")
 	if value, ok := TestDB.Set("gorm:save_associations", true).Get("gorm:save_associations"); !ok {
 		t.Errorf("Should be able to get setting 'gorm:save_associations' after set")
 	} else {
@@ -1527,7 +1527,7 @@ func TestSetAndGet(t *testing.T) {
 }
 
 func TestCompatibilityMode(t *testing.T) {
-	t.Log("21) TestCompatibilityMode")
+	//t.Log("21) TestCompatibilityMode")
 	DB, _ := gorm.Open("testdb", "")
 	testdb.SetQueryFunc(func(query string) (driver.Rows, error) {
 		columns := []string{"id", "name", "age"}
@@ -1547,7 +1547,7 @@ func TestCompatibilityMode(t *testing.T) {
 }
 
 func TestOpenExistingDB(t *testing.T) {
-	t.Log("22) TestOpenExistingDB")
+	//t.Log("22) TestOpenExistingDB")
 	TestDB.Save(&User{Name: "jnfeinstein"})
 	dialect := os.Getenv("GORM_DIALECT")
 
@@ -1563,7 +1563,7 @@ func TestOpenExistingDB(t *testing.T) {
 }
 
 func TestDdlErrors(t *testing.T) {
-	t.Log("23) TestDdlErrors")
+	//t.Log("23) TestDdlErrors")
 	var err error
 
 	if err = TestDB.Close(); err != nil {
@@ -1582,7 +1582,7 @@ func TestDdlErrors(t *testing.T) {
 }
 
 func TestOpenWithOneParameter(t *testing.T) {
-	t.Log("24) TestOpenWithOneParameter")
+	//t.Log("24) TestOpenWithOneParameter")
 	db, err := gorm.Open("dialect")
 	if db != nil {
 		t.Error("Open with one parameter returned non nil for db")

@@ -699,7 +699,7 @@ func (con *DBCon) Association(column string) *Association {
 func (con *DBCon) SetJoinTableHandler(source interface{}, column string, handler JoinTableHandlerInterface) {
 	scope := con.NewScope(source)
 	for _, field := range scope.GetModelStruct().StructFields() {
-		if field.GetStructName() == column || field.DBName == column {
+		if field.StructName == column || field.DBName == column {
 			if field.HasSetting(MANY2MANY) {
 				src := (&Scope{Value: source}).GetModelStruct().ModelType
 				destination := (&Scope{Value: field.Interface()}).GetModelStruct().ModelType

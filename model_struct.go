@@ -116,7 +116,7 @@ func (modelStruct *ModelStruct) Create(reflectType reflect.Type, scope *Scope) {
 	if modelStruct.noOfPKs() == 0 {
 		//by default we're expecting that the modelstruct has a field named id
 		if field, ok := modelStruct.fieldsMap.Get(DEFAULT_ID_NAME); ok {
-			field.setFlag(IS_PRIMARYKEY)
+			field.SetIsPrimaryKey()
 		}
 		//else - it's not an error : joins don't have primary key named id
 	}
@@ -149,7 +149,7 @@ func (modelStruct *ModelStruct) cloneFieldsToScope(indirectScopeValue reflect.Va
 			result.add(clonedField)
 		} else {
 			clonedField := structField.clone()
-			clonedField.setFlag(IS_BLANK)
+			clonedField.SetIsBlank()
 			result.add(clonedField)
 		}
 	}
@@ -172,11 +172,12 @@ func (modelStruct *ModelStruct) processRelations(scope *Scope) {
 					}
 				} else {
 					field.SetIsNormal()
+
 				}
 			} else if field.IsStruct() {
 				if !relationship.HasOne(field, modelStruct, toModelStruct, scope, toScope) {
 					if !relationship.BelongTo(field, modelStruct, toModelStruct, scope, toScope) {
-						errMsg := fmt.Errorf(no_belong_or_hasone_err, modelStruct.ModelType.Name(), field.DBName, field.GetStructName())
+						errMsg := fmt.Errorf(no_belong_or_hasone_err, modelStruct.ModelType.Name(), field.DBName, field.StructName)
 						scope.Warn(errMsg)
 					}
 				}

@@ -20,7 +20,7 @@ func createJoinTable(scope *Scope, field *StructField) {
 			for idx, fieldName := range relationship.ForeignFieldNames {
 				if field, ok := scope.FieldByName(fieldName); ok {
 					clonedField := field.clone()
-					clonedField.unsetFlag(IS_PRIMARYKEY)
+					clonedField.UnsetIsPrimaryKey()
 					//TODO : @Badu - document that you cannot use IS_JOINTABLE_FOREIGNKEY in conjunction with AUTO_INCREMENT
 					clonedField.SetJoinTableFK("true")
 					clonedField.UnsetIsAutoIncrement()
@@ -32,7 +32,7 @@ func createJoinTable(scope *Scope, field *StructField) {
 			for idx, fieldName := range relationship.AssociationForeignFieldNames {
 				if field, ok := toScope.FieldByName(fieldName); ok {
 					clonedField := field.clone()
-					clonedField.unsetFlag(IS_PRIMARYKEY)
+					clonedField.UnsetIsPrimaryKey()
 					//TODO : @Badu - document that you cannot use IS_JOINTABLE_FOREIGNKEY in conjunction with AUTO_INCREMENT
 					clonedField.SetJoinTableFK("true")
 					clonedField.UnsetIsAutoIncrement()

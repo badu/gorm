@@ -166,7 +166,7 @@ func (jth JoinTableHandler) JoinWith(handler JoinTableHandlerInterface, con *DBC
 		for _, foreignKey := range jth.Source.ForeignKeys {
 			foreignDBNames = append(foreignDBNames, foreignKey.DBName)
 			if field, ok := scope.FieldByName(foreignKey.AssociationDBName); ok {
-				foreignFieldNames.add(field.GetStructName())
+				foreignFieldNames.add(field.StructName)
 			}
 		}
 

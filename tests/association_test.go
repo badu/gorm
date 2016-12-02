@@ -10,7 +10,7 @@ import (
 )
 
 func TestSkipSaveAssociation(t *testing.T) {
-	t.Log("FEATURE : TestSkipSaveAssociation")
+	//t.Log("FEATURE : TestSkipSaveAssociation")
 	type Company struct {
 		gorm.Model
 		Name string
@@ -32,7 +32,7 @@ func TestSkipSaveAssociation(t *testing.T) {
 }
 
 func TestBelongsTo(t *testing.T) {
-	t.Log("25) TestBelongsTo")
+	//t.Log("25) TestBelongsTo")
 	post := Post{
 		Title:        "post belongs to",
 		Body:         "body belongs to",
@@ -203,7 +203,7 @@ func TestBelongsTo(t *testing.T) {
 }
 
 func TestBelongsToOverrideForeignKey1(t *testing.T) {
-	t.Log("26) TestBelongsToOverrideForeignKey1")
+	//t.Log("26) TestBelongsToOverrideForeignKey1")
 	type Profile struct {
 		gorm.Model
 		Name string
@@ -225,7 +225,7 @@ func TestBelongsToOverrideForeignKey1(t *testing.T) {
 }
 
 func TestBelongsToOverrideForeignKey2(t *testing.T) {
-	t.Log("27) TestBelongsToOverrideForeignKey2")
+	//t.Log("27) TestBelongsToOverrideForeignKey2")
 	type Profile struct {
 		gorm.Model
 		Refer string
@@ -248,7 +248,7 @@ func TestBelongsToOverrideForeignKey2(t *testing.T) {
 }
 
 func TestHasOne(t *testing.T) {
-	t.Log("28) TestHasOne")
+	//t.Log("28) TestHasOne")
 	user := User{
 		Name:       "has one",
 		CreditCard: CreditCard{Number: "411111111111"},
@@ -395,7 +395,7 @@ func TestHasOne(t *testing.T) {
 }
 
 func TestHasOneOverrideForeignKey1(t *testing.T) {
-	t.Log("29) TestHasOneOverrideForeignKey1")
+	//t.Log("29) TestHasOneOverrideForeignKey1")
 	type Profile struct {
 		gorm.Model
 		Name      string
@@ -417,7 +417,7 @@ func TestHasOneOverrideForeignKey1(t *testing.T) {
 }
 
 func TestHasOneOverrideForeignKey2(t *testing.T) {
-	t.Log("30) TestHasOneOverrideForeignKey2")
+	//t.Log("30) TestHasOneOverrideForeignKey2")
 	type Profile struct {
 		gorm.Model
 		Name   string
@@ -440,7 +440,7 @@ func TestHasOneOverrideForeignKey2(t *testing.T) {
 }
 
 func TestHasMany(t *testing.T) {
-	t.Log("31) TestHasMany")
+	//t.Log("31) TestHasMany")
 	post := Post{
 		Title:    "post has many",
 		Body:     "body has many",
@@ -581,7 +581,7 @@ func TestHasMany(t *testing.T) {
 }
 
 func TestHasManyOverrideForeignKey1(t *testing.T) {
-	t.Log("32) TestHasManyOverrideForeignKey1")
+	//t.Log("32) TestHasManyOverrideForeignKey1")
 	type Profile struct {
 		gorm.Model
 		Name      string
@@ -603,7 +603,7 @@ func TestHasManyOverrideForeignKey1(t *testing.T) {
 }
 
 func TestHasManyOverrideForeignKey2(t *testing.T) {
-	t.Log("33) TestHasManyOverrideForeignKey2")
+	//t.Log("33) TestHasManyOverrideForeignKey2")
 	type Profile struct {
 		gorm.Model
 		Name   string
@@ -626,7 +626,7 @@ func TestHasManyOverrideForeignKey2(t *testing.T) {
 }
 
 func TestManyToMany(t *testing.T) {
-	t.Log("34) TestManyToMany")
+	//t.Log("34) TestManyToMany")
 	TestDB.Raw("delete from languages")
 	var languages = []Language{{Name: "ZH"}, {Name: "EN"}}
 	user := User{Name: "Many2Many", Languages: languages}
@@ -755,7 +755,7 @@ func TestManyToMany(t *testing.T) {
 }
 
 func TestRelated(t *testing.T) {
-	t.Log("35) TestRelated")
+	//t.Log("35) TestRelated")
 	user := User{
 		Name:            "jinzhu",
 		BillingAddress:  Address{Address1: "Billing Address - Address 1"},
@@ -843,10 +843,10 @@ func TestRelated(t *testing.T) {
 }
 
 func TestForeignKey(t *testing.T) {
-	t.Log("36) TestForeignKey")
+	//t.Log("36) TestForeignKey")
 	for _, structField := range TestDB.NewScope(&User{}).GetModelStruct().StructFields() {
 		for _, foreignKey := range []string{"BillingAddressID", "ShippingAddressId", "CompanyID"} {
-			if structField.GetStructName() == foreignKey && !structField.IsForeignKey() {
+			if structField.StructName == foreignKey && !structField.IsForeignKey() {
 				t.Errorf(fmt.Sprintf("%v should be foreign key", foreignKey))
 			}
 		}
@@ -854,7 +854,7 @@ func TestForeignKey(t *testing.T) {
 
 	for _, structField := range TestDB.NewScope(&Email{}).GetModelStruct().StructFields() {
 		for _, foreignKey := range []string{"UserId"} {
-			if structField.GetStructName() == foreignKey && !structField.IsForeignKey() {
+			if structField.StructName == foreignKey && !structField.IsForeignKey() {
 				t.Errorf(fmt.Sprintf("%v should be foreign key", foreignKey))
 			}
 		}
@@ -862,7 +862,7 @@ func TestForeignKey(t *testing.T) {
 
 	for _, structField := range TestDB.NewScope(&Post{}).GetModelStruct().StructFields() {
 		for _, foreignKey := range []string{"CategoryId", "MainCategoryId"} {
-			if structField.GetStructName() == foreignKey && !structField.IsForeignKey() {
+			if structField.StructName == foreignKey && !structField.IsForeignKey() {
 				t.Errorf(fmt.Sprintf("%v should be foreign key", foreignKey))
 			}
 		}
@@ -870,7 +870,7 @@ func TestForeignKey(t *testing.T) {
 
 	for _, structField := range TestDB.NewScope(&Comment{}).GetModelStruct().StructFields() {
 		for _, foreignKey := range []string{"PostId"} {
-			if structField.GetStructName() == foreignKey && !structField.IsForeignKey() {
+			if structField.StructName == foreignKey && !structField.IsForeignKey() {
 				t.Errorf(fmt.Sprintf("%v should be foreign key", foreignKey))
 			}
 		}
@@ -901,17 +901,17 @@ func testForeignKey(t *testing.T, source interface{}, sourceFieldName string, ta
 }
 
 func TestLongForeignKey(t *testing.T) {
-	t.Log("37) TestLongForeignKey")
+	//t.Log("37) TestLongForeignKey")
 	testForeignKey(t, &NotSoLongTableName{}, "ReallyLongThingID", &ReallyLongTableNameToTestMySQLNameLengthLimit{}, "ID")
 }
 
 func TestLongForeignKeyWithShortDest(t *testing.T) {
-	t.Log("38) TestLongForeignKeyWithShortDest")
+	//t.Log("38) TestLongForeignKeyWithShortDest")
 	testForeignKey(t, &ReallyLongThingThatReferencesShort{}, "ShortID", &Short{}, "ID")
 }
 
 func TestHasManyChildrenWithOneStruct(t *testing.T) {
-	t.Log("39) TestHasManyChildrenWithOneStruct")
+	//t.Log("39) TestHasManyChildrenWithOneStruct")
 	category := Category{
 		Name: "main",
 		Categories: []Category{

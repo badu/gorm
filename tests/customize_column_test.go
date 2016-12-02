@@ -7,7 +7,7 @@ import (
 )
 
 func TestCustomizeColumn(t *testing.T) {
-	t.Log("55) TestCustomizeColumn")
+	//t.Log("55) TestCustomizeColumn")
 	col := "mapped_name"
 	TestDB.DropTable(&CustomizeColumn{})
 	TestDB.AutoMigrate(&CustomizeColumn{})
@@ -48,7 +48,7 @@ func TestCustomizeColumn(t *testing.T) {
 }
 
 func TestCustomColumnAndIgnoredFieldClash(t *testing.T) {
-	t.Log("56) TestCustomColumnAndIgnoredFieldClash")
+	//t.Log("56) TestCustomColumnAndIgnoredFieldClash")
 	TestDB.DropTable(&CustomColumnAndIgnoredFieldClash{})
 	if err := TestDB.AutoMigrate(&CustomColumnAndIgnoredFieldClash{}).Error; err != nil {
 		t.Errorf("Should not raise error: %s", err)
@@ -56,7 +56,7 @@ func TestCustomColumnAndIgnoredFieldClash(t *testing.T) {
 }
 
 func TestManyToManyWithCustomizedColumn(t *testing.T) {
-	t.Log("57) TestManyToManyWithCustomizedColumn")
+	//t.Log("57) TestManyToManyWithCustomizedColumn")
 	TestDB.DropTable(&CustomizePerson{}, &CustomizeAccount{}, "PersonAccount")
 	TestDB.AutoMigrate(&CustomizePerson{}, &CustomizeAccount{})
 
@@ -86,7 +86,7 @@ func TestManyToManyWithCustomizedColumn(t *testing.T) {
 }
 
 func TestOneToOneWithCustomizedColumn(t *testing.T) {
-	t.Log("58) TestOneToOneWithCustomizedColumn")
+	//t.Log("58) TestOneToOneWithCustomizedColumn")
 	TestDB.DropTable(&CustomizeUser{}, &CustomizeInvitation{})
 	TestDB.AutoMigrate(&CustomizeUser{}, &CustomizeInvitation{})
 
@@ -111,7 +111,7 @@ func TestOneToOneWithCustomizedColumn(t *testing.T) {
 }
 
 func TestOneToManyWithCustomizedColumn(t *testing.T) {
-	t.Log("59) TestOneToManyWithCustomizedColumn")
+	//t.Log("59) TestOneToManyWithCustomizedColumn")
 	TestDB.DropTable(&PromotionDiscount{}, &PromotionCoupon{})
 	TestDB.AutoMigrate(&PromotionDiscount{}, &PromotionCoupon{})
 
@@ -147,7 +147,7 @@ func TestOneToManyWithCustomizedColumn(t *testing.T) {
 }
 
 func TestHasOneWithPartialCustomizedColumn(t *testing.T) {
-	t.Log("60) TestHasOneWithPartialCustomizedColumn")
+	//t.Log("60) TestHasOneWithPartialCustomizedColumn")
 	TestDB.DropTable(&PromotionDiscount{}, &PromotionRule{})
 	TestDB.AutoMigrate(&PromotionDiscount{}, &PromotionRule{})
 
@@ -186,7 +186,7 @@ func TestHasOneWithPartialCustomizedColumn(t *testing.T) {
 }
 
 func TestBelongsToWithPartialCustomizedColumn(t *testing.T) {
-	t.Log("61) TestBelongsToWithPartialCustomizedColumn")
+	//t.Log("61) TestBelongsToWithPartialCustomizedColumn")
 	TestDB.DropTable(&PromotionDiscount{}, &PromotionBenefit{})
 	TestDB.AutoMigrate(&PromotionDiscount{}, &PromotionBenefit{})
 

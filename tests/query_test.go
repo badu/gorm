@@ -10,7 +10,7 @@ import (
 )
 
 func TestFirstAndLast(t *testing.T) {
-	t.Log("105) TestFirstAndLast")
+	//t.Log("105) TestFirstAndLast")
 	TestDB.Save(&User{Name: "user1", Emails: []Email{{Email: "user1@example.com"}}})
 	TestDB.Save(&User{Name: "user2", Emails: []Email{{Email: "user2@example.com"}}})
 
@@ -42,7 +42,7 @@ func TestFirstAndLast(t *testing.T) {
 }
 
 func TestFirstAndLastWithNoStdPrimaryKey(t *testing.T) {
-	t.Log("106) TestFirstAndLastWithNoStdPrimaryKey")
+	//t.Log("106) TestFirstAndLastWithNoStdPrimaryKey")
 	TestDB.Save(&Animal{Name: "animal1"})
 	TestDB.Save(&Animal{Name: "animal2"})
 
@@ -59,7 +59,7 @@ func TestFirstAndLastWithNoStdPrimaryKey(t *testing.T) {
 }
 
 func TestFirstAndLastWithRaw(t *testing.T) {
-	t.Log("Test fix #1214 : db.Raw().First() makes wrong SQL")
+	//t.Log("Test fix #1214 : db.Raw().First() makes wrong SQL")
 	user1 := User{Name: "user", Emails: []Email{{Email: "user1@example.com"}}}
 	user2 := User{Name: "user", Emails: []Email{{Email: "user2@example.com"}}}
 	TestDB.Save(&user1)
@@ -78,7 +78,7 @@ func TestFirstAndLastWithRaw(t *testing.T) {
 }
 
 func TestUIntPrimaryKey(t *testing.T) {
-	t.Log("107) TestUIntPrimaryKey")
+	//t.Log("107) TestUIntPrimaryKey")
 	var animal Animal
 	TestDB.First(&animal, uint64(1))
 	if animal.Counter != 1 {
@@ -92,7 +92,7 @@ func TestUIntPrimaryKey(t *testing.T) {
 }
 
 func TestStringPrimaryKeyForNumericValueStartingWithZero(t *testing.T) {
-	t.Log("108) TestStringPrimaryKeyForNumericValueStartingWithZero")
+	//t.Log("108) TestStringPrimaryKeyForNumericValueStartingWithZero")
 	type AddressByZipCode struct {
 		ZipCode string `gorm:"primary_key"`
 		Address string
@@ -109,7 +109,7 @@ func TestStringPrimaryKeyForNumericValueStartingWithZero(t *testing.T) {
 }
 
 func TestFindAsSliceOfPointers(t *testing.T) {
-	t.Log("109) TestFindAsSliceOfPointers")
+	//t.Log("109) TestFindAsSliceOfPointers")
 	TestDB.Save(&User{Name: "user"})
 
 	var users []User
@@ -124,7 +124,7 @@ func TestFindAsSliceOfPointers(t *testing.T) {
 }
 
 func TestSearchWithPlainSQL(t *testing.T) {
-	t.Log("110) TestSearchWithPlainSQL")
+	//t.Log("110) TestSearchWithPlainSQL")
 	user1 := User{Name: "PlainSqlUser1", Age: 1, Birthday: parseTime("2000-1-1")}
 	user2 := User{Name: "PlainSqlUser2", Age: 10, Birthday: parseTime("2010-1-1")}
 	user3 := User{Name: "PlainSqlUser3", Age: 20, Birthday: parseTime("2020-1-1")}
@@ -199,7 +199,7 @@ func TestSearchWithPlainSQL(t *testing.T) {
 }
 
 func TestSearchWithStruct(t *testing.T) {
-	t.Log("111) TestSearchWithStruct")
+	//t.Log("111) TestSearchWithStruct")
 	user1 := User{Name: "StructSearchUser1", Age: 1, Birthday: parseTime("2000-1-1")}
 	user2 := User{Name: "StructSearchUser2", Age: 10, Birthday: parseTime("2010-1-1")}
 	user3 := User{Name: "StructSearchUser3", Age: 20, Birthday: parseTime("2020-1-1")}
@@ -246,7 +246,7 @@ func TestSearchWithStruct(t *testing.T) {
 }
 
 func TestSearchWithMap(t *testing.T) {
-	t.Log("112) TestSearchWithMap")
+	//t.Log("112) TestSearchWithMap")
 	companyID := 1
 	user1 := User{Name: "MapSearchUser1", Age: 1, Birthday: parseTime("2000-1-1")}
 	user2 := User{Name: "MapSearchUser2", Age: 10, Birthday: parseTime("2010-1-1")}
@@ -294,7 +294,7 @@ func TestSearchWithMap(t *testing.T) {
 }
 
 func TestSearchWithEmptyChain(t *testing.T) {
-	t.Log("113) TestSearchWithEmptyChain")
+	//t.Log("113) TestSearchWithEmptyChain")
 	user1 := User{Name: "ChainSearchUser1", Age: 1, Birthday: parseTime("2000-1-1")}
 	user2 := User{Name: "ChainearchUser2", Age: 10, Birthday: parseTime("2010-1-1")}
 	user3 := User{Name: "ChainearchUser3", Age: 20, Birthday: parseTime("2020-1-1")}
@@ -314,7 +314,7 @@ func TestSearchWithEmptyChain(t *testing.T) {
 }
 
 func TestSelect(t *testing.T) {
-	t.Log("114) TestSelect")
+	//t.Log("114) TestSelect")
 	user1 := User{Name: "SelectUser1"}
 	TestDB.Save(&user1)
 
@@ -330,7 +330,7 @@ func TestSelect(t *testing.T) {
 }
 
 func TestOrderAndPluck(t *testing.T) {
-	t.Log("115) TestOrderAndPluck")
+	//t.Log("115) TestOrderAndPluck")
 	user1 := User{Name: "OrderPluckUser1", Age: 1}
 	user2 := User{Name: "OrderPluckUser2", Age: 10}
 	user3 := User{Name: "OrderPluckUser3", Age: 20}
@@ -376,7 +376,7 @@ func TestOrderAndPluck(t *testing.T) {
 }
 
 func TestLimit(t *testing.T) {
-	t.Log("116) TestLimit")
+	//t.Log("116) TestLimit")
 	user1 := User{Name: "LimitUser1", Age: 1}
 	user2 := User{Name: "LimitUser2", Age: 10}
 	user3 := User{Name: "LimitUser3", Age: 20}
@@ -393,7 +393,7 @@ func TestLimit(t *testing.T) {
 }
 
 func TestOffset(t *testing.T) {
-	t.Log("117) TestOffset")
+	//t.Log("117) TestOffset")
 	for i := 0; i < 20; i++ {
 		TestDB.Save(&User{Name: fmt.Sprintf("OffsetUser%v", i)})
 	}
@@ -406,7 +406,7 @@ func TestOffset(t *testing.T) {
 }
 
 func TestOr(t *testing.T) {
-	t.Log("118) TestOr")
+	//t.Log("118) TestOr")
 	user1 := User{Name: "OrUser1", Age: 1}
 	user2 := User{Name: "OrUser2", Age: 10}
 	user3 := User{Name: "OrUser3", Age: 20}
@@ -420,7 +420,7 @@ func TestOr(t *testing.T) {
 }
 
 func TestCount(t *testing.T) {
-	t.Log("119) TestCount")
+	//t.Log("119) TestCount")
 	user1 := User{Name: "CountUser1", Age: 1}
 	user2 := User{Name: "CountUser2", Age: 10}
 	user3 := User{Name: "CountUser3", Age: 20}
@@ -444,7 +444,7 @@ func TestCount(t *testing.T) {
 }
 
 func TestNot(t *testing.T) {
-	t.Log("120) TestNot")
+	//t.Log("120) TestNot")
 	TestDB.Unscoped().Delete(User{})
 	TestDB.Create(getPreparedUser("user1", "not"))
 	TestDB.Create(getPreparedUser("user2", "not"))
@@ -541,7 +541,7 @@ func TestNot(t *testing.T) {
 }
 
 func TestFillSmallerStruct(t *testing.T) {
-	t.Log("121) TestFillSmallerStruct")
+	//t.Log("121) TestFillSmallerStruct")
 	user1 := User{Name: "SmallerUser", Age: 100}
 	TestDB.Save(&user1)
 	type SimpleUser struct {
@@ -560,7 +560,7 @@ func TestFillSmallerStruct(t *testing.T) {
 }
 
 func TestFindOrInitialize(t *testing.T) {
-	t.Log("122) TestFindOrInitialize")
+	//t.Log("122) TestFindOrInitialize")
 	var user1, user2, user3, user4, user5, user6 User
 	TestDB.Where(&User{Name: "find or init", Age: 33}).FirstOrInit(&user1)
 	if user1.Name != "find or init" || user1.Id != 0 || user1.Age != 33 {
@@ -605,7 +605,7 @@ func TestFindOrInitialize(t *testing.T) {
 }
 
 func TestFindOrCreate(t *testing.T) {
-	t.Log("123) TestFindOrCreate")
+	//t.Log("123) TestFindOrCreate")
 	var user1, user2, user3, user4, user5, user6, user7, user8 User
 	TestDB.Where(&User{Name: "find or create", Age: 33}).FirstOrCreate(&user1)
 	if user1.Name != "find or create" || user1.Id == 0 || user1.Age != 33 {
@@ -664,7 +664,7 @@ func TestFindOrCreate(t *testing.T) {
 }
 
 func TestSelectWithEscapedFieldName(t *testing.T) {
-	t.Log("124) TestSelectWithEscapedFieldName")
+	//t.Log("124) TestSelectWithEscapedFieldName")
 	user1 := User{Name: "EscapedFieldNameUser", Age: 1}
 	user2 := User{Name: "EscapedFieldNameUser", Age: 10}
 	user3 := User{Name: "EscapedFieldNameUser", Age: 20}
@@ -679,7 +679,7 @@ func TestSelectWithEscapedFieldName(t *testing.T) {
 }
 
 func TestSelectWithVariables(t *testing.T) {
-	t.Log("125) TestSelectWithVariables")
+	//t.Log("125) TestSelectWithVariables")
 	TestDB.Save(&User{Name: "jinzhu"})
 
 	rows, _ := TestDB.Table("users").Select("? as fake", gorm.SqlExpr("name")).Rows()
@@ -697,7 +697,7 @@ func TestSelectWithVariables(t *testing.T) {
 }
 
 func TestSelectWithArrayInput(t *testing.T) {
-	t.Log("126) TestSelectWithArrayInput")
+	//t.Log("126) TestSelectWithArrayInput")
 	TestDB.Save(&User{Name: "jinzhu", Age: 42})
 
 	var user User

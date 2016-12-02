@@ -9,27 +9,43 @@ import (
 const (
 	//StructField TagSettings constants
 	MANY2MANY               uint8 = 1
-	AUTO_INCREMENT          uint8 = 2
-	INDEX                   uint8 = 3
-	NOT_NULL                uint8 = 4
-	SIZE                    uint8 = 5
-	UNIQUE_INDEX            uint8 = 6
-	IS_JOINTABLE_FOREIGNKEY uint8 = 7
-	PRIMARY_KEY             uint8 = 8
-	DEFAULT                 uint8 = 9
-	IGNORED                 uint8 = 10
-	EMBEDDED                uint8 = 11
-	EMBEDDED_PREFIX         uint8 = 12
-	FOREIGNKEY              uint8 = 13
-	ASSOCIATIONFOREIGNKEY   uint8 = 14
-	POLYMORPHIC             uint8 = 15
-	POLYMORPHIC_VALUE       uint8 = 16
-	COLUMN                  uint8 = 17
-	TYPE                    uint8 = 18
-	UNIQUE                  uint8 = 19
-	SAVE_ASSOCIATIONS       uint8 = 20
+	INDEX                   uint8 = 2
+	NOT_NULL                uint8 = 3
+	SIZE                    uint8 = 4
+	UNIQUE_INDEX            uint8 = 5
+	IS_JOINTABLE_FOREIGNKEY uint8 = 6
+	DEFAULT                 uint8 = 7
+	EMBEDDED_PREFIX         uint8 = 8
+	FOREIGNKEY              uint8 = 9
+	ASSOCIATIONFOREIGNKEY   uint8 = 10
+	POLYMORPHIC             uint8 = 11
+	POLYMORPHIC_VALUE       uint8 = 12
+	COLUMN                  uint8 = 13
+	TYPE                    uint8 = 14
+	UNIQUE                  uint8 = 15
+	SAVE_ASSOCIATIONS       uint8 = 16
 
-	key_not_found_err string = "TagSetting : COULDN'T FIND KEY FOR %q ON %q"
+	key_not_found_err       string = "TagSetting : COULDN'T FIND KEY FOR %q ON %q"
+	auto_increment          string = "AUTO_INCREMENT"
+	primary_key             string = "PRIMARY_KEY"
+	ignored                 string = "-"
+	default_str             string = "DEFAULT"
+	embedded                string = "EMBEDDED"
+	many_to_many            string = "MANY2MANY"
+	index                   string = "INDEX"
+	not_null                string = "NOT NULL"
+	size                    string = "SIZE"
+	unique_index            string = "UNIQUE_INDEX"
+	is_jointable_foreignkey string = "IS_JOINTABLE_FOREIGNKEY"
+	embedded_prefix         string = "EMBEDDED_PREFIX"
+	foreignkey              string = "FOREIGNKEY"
+	association_foreign_key string = "ASSOCIATIONFOREIGNKEY"
+	polymorphic             string = "POLYMORPHIC"
+	polymorphic_value       string = "POLYMORPHIC_VALUE"
+	column                  string = "COLUMN"
+	type_str                string = "TYPE"
+	unique                  string = "UNIQUE"
+	save_associations       string = "SAVE_ASSOCIATIONS"
 )
 
 var (
@@ -37,26 +53,22 @@ var (
 	//this is a map for transforming strings into uint8 when reading tags of structs
 	//@See : &StructField{}.ParseTagSettings()
 	tagSettingMap = map[string]uint8{
-		"MANY2MANY":               MANY2MANY,
-		"AUTO_INCREMENT":          AUTO_INCREMENT,
-		"INDEX":                   INDEX,
-		"NOT NULL":                NOT_NULL,
-		"SIZE":                    SIZE,
-		"UNIQUE_INDEX":            UNIQUE_INDEX,
-		"IS_JOINTABLE_FOREIGNKEY": IS_JOINTABLE_FOREIGNKEY,
-		"PRIMARY_KEY":             PRIMARY_KEY,
-		"DEFAULT":                 DEFAULT,
-		"-":                       IGNORED,
-		"EMBEDDED":                EMBEDDED,
-		"EMBEDDED_PREFIX":         EMBEDDED_PREFIX,
-		"FOREIGNKEY":              FOREIGNKEY,
-		"ASSOCIATIONFOREIGNKEY":   ASSOCIATIONFOREIGNKEY,
-		"POLYMORPHIC":             POLYMORPHIC,
-		"POLYMORPHIC_VALUE":       POLYMORPHIC_VALUE,
-		"COLUMN":                  COLUMN,
-		"TYPE":                    TYPE,
-		"UNIQUE":                  UNIQUE,
-		"SAVE_ASSOCIATIONS":       SAVE_ASSOCIATIONS,
+		many_to_many:            MANY2MANY,
+		index:                   INDEX,
+		not_null:                NOT_NULL,
+		size:                    SIZE,
+		unique_index:            UNIQUE_INDEX,
+		is_jointable_foreignkey: IS_JOINTABLE_FOREIGNKEY,
+		default_str:             DEFAULT,
+		embedded_prefix:         EMBEDDED_PREFIX,
+		foreignkey:              FOREIGNKEY,
+		association_foreign_key: ASSOCIATIONFOREIGNKEY,
+		polymorphic:             POLYMORPHIC,
+		polymorphic_value:       POLYMORPHIC_VALUE,
+		column:                  COLUMN,
+		type_str:                TYPE,
+		unique:                  UNIQUE,
+		save_associations:       SAVE_ASSOCIATIONS,
 	}
 	cachedReverseTagSettingsMap map[uint8]string
 )
@@ -72,27 +84,47 @@ func reverseTagSettingsMap() map[uint8]string {
 	return cachedReverseTagSettingsMap
 }
 
-func (ts *TagSettings) loadFromTags(str string) error {
+func (ts *TagSettings) loadFromTags(field *StructField, str string) error {
 	tags := strings.Split(str, ";")
+
 	for _, value := range tags {
 		v := strings.Split(value, ":")
 		if len(v) > 0 {
 			k := strings.TrimSpace(strings.ToUpper(v[0]))
 			//avoid empty keys : original gorm didn't mind creating them
 			if k != "" {
-				uint8Key, ok := tagSettingMap[k]
-				if ok {
-					if len(v) >= 2 {
-						ts.set(uint8Key, strings.Join(v[1:], ":"))
-					} else {
-						ts.set(uint8Key, k)
+				//setting some flags directly
+				switch k {
+				case ignored:
+					field.setFlag(IS_IGNORED)
+				case primary_key:
+					field.setFlag(IS_PRIMARYKEY)
+				case auto_increment:
+					field.setFlag(IS_AUTOINCREMENT)
+				case embedded:
+					field.setFlag(IS_EMBED_OR_ANON)
+				default:
+					if k == default_str {
+						field.setFlag(HAS_DEFAULT_VALUE)
 					}
-				} else {
-					return errors.New(fmt.Sprintf(key_not_found_err, k, str))
+					uint8Key, ok := tagSettingMap[k]
+					if ok {
+						if len(v) >= 2 {
+							ts.set(uint8Key, strings.Join(v[1:], ":"))
+						} else {
+							ts.set(uint8Key, k)
+						}
+					} else {
+						return errors.New(fmt.Sprintf(key_not_found_err, k, str))
+					}
 				}
+
 			}
 		}
 
+	}
+	if field.IsAutoIncrement() && !field.IsPrimaryKey() {
+		field.setFlag(HAS_DEFAULT_VALUE)
 	}
 	return nil
 }

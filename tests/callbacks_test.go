@@ -6,7 +6,7 @@ import (
 )
 
 func TestRunCallbacks(t *testing.T) {
-	t.Log("45) TestRunCallbacks")
+	//t.Log("45) TestRunCallbacks")
 	p := Product{Code: "unique_code", Price: 100}
 	TestDB.Save(&p)
 
@@ -47,7 +47,7 @@ func TestRunCallbacks(t *testing.T) {
 }
 
 func TestCallbacksWithErrors(t *testing.T) {
-	t.Log("46) TestCallbacksWithErrors")
+	//t.Log("46) TestCallbacksWithErrors")
 	p := Product{Code: "Invalid", Price: 100}
 	if TestDB.Save(&p).Error == nil {
 		t.Errorf("An error from before create callbacks happened when create with invalid value")

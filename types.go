@@ -347,4 +347,14 @@ var (
 	regExpFKName = regexp.MustCompile("(_*[^a-zA-Z]+_*|_+)")
 	//used in Quote to replace all periods with quote-period-quote
 	regExpPeriod = regexp.MustCompile("\\.")
+
+
+	//positiveIntegerMatcher = regexp.MustCompile("/^\\d+$/")
+	//negativeIntegerMatcher= regexp.MustCompile("/^-\\d+$/")
+	//integerMatcher = regexp.MustCompile("/^-?\\d+$/")
+	//positiveNumberMatcher = regexp.MustCompile("/^\\d*\\.?\\d+$/")
+	//negativeNumberMatcher = regexp.MustCompile("/^-\\d*\\.?\\d+$/")
+	//numberMatcher = regexp.MustCompile("/^-?\\d*\\.?\\d+$/")
+	//time24HourMatcher = regexp.MustCompile("/([01]?[0-9]|2[0-3]):[0-5][0-9]/")
+	//dateTimeISO8601Matcher = regexp.MustCompile("/^(?![+-]?\\d{4,5}-?(?:\\d{2}|W\\d{2})T)(?:|(\\d{4}|[+-]\\d{5})-?(?:|(0\\d|1[0-2])(?:|-?([0-2]\\d|3[0-1]))|([0-2]\\d{2}|3[0-5]\\d|36[0-6])|W([0-4]\\d|5[0-3])(?:|-?([1-7])))(?:(?!\\d)|T(?=\\d)))(?:|([01]\\d|2[0-4])(?:|:?([0-5]\\d)(?:|:?([0-5]\\d)(?:|\\.(\\d{3})))(?:|[zZ]|([+-](?:[01]\\d|2[0-4]))(?:|:?([0-5]\\d)))))$/")
 )

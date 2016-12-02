@@ -9,7 +9,7 @@ import (
 )
 
 func TestPreload(t *testing.T) {
-	t.Log("78) TestPreload")
+	//t.Log("78) TestPreload")
 	user1 := getPreloadUser("user1")
 	TestDB.Save(user1)
 
@@ -56,7 +56,7 @@ func TestPreload(t *testing.T) {
 }
 
 func TestNestedPreload1(t *testing.T) {
-	t.Log("79) TestNestedPreload1")
+	//t.Log("79) TestNestedPreload1")
 	type (
 		Level1 struct {
 			ID       uint
@@ -101,7 +101,7 @@ func TestNestedPreload1(t *testing.T) {
 }
 
 func TestNestedPreload2(t *testing.T) {
-	t.Log("80) TestNestedPreload2")
+	//t.Log("80) TestNestedPreload2")
 	type (
 		Level1 struct {
 			ID       uint
@@ -157,7 +157,7 @@ func TestNestedPreload2(t *testing.T) {
 }
 
 func TestNestedPreload3(t *testing.T) {
-	t.Log("81) TestNestedPreload3")
+	//t.Log("81) TestNestedPreload3")
 	type (
 		Level1 struct {
 			ID       uint
@@ -204,7 +204,7 @@ func TestNestedPreload3(t *testing.T) {
 }
 
 func TestNestedPreload4(t *testing.T) {
-	t.Log("82) TestNestedPreload4")
+	//t.Log("82) TestNestedPreload4")
 	type (
 		Level1 struct {
 			ID       uint
@@ -254,7 +254,7 @@ func TestNestedPreload4(t *testing.T) {
 
 // Slice: []Level3
 func TestNestedPreload5(t *testing.T) {
-	t.Log("86) TestNestedPreload5")
+	//t.Log("86) TestNestedPreload5")
 	type (
 		Level1 struct {
 			ID       uint
@@ -301,7 +301,7 @@ func TestNestedPreload5(t *testing.T) {
 }
 
 func TestNestedPreload6(t *testing.T) {
-	t.Log("87) TestNestedPreload6")
+	//t.Log("87) TestNestedPreload6")
 	type (
 		Level1 struct {
 			ID       uint
@@ -377,7 +377,7 @@ func TestNestedPreload6(t *testing.T) {
 }
 
 func TestNestedPreload7(t *testing.T) {
-	t.Log("88) TestNestedPreload7")
+	//t.Log("88) TestNestedPreload7")
 	type (
 		Level1 struct {
 			ID       uint
@@ -435,7 +435,7 @@ func TestNestedPreload7(t *testing.T) {
 }
 
 func TestNestedPreload8(t *testing.T) {
-	t.Log("89) TestNestedPreload8")
+	//t.Log("89) TestNestedPreload8")
 	type (
 		Level1 struct {
 			ID       uint
@@ -496,7 +496,7 @@ func TestNestedPreload8(t *testing.T) {
 }
 
 func TestNestedPreload9(t *testing.T) {
-	t.Log("90) TestNestedPreload9")
+	//t.Log("90) TestNestedPreload9")
 	type (
 		Level0 struct {
 			ID       uint
@@ -596,7 +596,7 @@ func TestNestedPreload9(t *testing.T) {
 }
 
 func TestNestedPreload10(t *testing.T) {
-	t.Log("91) TestNestedPreload10")
+	//t.Log("91) TestNestedPreload10")
 	TestDB.DropTableIfExists(&LevelA3{})
 	TestDB.DropTableIfExists(&LevelA2{})
 	TestDB.DropTableIfExists(&LevelA1{})
@@ -642,7 +642,7 @@ func TestNestedPreload10(t *testing.T) {
 }
 
 func TestNestedPreload11(t *testing.T) {
-	t.Log("92) TestNestedPreload11")
+	//t.Log("92) TestNestedPreload11")
 	TestDB.DropTableIfExists(&LevelB2{})
 	TestDB.DropTableIfExists(&LevelB3{})
 	TestDB.DropTableIfExists(&LevelB1{})
@@ -676,7 +676,7 @@ func TestNestedPreload11(t *testing.T) {
 }
 
 func TestNestedPreload12(t *testing.T) {
-	t.Log("93) TestNestedPreload12")
+	//t.Log("93) TestNestedPreload12")
 	TestDB.DropTableIfExists(&LevelC2{})
 	TestDB.DropTableIfExists(&LevelC3{})
 	TestDB.DropTableIfExists(&LevelC1{})
@@ -719,7 +719,7 @@ func TestNestedPreload12(t *testing.T) {
 }
 
 func TestManyToManyPreloadWithMultiPrimaryKeys(t *testing.T) {
-	t.Log("94) TestManyToManyPreloadWithMultiPrimaryKeys")
+	//t.Log("94) TestManyToManyPreloadWithMultiPrimaryKeys")
 	if dialect := os.Getenv("GORM_DIALECT"); dialect == "" || dialect == "sqlite" {
 		return
 	}
@@ -811,7 +811,7 @@ func TestManyToManyPreloadWithMultiPrimaryKeys(t *testing.T) {
 }
 
 func TestManyToManyPreloadForNestedPointer(t *testing.T) {
-	t.Log("95) TestManyToManyPreloadForNestedPointer")
+	//t.Log("95) TestManyToManyPreloadForNestedPointer")
 	type (
 		Level1 struct {
 			ID    uint
@@ -915,7 +915,7 @@ func TestManyToManyPreloadForNestedPointer(t *testing.T) {
 }
 
 func TestNestedManyToManyPreload(t *testing.T) {
-	t.Log("96) TestNestedManyToManyPreload")
+	//t.Log("96) TestNestedManyToManyPreload")
 	type (
 		Level1 struct {
 			ID    uint
@@ -981,7 +981,7 @@ func TestNestedManyToManyPreload(t *testing.T) {
 }
 
 func TestNestedManyToManyPreload2(t *testing.T) {
-	t.Log("97) TestNestedManyToManyPreload TWO")
+	//t.Log("97) TestNestedManyToManyPreload TWO")
 	type (
 		Level1 struct {
 			ID    uint
@@ -1039,7 +1039,7 @@ func TestNestedManyToManyPreload2(t *testing.T) {
 }
 
 func TestNestedManyToManyPreload3(t *testing.T) {
-	t.Log("98) TestNestedManyToManyPreload3")
+	//t.Log("98) TestNestedManyToManyPreload3")
 	type (
 		Level1 struct {
 			ID    uint
@@ -1115,7 +1115,7 @@ func TestNestedManyToManyPreload3(t *testing.T) {
 }
 
 func TestNestedManyToManyPreload3ForStruct(t *testing.T) {
-	t.Log("99) TestNestedManyToManyPreload3ForStruct")
+	//t.Log("99) TestNestedManyToManyPreload3ForStruct")
 	type (
 		Level1 struct {
 			ID    uint
@@ -1191,7 +1191,7 @@ func TestNestedManyToManyPreload3ForStruct(t *testing.T) {
 }
 
 func TestNestedManyToManyPreload4(t *testing.T) {
-	t.Log("100) TestNestedManyToManyPreload4")
+	//t.Log("100) TestNestedManyToManyPreload4")
 	type (
 		Level4 struct {
 			ID       uint
@@ -1250,7 +1250,7 @@ func TestNestedManyToManyPreload4(t *testing.T) {
 }
 
 func TestManyToManyPreloadForPointer(t *testing.T) {
-	t.Log("101) TestManyToManyPreloadForPointer")
+	//t.Log("101) TestManyToManyPreloadForPointer")
 	type (
 		Level1 struct {
 			ID    uint
@@ -1335,7 +1335,7 @@ func TestManyToManyPreloadForPointer(t *testing.T) {
 }
 
 func TestNilPointerSlice(t *testing.T) {
-	t.Log("102) TestNilPointerSlice")
+	//t.Log("102) TestNilPointerSlice")
 	type (
 		Level3 struct {
 			ID    uint
@@ -1403,7 +1403,7 @@ func TestNilPointerSlice(t *testing.T) {
 }
 
 func TestNilPointerSlice2(t *testing.T) {
-	t.Log("103) TestNilPointerSlice2")
+	//t.Log("103) TestNilPointerSlice2")
 	type (
 		Level4 struct {
 			ID uint
@@ -1450,7 +1450,7 @@ func TestNilPointerSlice2(t *testing.T) {
 }
 
 func TestPrefixedPreloadDuplication(t *testing.T) {
-	t.Log("104) TestPrefixedPreloadDuplication")
+	//t.Log("104) TestPrefixedPreloadDuplication")
 	type (
 		Level4 struct {
 			ID       uint

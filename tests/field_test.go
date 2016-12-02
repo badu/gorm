@@ -7,7 +7,7 @@ import (
 )
 
 func TestCalculateField(t *testing.T) {
-	t.Log("67) TestCalculateField")
+	//t.Log("67) TestCalculateField")
 	var field CalculateField
 	var scope = TestDB.NewScope(&field)
 	if field, ok := scope.FieldByName("Children"); !ok || field.Relationship == nil {

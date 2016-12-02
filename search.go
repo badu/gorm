@@ -393,20 +393,20 @@ func (s *Search) checkFieldIncluded(field *StructField) bool {
 	for _, pair := range s.Conditions[Select_query] {
 		switch strs := pair.expression.(type) {
 		case string:
-			if field.GetStructName() == strs || field.DBName == strs {
+			if field.StructName == strs || field.DBName == strs {
 				return true
 			}
 
 		case []string:
 			for _, o := range strs {
-				if field.GetStructName() == o || field.DBName == o {
+				if field.StructName == o || field.DBName == o {
 					return true
 				}
 			}
 		}
 
 		for _, pairArg := range pair.args {
-			if field.GetStructName() == pairArg || field.DBName == pairArg {
+			if field.StructName == pairArg || field.DBName == pairArg {
 				return true
 			}
 		}
@@ -420,7 +420,7 @@ func (s *Search) checkFieldOmitted(field *StructField) bool {
 		return false
 	}
 	for _, attr := range pair.args {
-		if field.GetStructName() == attr || field.DBName == attr {
+		if field.StructName == attr || field.DBName == attr {
 			//fmt.Printf("Field %q omitted\n", attr.(string))
 			return true
 		}
@@ -869,7 +869,7 @@ func (s *Search) doPreload(scope *Scope) {
 				}
 
 				for _, field := range currentFields {
-					if field.GetStructName() != preloadField || field.Relationship == nil {
+					if field.StructName != preloadField || field.Relationship == nil {
 						continue
 					}
 
@@ -972,7 +972,7 @@ func handleRelationPreload(scope *Scope, field *StructField, conditions []interf
 						),
 						foreignValues,
 					) {
-						indirectValue.FieldByName(field.GetStructName()).Set(result)
+						indirectValue.FieldByName(field.StructName).Set(result)
 						break
 					}
 				}
@@ -996,7 +996,7 @@ func handleRelationPreload(scope *Scope, field *StructField, conditions []interf
 			for j := 0; j < indirectScopeValue.Len(); j++ {
 				reflectValue := FieldValue(indirectScopeValue, j)
 				objectRealValue := getValueFromFields(relation.AssociationForeignFieldNames, reflectValue)
-				f := reflectValue.FieldByName(field.GetStructName())
+				f := reflectValue.FieldByName(field.StructName)
 				if results, ok := preloadMap[toString(objectRealValue)]; ok {
 					f.Set(reflect.Append(f, results...))
 				} else {
@@ -1021,7 +1021,7 @@ func handleRelationPreload(scope *Scope, field *StructField, conditions []interf
 						),
 						value,
 					) {
-						reflectValue.FieldByName(field.GetStructName()).Set(result)
+						reflectValue.FieldByName(field.StructName).Set(result)
 					}
 				}
 			} else {
@@ -1112,7 +1112,7 @@ func handleManyToManyPreload(scope *Scope, field *StructField, conditions []inte
 
 	for _, dbName := range relation.ForeignFieldNames {
 		if field, ok := scope.FieldByName(dbName); ok {
-			foreignFieldNames.add(field.GetStructName())
+			foreignFieldNames.add(field.StructName)
 		}
 	}
 
@@ -1121,12 +1121,12 @@ func handleManyToManyPreload(scope *Scope, field *StructField, conditions []inte
 		for j := 0; j < indirectScopeValue.Len(); j++ {
 			reflectValue := FieldValue(indirectScopeValue, j)
 			key := toString(getValueFromFields(foreignFieldNames, reflectValue))
-			fieldsSourceMap[key] = append(fieldsSourceMap[key], reflectValue.FieldByName(field.GetStructName()))
+			fieldsSourceMap[key] = append(fieldsSourceMap[key], reflectValue.FieldByName(field.StructName))
 		}
 	default:
 		if indirectScopeValue.IsValid() {
 			key := toString(getValueFromFields(foreignFieldNames, indirectScopeValue))
-			fieldsSourceMap[key] = append(fieldsSourceMap[key], indirectScopeValue.FieldByName(field.GetStructName()))
+			fieldsSourceMap[key] = append(fieldsSourceMap[key], indirectScopeValue.FieldByName(field.StructName))
 		}
 	}
 

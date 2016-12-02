@@ -5,7 +5,7 @@ import (
 )
 
 func TestScopes(t *testing.T) {
-	t.Log("128) TestScopes")
+	//t.Log("128) TestScopes")
 	user1 := User{Name: "ScopeUser1", Age: 1}
 	user2 := User{Name: "ScopeUser2", Age: 1}
 	user3 := User{Name: "ScopeUser3", Age: 2}

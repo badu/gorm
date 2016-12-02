@@ -7,7 +7,7 @@ import (
 )
 
 func TestUpdate(t *testing.T) {
-	t.Log("130) TestUpdate")
+	//t.Log("130) TestUpdate")
 	product1 := Product{Code: "product1code"}
 	product2 := Product{Code: "product2code"}
 
@@ -77,7 +77,7 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestUpdateWithNoStdPrimaryKeyAndDefaultValues(t *testing.T) {
-	t.Log("131) TestUpdateWithNoStdPrimaryKeyAndDefaultValues")
+	//t.Log("131) TestUpdateWithNoStdPrimaryKeyAndDefaultValues")
 	animal := Animal{Name: "Ferdinand"}
 	TestDB.Save(&animal)
 	updatedAt1 := animal.UpdatedAt
@@ -119,7 +119,7 @@ func TestUpdateWithNoStdPrimaryKeyAndDefaultValues(t *testing.T) {
 }
 
 func TestUpdates(t *testing.T) {
-	t.Log("132) TestUpdates")
+	//t.Log("132) TestUpdates")
 	product1 := Product{Code: "product1code", Price: 10}
 	product2 := Product{Code: "product2code", Price: 10}
 	TestDB.Save(&product1).Save(&product2)
@@ -169,7 +169,7 @@ func TestUpdates(t *testing.T) {
 }
 
 func TestUpdateColumn(t *testing.T) {
-	t.Log("133) TestUpdateColumn")
+	//t.Log("133) TestUpdateColumn")
 	product1 := Product{Code: "product1code", Price: 10}
 	product2 := Product{Code: "product2code", Price: 20}
 	TestDB.Save(&product1).Save(&product2).UpdateColumn(map[string]interface{}{"code": "product2newcode", "price": 100})
@@ -204,7 +204,7 @@ func TestUpdateColumn(t *testing.T) {
 }
 
 func TestSelectWithUpdate(t *testing.T) {
-	t.Log("134) TestSelectWithUpdate")
+	//t.Log("134) TestSelectWithUpdate")
 	user := getPreparedUser("select_user", "select_with_update")
 	TestDB.Create(user)
 
@@ -239,7 +239,7 @@ func TestSelectWithUpdate(t *testing.T) {
 }
 
 func TestSelectWithUpdateWithMap(t *testing.T) {
-	t.Log("135) TestSelectWithUpdateWithMap")
+	//t.Log("135) TestSelectWithUpdateWithMap")
 	user := getPreparedUser("select_user", "select_with_update_map")
 	TestDB.Create(user)
 
@@ -276,7 +276,7 @@ func TestSelectWithUpdateWithMap(t *testing.T) {
 }
 
 func TestOmitWithUpdate(t *testing.T) {
-	t.Log("136) TestOmitWithUpdate")
+	//t.Log("136) TestOmitWithUpdate")
 	user := getPreparedUser("omit_user", "omit_with_update")
 	TestDB.Create(user)
 
@@ -311,7 +311,7 @@ func TestOmitWithUpdate(t *testing.T) {
 }
 
 func TestOmitWithUpdateWithMap(t *testing.T) {
-	t.Log("137) TestOmitWithUpdateWithMap")
+	//t.Log("137) TestOmitWithUpdateWithMap")
 	user := getPreparedUser("select_user", "select_with_update_map")
 	TestDB.Create(user)
 
@@ -348,7 +348,7 @@ func TestOmitWithUpdateWithMap(t *testing.T) {
 }
 
 func TestSelectWithUpdateColumn(t *testing.T) {
-	t.Log("138) TestSelectWithUpdateColumn")
+	//t.Log("138) TestSelectWithUpdateColumn")
 	user := getPreparedUser("select_user", "select_with_update_map")
 	TestDB.Create(user)
 
@@ -367,7 +367,7 @@ func TestSelectWithUpdateColumn(t *testing.T) {
 }
 
 func TestOmitWithUpdateColumn(t *testing.T) {
-	t.Log("139) TestOmitWithUpdateColumn")
+	//t.Log("139) TestOmitWithUpdateColumn")
 	user := getPreparedUser("select_user", "select_with_update_map")
 	TestDB.Create(user)
 
@@ -386,7 +386,7 @@ func TestOmitWithUpdateColumn(t *testing.T) {
 }
 
 func TestUpdateColumnsSkipsAssociations(t *testing.T) {
-	t.Log("140) TestUpdateColumnsSkipsAssociations")
+	//t.Log("140) TestUpdateColumnsSkipsAssociations")
 	user := getPreparedUser("update_columns_user", "special_role")
 	user.Age = 99
 	address1 := "first street"
@@ -416,7 +416,7 @@ func TestUpdateColumnsSkipsAssociations(t *testing.T) {
 }
 
 func TestUpdatesWithBlankValues(t *testing.T) {
-	t.Log("141) TestUpdatesWithBlankValues")
+	//t.Log("141) TestUpdatesWithBlankValues")
 	product := Product{Code: "product1", Price: 10}
 	TestDB.Save(&product)
 
@@ -431,7 +431,7 @@ func TestUpdatesWithBlankValues(t *testing.T) {
 }
 
 func TestUpdatesTableWithIgnoredValues(t *testing.T) {
-	t.Log("142) TestUpdatesTableWithIgnoredValues")
+	//t.Log("142) TestUpdatesTableWithIgnoredValues")
 	elem := ElementWithIgnoredField{Value: "foo", IgnoredField: 10}
 	TestDB.Save(&elem)
 
@@ -452,7 +452,7 @@ func TestUpdatesTableWithIgnoredValues(t *testing.T) {
 }
 
 func TestUpdateDecodeVirtualAttributes(t *testing.T) {
-	t.Log("143) TestUpdateDecodeVirtualAttributes")
+	//t.Log("143) TestUpdateDecodeVirtualAttributes")
 	var user = User{
 		Name:     "jinzhu",
 		IgnoreMe: 88,

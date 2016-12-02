@@ -5,7 +5,7 @@ import (
 )
 
 func TestScannableSlices(t *testing.T) {
-	t.Log("127) TestScannableSlices")
+	//t.Log("127) TestScannableSlices")
 	if err := TestDB.AutoMigrate(&RecordWithSlice{}).Error; err != nil {
 		t.Errorf("Should create table with slice values correctly: %s", err)
 	}

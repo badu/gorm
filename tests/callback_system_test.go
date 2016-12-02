@@ -6,7 +6,7 @@ import (
 )
 
 func TestRegisterCallback(t *testing.T) {
-	t.Log("40) TestRegisterCallback")
+	//t.Log("40) TestRegisterCallback")
 	var callback = &gorm.Callback{}
 
 	callback.Create().Register("before_create1", beforeCreate1)
@@ -21,7 +21,7 @@ func TestRegisterCallback(t *testing.T) {
 }
 
 func TestRegisterCallbackWithOrder(t *testing.T) {
-	t.Log("41) TestRegisterCallbackWithOrder")
+	//t.Log("41) TestRegisterCallbackWithOrder")
 	var callback1 = &gorm.Callback{}
 	callback1.Create().Register("before_create1", beforeCreate1)
 	callback1.Create().Register("create", create)
@@ -45,7 +45,7 @@ func TestRegisterCallbackWithOrder(t *testing.T) {
 }
 
 func TestRegisterCallbackWithComplexOrder(t *testing.T) {
-	t.Log("42) TestRegisterCallbackWithComplexOrder")
+	//t.Log("42) TestRegisterCallbackWithComplexOrder")
 	var callback1 = &gorm.Callback{}
 
 	callback1.Query().Before("after_create1").After("before_create1").Register("create", create)
@@ -70,7 +70,7 @@ func TestRegisterCallbackWithComplexOrder(t *testing.T) {
 }
 
 func TestReplaceCallback(t *testing.T) {
-	t.Log("43) TestReplaceCallback")
+	//t.Log("43) TestReplaceCallback")
 	var callback = &gorm.Callback{}
 
 	callback.Create().Before("after_create1").After("before_create1").Register("create", create)
@@ -84,7 +84,7 @@ func TestReplaceCallback(t *testing.T) {
 }
 
 func TestRemoveCallback(t *testing.T) {
-	t.Log("44) TestRemoveCallback")
+	//t.Log("44) TestRemoveCallback")
 	var callback = &gorm.Callback{}
 
 	callback.Create().Before("after_create1").After("before_create1").Register("create", create)

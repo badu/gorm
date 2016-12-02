@@ -5,7 +5,7 @@ import (
 )
 
 func TestJoinTable(t *testing.T) {
-	t.Log("68) TestJoinTable")
+	//t.Log("68) TestJoinTable")
 
 	TestDB.Exec("drop table person_addresses;")
 	TestDB.AutoMigrate(&Person{})

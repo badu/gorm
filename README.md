@@ -1,8 +1,28 @@
+## Overview
+
+* Full-Featured ORM (almost)
+* Associations (Has One, Has Many, Belongs To, Many To Many, Polymorphism)
+* Callbacks (Before/After Create/Save/Update/Delete/Find)
+* Preloading (eager loading)
+* Transactions
+* Composite Primary Key
+* SQL Builder
+* Auto Migrations
+* Logger
+* Extendable, write Plugins based on GORM callbacks
+* Every feature comes with tests
+* Developer Friendly
+
+## Getting Started
+
+* GORM Guides [jinzhu.github.com/gorm](http://jinzhu.github.io/gorm)
+
 # Todo
 - [ ] Debug SQL string even when it fails 
 - [ ] Documentation for tests and build examples
 - [ ] Relationships should be kept by ModelStruct (to accept many)
 - [ ] Generated SQL let's the SQL engine cast : SELECT * FROM aTable WHERE id = '1' (id being int). I think it's a bad practice and it should be fixed
+- [ ] Integrate "Skip order sql when quering with distinct" commit of original
 
 # Comments and thoughts 
 - As a general idea on golang projects : "fail fast" type of logic is the best approach
@@ -20,6 +40,9 @@
 - Removed MSSQL support - out of my concerns with this project
 
 # Changes log
+
+## 02.12.2016
+- [x] tag settings are kept only if they have values - flags are set in parent StructField
 
 ## 30.11.2016
 - [x] Simplify reflections

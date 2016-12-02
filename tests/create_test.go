@@ -8,7 +8,7 @@ import (
 )
 
 func TestCreate(t *testing.T) {
-	t.Log("47) TestCreate")
+	//t.Log("47) TestCreate")
 	float := 35.03554004971999
 	now := time.Now()
 	user := User{Name: "CreateUser", Age: 18, Birthday: &now, UserNum: Num(111), PasswordHash: []byte{'f', 'a', 'k', '4'}, Latitude: float}
@@ -60,7 +60,7 @@ func TestCreate(t *testing.T) {
 }
 
 func TestCreateWithAutoIncrement(t *testing.T) {
-	t.Log("48) TestCreateWithAutoIncrement")
+	//t.Log("48) TestCreateWithAutoIncrement")
 	if dialect := os.Getenv("GORM_DIALECT"); dialect != "postgres" {
 		t.Skip("Skipping this because only postgres properly support auto_increment on a non-primary_key column")
 	}
@@ -76,7 +76,7 @@ func TestCreateWithAutoIncrement(t *testing.T) {
 }
 
 func TestCreateWithNoGORMPrimayKey(t *testing.T) {
-	t.Log("49) TestCreateWithNoGORMPrimayKey")
+	//t.Log("49) TestCreateWithNoGORMPrimayKey")
 	if dialect := os.Getenv("GORM_DIALECT"); dialect == "mssql" {
 		t.Skip("Skipping this because MSSQL will return identity only if the table has an Id column")
 	}
@@ -89,7 +89,7 @@ func TestCreateWithNoGORMPrimayKey(t *testing.T) {
 }
 
 func TestCreateWithNoStdPrimaryKeyAndDefaultValues(t *testing.T) {
-	t.Log("50) TestCreateWithNoStdPrimaryKeyAndDefaultValues")
+	//t.Log("50) TestCreateWithNoStdPrimaryKeyAndDefaultValues")
 	animal := Animal{Name: "Ferdinand"}
 	if TestDB.Save(&animal).Error != nil {
 		t.Errorf("No error should happen when create a record without std primary key")
@@ -121,7 +121,7 @@ func TestCreateWithNoStdPrimaryKeyAndDefaultValues(t *testing.T) {
 }
 
 func TestAnonymousScanner(t *testing.T) {
-	t.Log("51) TestAnonymousScanner")
+	//t.Log("51) TestAnonymousScanner")
 	user := User{Name: "anonymous_scanner", Role: Role{Name: "admin"}}
 	TestDB.Save(&user)
 
@@ -137,7 +137,7 @@ func TestAnonymousScanner(t *testing.T) {
 }
 
 func TestAnonymousField(t *testing.T) {
-	t.Log("52) TestAnonymousField")
+	//t.Log("52) TestAnonymousField")
 	user := User{Name: "anonymous_field", Company: Company{Name: "company"}}
 	TestDB.Save(&user)
 
@@ -150,7 +150,7 @@ func TestAnonymousField(t *testing.T) {
 }
 
 func TestSelectWithCreate(t *testing.T) {
-	t.Log("53) TestSelectWithCreate")
+	//t.Log("53) TestSelectWithCreate")
 	user := getPreparedUser("select_user", "select_with_create")
 	TestDB.Select("Name", "BillingAddress", "CreditCard", "Company", "Emails").Create(user)
 
@@ -169,7 +169,7 @@ func TestSelectWithCreate(t *testing.T) {
 }
 
 func TestOmitWithCreate(t *testing.T) {
-	t.Log("54) TestOmitWithCreate")
+	//t.Log("54) TestOmitWithCreate")
 	user := getPreparedUser("omit_user", "omit_with_create")
 	TestDB.Omit("Name", "BillingAddress", "CreditCard", "Company", "Emails").Create(user)
 
