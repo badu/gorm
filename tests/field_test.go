@@ -6,8 +6,7 @@ import (
 	"gorm"
 )
 
-func TestCalculateField(t *testing.T) {
-	//t.Log("67) TestCalculateField")
+func DoCalculateField(t *testing.T) {
 	var field CalculateField
 	var scope = TestDB.NewScope(&field)
 	if field, ok := scope.FieldByName("Children"); !ok || field.Relationship == nil {

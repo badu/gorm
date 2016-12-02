@@ -2,15 +2,14 @@ package tests
 
 import (
 	"fmt"
+	"gorm"
 	"os"
 	"reflect"
 	"sort"
 	"testing"
-	"gorm"
 )
 
-func TestSkipSaveAssociation(t *testing.T) {
-	//t.Log("FEATURE : TestSkipSaveAssociation")
+func SkipSaveAssociation(t *testing.T) {
 	type Company struct {
 		gorm.Model
 		Name string
@@ -31,8 +30,7 @@ func TestSkipSaveAssociation(t *testing.T) {
 	}
 }
 
-func TestBelongsTo(t *testing.T) {
-	//t.Log("25) TestBelongsTo")
+func BelongsTo(t *testing.T) {
 	post := Post{
 		Title:        "post belongs to",
 		Body:         "body belongs to",
@@ -202,8 +200,7 @@ func TestBelongsTo(t *testing.T) {
 	}
 }
 
-func TestBelongsToOverrideForeignKey1(t *testing.T) {
-	//t.Log("26) TestBelongsToOverrideForeignKey1")
+func BelongsToOverrideForeignKey1(t *testing.T) {
 	type Profile struct {
 		gorm.Model
 		Name string
@@ -224,8 +221,7 @@ func TestBelongsToOverrideForeignKey1(t *testing.T) {
 	}
 }
 
-func TestBelongsToOverrideForeignKey2(t *testing.T) {
-	//t.Log("27) TestBelongsToOverrideForeignKey2")
+func BelongsToOverrideForeignKey2(t *testing.T) {
 	type Profile struct {
 		gorm.Model
 		Refer string
@@ -247,8 +243,7 @@ func TestBelongsToOverrideForeignKey2(t *testing.T) {
 	}
 }
 
-func TestHasOne(t *testing.T) {
-	//t.Log("28) TestHasOne")
+func HasOne(t *testing.T) {
 	user := User{
 		Name:       "has one",
 		CreditCard: CreditCard{Number: "411111111111"},
@@ -394,8 +389,7 @@ func TestHasOne(t *testing.T) {
 	}
 }
 
-func TestHasOneOverrideForeignKey1(t *testing.T) {
-	//t.Log("29) TestHasOneOverrideForeignKey1")
+func HasOneOverrideForeignKey1(t *testing.T) {
 	type Profile struct {
 		gorm.Model
 		Name      string
@@ -416,8 +410,7 @@ func TestHasOneOverrideForeignKey1(t *testing.T) {
 	}
 }
 
-func TestHasOneOverrideForeignKey2(t *testing.T) {
-	//t.Log("30) TestHasOneOverrideForeignKey2")
+func HasOneOverrideForeignKey2(t *testing.T) {
 	type Profile struct {
 		gorm.Model
 		Name   string
@@ -439,8 +432,7 @@ func TestHasOneOverrideForeignKey2(t *testing.T) {
 	}
 }
 
-func TestHasMany(t *testing.T) {
-	//t.Log("31) TestHasMany")
+func HasMany(t *testing.T) {
 	post := Post{
 		Title:    "post has many",
 		Body:     "body has many",
@@ -580,8 +572,7 @@ func TestHasMany(t *testing.T) {
 	}
 }
 
-func TestHasManyOverrideForeignKey1(t *testing.T) {
-	//t.Log("32) TestHasManyOverrideForeignKey1")
+func HasManyOverrideForeignKey1(t *testing.T) {
 	type Profile struct {
 		gorm.Model
 		Name      string
@@ -602,8 +593,7 @@ func TestHasManyOverrideForeignKey1(t *testing.T) {
 	}
 }
 
-func TestHasManyOverrideForeignKey2(t *testing.T) {
-	//t.Log("33) TestHasManyOverrideForeignKey2")
+func HasManyOverrideForeignKey2(t *testing.T) {
 	type Profile struct {
 		gorm.Model
 		Name   string
@@ -625,8 +615,7 @@ func TestHasManyOverrideForeignKey2(t *testing.T) {
 	}
 }
 
-func TestManyToMany(t *testing.T) {
-	//t.Log("34) TestManyToMany")
+func ManyToMany(t *testing.T) {
 	TestDB.Raw("delete from languages")
 	var languages = []Language{{Name: "ZH"}, {Name: "EN"}}
 	user := User{Name: "Many2Many", Languages: languages}
@@ -754,8 +743,7 @@ func TestManyToMany(t *testing.T) {
 	}
 }
 
-func TestRelated(t *testing.T) {
-	//t.Log("35) TestRelated")
+func Related(t *testing.T) {
 	user := User{
 		Name:            "jinzhu",
 		BillingAddress:  Address{Address1: "Billing Address - Address 1"},
@@ -842,8 +830,7 @@ func TestRelated(t *testing.T) {
 	}
 }
 
-func TestForeignKey(t *testing.T) {
-	//t.Log("36) TestForeignKey")
+func ForeignKey(t *testing.T) {
 	for _, structField := range TestDB.NewScope(&User{}).GetModelStruct().StructFields() {
 		for _, foreignKey := range []string{"BillingAddressID", "ShippingAddressId", "CompanyID"} {
 			if structField.StructName == foreignKey && !structField.IsForeignKey() {
@@ -900,18 +887,15 @@ func testForeignKey(t *testing.T, source interface{}, sourceFieldName string, ta
 	}
 }
 
-func TestLongForeignKey(t *testing.T) {
-	//t.Log("37) TestLongForeignKey")
+func LongForeignKey(t *testing.T) {
 	testForeignKey(t, &NotSoLongTableName{}, "ReallyLongThingID", &ReallyLongTableNameToTestMySQLNameLengthLimit{}, "ID")
 }
 
-func TestLongForeignKeyWithShortDest(t *testing.T) {
-	//t.Log("38) TestLongForeignKeyWithShortDest")
+func LongForeignKeyWithShortDest(t *testing.T) {
 	testForeignKey(t, &ReallyLongThingThatReferencesShort{}, "ShortID", &Short{}, "ID")
 }
 
-func TestHasManyChildrenWithOneStruct(t *testing.T) {
-	//t.Log("39) TestHasManyChildrenWithOneStruct")
+func HasManyChildrenWithOneStruct(t *testing.T) {
 	category := Category{
 		Name: "main",
 		Categories: []Category{

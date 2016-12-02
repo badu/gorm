@@ -1,13 +1,12 @@
 package tests
 
 import (
+	"gorm"
 	"reflect"
 	"testing"
-	"gorm"
 )
 
-func TestCloneSearch(t *testing.T) {
-	//t.Log("129) TestCloneSearch")
+func CloneSearch(t *testing.T) {
 	s := &gorm.Search{Conditions: make(gorm.SqlConditions)}
 	s.Where("name = ?", "jinzhu").Order("name").Attrs("name", "jinzhu").Select("name, age")
 

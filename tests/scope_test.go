@@ -4,8 +4,7 @@ import (
 	"testing"
 )
 
-func TestScopes(t *testing.T) {
-	//t.Log("128) TestScopes")
+func Scopes(t *testing.T) {
 	user1 := User{Name: "ScopeUser1", Age: 1}
 	user2 := User{Name: "ScopeUser2", Age: 1}
 	user3 := User{Name: "ScopeUser3", Age: 2}

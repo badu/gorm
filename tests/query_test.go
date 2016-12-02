@@ -4,13 +4,12 @@ import (
 	"fmt"
 	"reflect"
 
+	"gorm"
 	"testing"
 	"time"
-	"gorm"
 )
 
-func TestFirstAndLast(t *testing.T) {
-	//t.Log("105) TestFirstAndLast")
+func FirstAndLast(t *testing.T) {
 	TestDB.Save(&User{Name: "user1", Emails: []Email{{Email: "user1@example.com"}}})
 	TestDB.Save(&User{Name: "user2", Emails: []Email{{Email: "user2@example.com"}}})
 
@@ -41,8 +40,7 @@ func TestFirstAndLast(t *testing.T) {
 	}
 }
 
-func TestFirstAndLastWithNoStdPrimaryKey(t *testing.T) {
-	//t.Log("106) TestFirstAndLastWithNoStdPrimaryKey")
+func FirstAndLastWithNoStdPrimaryKey(t *testing.T) {
 	TestDB.Save(&Animal{Name: "animal1"})
 	TestDB.Save(&Animal{Name: "animal2"})
 
@@ -58,8 +56,7 @@ func TestFirstAndLastWithNoStdPrimaryKey(t *testing.T) {
 	}
 }
 
-func TestFirstAndLastWithRaw(t *testing.T) {
-	//t.Log("Test fix #1214 : db.Raw().First() makes wrong SQL")
+func FirstAndLastWithRaw(t *testing.T) {
 	user1 := User{Name: "user", Emails: []Email{{Email: "user1@example.com"}}}
 	user2 := User{Name: "user", Emails: []Email{{Email: "user2@example.com"}}}
 	TestDB.Save(&user1)
@@ -77,8 +74,7 @@ func TestFirstAndLastWithRaw(t *testing.T) {
 	}
 }
 
-func TestUIntPrimaryKey(t *testing.T) {
-	//t.Log("107) TestUIntPrimaryKey")
+func UIntPrimaryKey(t *testing.T) {
 	var animal Animal
 	TestDB.First(&animal, uint64(1))
 	if animal.Counter != 1 {
@@ -91,8 +87,7 @@ func TestUIntPrimaryKey(t *testing.T) {
 	}
 }
 
-func TestStringPrimaryKeyForNumericValueStartingWithZero(t *testing.T) {
-	//t.Log("108) TestStringPrimaryKeyForNumericValueStartingWithZero")
+func StringPrimaryKeyForNumericValueStartingWithZero(t *testing.T) {
 	type AddressByZipCode struct {
 		ZipCode string `gorm:"primary_key"`
 		Address string
@@ -108,8 +103,7 @@ func TestStringPrimaryKeyForNumericValueStartingWithZero(t *testing.T) {
 	}
 }
 
-func TestFindAsSliceOfPointers(t *testing.T) {
-	//t.Log("109) TestFindAsSliceOfPointers")
+func FindAsSliceOfPointers(t *testing.T) {
 	TestDB.Save(&User{Name: "user"})
 
 	var users []User
@@ -123,8 +117,7 @@ func TestFindAsSliceOfPointers(t *testing.T) {
 	}
 }
 
-func TestSearchWithPlainSQL(t *testing.T) {
-	//t.Log("110) TestSearchWithPlainSQL")
+func SearchWithPlainSQL(t *testing.T) {
 	user1 := User{Name: "PlainSqlUser1", Age: 1, Birthday: parseTime("2000-1-1")}
 	user2 := User{Name: "PlainSqlUser2", Age: 10, Birthday: parseTime("2010-1-1")}
 	user3 := User{Name: "PlainSqlUser3", Age: 20, Birthday: parseTime("2020-1-1")}
@@ -198,8 +191,7 @@ func TestSearchWithPlainSQL(t *testing.T) {
 	}
 }
 
-func TestSearchWithStruct(t *testing.T) {
-	//t.Log("111) TestSearchWithStruct")
+func SearchWithStruct(t *testing.T) {
 	user1 := User{Name: "StructSearchUser1", Age: 1, Birthday: parseTime("2000-1-1")}
 	user2 := User{Name: "StructSearchUser2", Age: 10, Birthday: parseTime("2010-1-1")}
 	user3 := User{Name: "StructSearchUser3", Age: 20, Birthday: parseTime("2020-1-1")}
@@ -245,8 +237,7 @@ func TestSearchWithStruct(t *testing.T) {
 	}
 }
 
-func TestSearchWithMap(t *testing.T) {
-	//t.Log("112) TestSearchWithMap")
+func SearchWithMap(t *testing.T) {
 	companyID := 1
 	user1 := User{Name: "MapSearchUser1", Age: 1, Birthday: parseTime("2000-1-1")}
 	user2 := User{Name: "MapSearchUser2", Age: 10, Birthday: parseTime("2010-1-1")}
@@ -293,8 +284,7 @@ func TestSearchWithMap(t *testing.T) {
 	}
 }
 
-func TestSearchWithEmptyChain(t *testing.T) {
-	//t.Log("113) TestSearchWithEmptyChain")
+func SearchWithEmptyChain(t *testing.T) {
 	user1 := User{Name: "ChainSearchUser1", Age: 1, Birthday: parseTime("2000-1-1")}
 	user2 := User{Name: "ChainearchUser2", Age: 10, Birthday: parseTime("2010-1-1")}
 	user3 := User{Name: "ChainearchUser3", Age: 20, Birthday: parseTime("2020-1-1")}
@@ -313,8 +303,7 @@ func TestSearchWithEmptyChain(t *testing.T) {
 	}
 }
 
-func TestSelect(t *testing.T) {
-	//t.Log("114) TestSelect")
+func Select(t *testing.T) {
 	user1 := User{Name: "SelectUser1"}
 	TestDB.Save(&user1)
 
@@ -329,8 +318,7 @@ func TestSelect(t *testing.T) {
 	}
 }
 
-func TestOrderAndPluck(t *testing.T) {
-	//t.Log("115) TestOrderAndPluck")
+func OrderAndPluck(t *testing.T) {
 	user1 := User{Name: "OrderPluckUser1", Age: 1}
 	user2 := User{Name: "OrderPluckUser2", Age: 10}
 	user3 := User{Name: "OrderPluckUser3", Age: 20}
@@ -375,8 +363,7 @@ func TestOrderAndPluck(t *testing.T) {
 	TestDB.Model(User{}).Select("name, age").Find(&[]User{})
 }
 
-func TestLimit(t *testing.T) {
-	//t.Log("116) TestLimit")
+func Limit(t *testing.T) {
 	user1 := User{Name: "LimitUser1", Age: 1}
 	user2 := User{Name: "LimitUser2", Age: 10}
 	user3 := User{Name: "LimitUser3", Age: 20}
@@ -392,8 +379,7 @@ func TestLimit(t *testing.T) {
 	}
 }
 
-func TestOffset(t *testing.T) {
-	//t.Log("117) TestOffset")
+func Offset(t *testing.T) {
 	for i := 0; i < 20; i++ {
 		TestDB.Save(&User{Name: fmt.Sprintf("OffsetUser%v", i)})
 	}
@@ -405,8 +391,7 @@ func TestOffset(t *testing.T) {
 	}
 }
 
-func TestOr(t *testing.T) {
-	//t.Log("118) TestOr")
+func Or(t *testing.T) {
 	user1 := User{Name: "OrUser1", Age: 1}
 	user2 := User{Name: "OrUser2", Age: 10}
 	user3 := User{Name: "OrUser3", Age: 20}
@@ -419,8 +404,7 @@ func TestOr(t *testing.T) {
 	}
 }
 
-func TestCount(t *testing.T) {
-	//t.Log("119) TestCount")
+func Count(t *testing.T) {
 	user1 := User{Name: "CountUser1", Age: 1}
 	user2 := User{Name: "CountUser2", Age: 10}
 	user3 := User{Name: "CountUser3", Age: 20}
@@ -443,8 +427,7 @@ func TestCount(t *testing.T) {
 	}
 }
 
-func TestNot(t *testing.T) {
-	//t.Log("120) TestNot")
+func Not(t *testing.T) {
 	TestDB.Unscoped().Delete(User{})
 	TestDB.Create(getPreparedUser("user1", "not"))
 	TestDB.Create(getPreparedUser("user2", "not"))
@@ -459,21 +442,18 @@ func TestNot(t *testing.T) {
 	if rowsAffected != 4 {
 		t.Errorf("should find 4 `not` users")
 	} else {
-		//t.Logf("Found %d users", rowsAffected)
 	}
 	TestDB.Not(users1[0].Id).Find(&users2)
 
 	if len(users1)-len(users2) != 1 {
 		t.Errorf("Should ignore the first users with Not")
 	} else {
-		//t.Logf("Correct")
 	}
 
 	TestDB.Not([]int{}).Find(&users3)
 	if len(users1)-len(users3) != 0 {
 		t.Errorf("Should find all users with a blank condition")
 	} else {
-		//t.Logf("Correct")
 	}
 
 	var name3Count int64
@@ -482,21 +462,18 @@ func TestNot(t *testing.T) {
 	if len(users1)-len(users4) != int(name3Count) {
 		t.Errorf("Should find all users's name not equal 3")
 	} else {
-		//t.Logf("Correct")
 	}
 
 	TestDB.Not("name = ?", "user3").Find(&users4)
 	if len(users1)-len(users4) != int(name3Count) {
 		t.Errorf("Should find all users's name not equal 3")
 	} else {
-		//t.Logf("Correct")
 	}
 
 	TestDB.Not("name <> ?", "user3").Find(&users4)
 	if len(users4) != int(name3Count) {
 		t.Errorf("Should find all users's name not equal 3")
 	} else {
-		//t.Logf("Correct")
 	}
 
 	TestDB.Not(User{Name: "user3"}).Find(&users5)
@@ -504,28 +481,24 @@ func TestNot(t *testing.T) {
 	if len(users1)-len(users5) != int(name3Count) {
 		t.Errorf("Should find all users's name not equal 3")
 	} else {
-		//t.Logf("Correct")
 	}
 
 	TestDB.Not(map[string]interface{}{"name": "user3"}).Find(&users6)
 	if len(users1)-len(users6) != int(name3Count) {
 		t.Errorf("Should find all users's name not equal 3")
 	} else {
-		//t.Logf("Correct")
 	}
 
 	TestDB.Not(map[string]interface{}{"name": "user3", "company_id": nil}).Find(&users7)
 	if len(users1)-len(users7) != 2 { // not user3 or user4
 		t.Errorf("Should find all user's name not equal to 3 who do not have company id")
 	} else {
-		//t.Logf("Correct")
 	}
 
 	TestDB.Not("name", []string{"user3"}).Find(&users8)
 	if len(users1)-len(users8) != int(name3Count) {
 		t.Errorf("Should find all users's name not equal 3")
 	} else {
-		//t.Logf("Correct")
 	}
 
 	var name2Count int64
@@ -534,14 +507,10 @@ func TestNot(t *testing.T) {
 	if len(users1)-len(users9) != (int(name3Count) + int(name2Count)) {
 		t.Errorf("Should find all users's name not equal 3")
 	} else {
-		//t.Logf("Correct")
 	}
-	//t.Log("120) TestNot FINISHED")
-
 }
 
-func TestFillSmallerStruct(t *testing.T) {
-	//t.Log("121) TestFillSmallerStruct")
+func FillSmallerStruct(t *testing.T) {
 	user1 := User{Name: "SmallerUser", Age: 100}
 	TestDB.Save(&user1)
 	type SimpleUser struct {
@@ -559,8 +528,7 @@ func TestFillSmallerStruct(t *testing.T) {
 	}
 }
 
-func TestFindOrInitialize(t *testing.T) {
-	//t.Log("122) TestFindOrInitialize")
+func FindOrInitialize(t *testing.T) {
 	var user1, user2, user3, user4, user5, user6 User
 	TestDB.Where(&User{Name: "find or init", Age: 33}).FirstOrInit(&user1)
 	if user1.Name != "find or init" || user1.Id != 0 || user1.Age != 33 {
@@ -604,8 +572,7 @@ func TestFindOrInitialize(t *testing.T) {
 	}
 }
 
-func TestFindOrCreate(t *testing.T) {
-	//t.Log("123) TestFindOrCreate")
+func FindOrCreate(t *testing.T) {
 	var user1, user2, user3, user4, user5, user6, user7, user8 User
 	TestDB.Where(&User{Name: "find or create", Age: 33}).FirstOrCreate(&user1)
 	if user1.Name != "find or create" || user1.Id == 0 || user1.Age != 33 {
@@ -663,8 +630,7 @@ func TestFindOrCreate(t *testing.T) {
 	}
 }
 
-func TestSelectWithEscapedFieldName(t *testing.T) {
-	//t.Log("124) TestSelectWithEscapedFieldName")
+func SelectWithEscapedFieldName(t *testing.T) {
 	user1 := User{Name: "EscapedFieldNameUser", Age: 1}
 	user2 := User{Name: "EscapedFieldNameUser", Age: 10}
 	user3 := User{Name: "EscapedFieldNameUser", Age: 20}
@@ -678,8 +644,7 @@ func TestSelectWithEscapedFieldName(t *testing.T) {
 	}
 }
 
-func TestSelectWithVariables(t *testing.T) {
-	//t.Log("125) TestSelectWithVariables")
+func SelectWithVariables(t *testing.T) {
 	TestDB.Save(&User{Name: "jinzhu"})
 
 	rows, _ := TestDB.Table("users").Select("? as fake", gorm.SqlExpr("name")).Rows()
@@ -696,8 +661,7 @@ func TestSelectWithVariables(t *testing.T) {
 	rows.Close()
 }
 
-func TestSelectWithArrayInput(t *testing.T) {
-	//t.Log("126) TestSelectWithArrayInput")
+func SelectWithArrayInput(t *testing.T) {
 	TestDB.Save(&User{Name: "jinzhu", Age: 42})
 
 	var user User

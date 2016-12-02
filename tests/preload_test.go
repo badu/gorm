@@ -2,14 +2,13 @@ package tests
 
 import (
 	"database/sql"
+	"gorm"
 	"os"
 	"reflect"
 	"testing"
-	"gorm"
 )
 
-func TestPreload(t *testing.T) {
-	//t.Log("78) TestPreload")
+func Preload(t *testing.T) {
 	user1 := getPreloadUser("user1")
 	TestDB.Save(user1)
 
@@ -55,8 +54,7 @@ func TestPreload(t *testing.T) {
 	}
 }
 
-func TestNestedPreload1(t *testing.T) {
-	//t.Log("79) TestNestedPreload1")
+func NestedPreload1(t *testing.T) {
 	type (
 		Level1 struct {
 			ID       uint
@@ -100,8 +98,7 @@ func TestNestedPreload1(t *testing.T) {
 	}
 }
 
-func TestNestedPreload2(t *testing.T) {
-	//t.Log("80) TestNestedPreload2")
+func NestedPreload2(t *testing.T) {
 	type (
 		Level1 struct {
 			ID       uint
@@ -156,8 +153,7 @@ func TestNestedPreload2(t *testing.T) {
 	}
 }
 
-func TestNestedPreload3(t *testing.T) {
-	//t.Log("81) TestNestedPreload3")
+func NestedPreload3(t *testing.T) {
 	type (
 		Level1 struct {
 			ID       uint
@@ -203,8 +199,7 @@ func TestNestedPreload3(t *testing.T) {
 	}
 }
 
-func TestNestedPreload4(t *testing.T) {
-	//t.Log("82) TestNestedPreload4")
+func NestedPreload4(t *testing.T) {
 	type (
 		Level1 struct {
 			ID       uint
@@ -253,8 +248,7 @@ func TestNestedPreload4(t *testing.T) {
 }
 
 // Slice: []Level3
-func TestNestedPreload5(t *testing.T) {
-	//t.Log("86) TestNestedPreload5")
+func NestedPreload5(t *testing.T) {
 	type (
 		Level1 struct {
 			ID       uint
@@ -300,8 +294,7 @@ func TestNestedPreload5(t *testing.T) {
 	}
 }
 
-func TestNestedPreload6(t *testing.T) {
-	//t.Log("87) TestNestedPreload6")
+func NestedPreload6(t *testing.T) {
 	type (
 		Level1 struct {
 			ID       uint
@@ -376,8 +369,7 @@ func TestNestedPreload6(t *testing.T) {
 	}
 }
 
-func TestNestedPreload7(t *testing.T) {
-	//t.Log("88) TestNestedPreload7")
+func NestedPreload7(t *testing.T) {
 	type (
 		Level1 struct {
 			ID       uint
@@ -434,8 +426,7 @@ func TestNestedPreload7(t *testing.T) {
 	}
 }
 
-func TestNestedPreload8(t *testing.T) {
-	//t.Log("89) TestNestedPreload8")
+func NestedPreload8(t *testing.T) {
 	type (
 		Level1 struct {
 			ID       uint
@@ -495,8 +486,7 @@ func TestNestedPreload8(t *testing.T) {
 	}
 }
 
-func TestNestedPreload9(t *testing.T) {
-	//t.Log("90) TestNestedPreload9")
+func NestedPreload9(t *testing.T) {
 	type (
 		Level0 struct {
 			ID       uint
@@ -595,8 +585,7 @@ func TestNestedPreload9(t *testing.T) {
 	}
 }
 
-func TestNestedPreload10(t *testing.T) {
-	//t.Log("91) TestNestedPreload10")
+func NestedPreload10(t *testing.T) {
 	TestDB.DropTableIfExists(&LevelA3{})
 	TestDB.DropTableIfExists(&LevelA2{})
 	TestDB.DropTableIfExists(&LevelA1{})
@@ -641,8 +630,7 @@ func TestNestedPreload10(t *testing.T) {
 	}
 }
 
-func TestNestedPreload11(t *testing.T) {
-	//t.Log("92) TestNestedPreload11")
+func NestedPreload11(t *testing.T) {
 	TestDB.DropTableIfExists(&LevelB2{})
 	TestDB.DropTableIfExists(&LevelB3{})
 	TestDB.DropTableIfExists(&LevelB1{})
@@ -675,8 +663,7 @@ func TestNestedPreload11(t *testing.T) {
 	}
 }
 
-func TestNestedPreload12(t *testing.T) {
-	//t.Log("93) TestNestedPreload12")
+func NestedPreload12(t *testing.T) {
 	TestDB.DropTableIfExists(&LevelC2{})
 	TestDB.DropTableIfExists(&LevelC3{})
 	TestDB.DropTableIfExists(&LevelC1{})
@@ -718,8 +705,7 @@ func TestNestedPreload12(t *testing.T) {
 	}
 }
 
-func TestManyToManyPreloadWithMultiPrimaryKeys(t *testing.T) {
-	//t.Log("94) TestManyToManyPreloadWithMultiPrimaryKeys")
+func ManyToManyPreloadWithMultiPrimaryKeys(t *testing.T) {
 	if dialect := os.Getenv("GORM_DIALECT"); dialect == "" || dialect == "sqlite" {
 		return
 	}
@@ -810,8 +796,7 @@ func TestManyToManyPreloadWithMultiPrimaryKeys(t *testing.T) {
 	}
 }
 
-func TestManyToManyPreloadForNestedPointer(t *testing.T) {
-	//t.Log("95) TestManyToManyPreloadForNestedPointer")
+func ManyToManyPreloadForNestedPointer(t *testing.T) {
 	type (
 		Level1 struct {
 			ID    uint
@@ -914,8 +899,7 @@ func TestManyToManyPreloadForNestedPointer(t *testing.T) {
 	}
 }
 
-func TestNestedManyToManyPreload(t *testing.T) {
-	//t.Log("96) TestNestedManyToManyPreload")
+func NestedManyToManyPreload(t *testing.T) {
 	type (
 		Level1 struct {
 			ID    uint
@@ -980,8 +964,7 @@ func TestNestedManyToManyPreload(t *testing.T) {
 	}
 }
 
-func TestNestedManyToManyPreload2(t *testing.T) {
-	//t.Log("97) TestNestedManyToManyPreload TWO")
+func NestedManyToManyPreload2(t *testing.T) {
 	type (
 		Level1 struct {
 			ID    uint
@@ -1038,8 +1021,7 @@ func TestNestedManyToManyPreload2(t *testing.T) {
 	}
 }
 
-func TestNestedManyToManyPreload3(t *testing.T) {
-	//t.Log("98) TestNestedManyToManyPreload3")
+func NestedManyToManyPreload3(t *testing.T) {
 	type (
 		Level1 struct {
 			ID    uint
@@ -1114,8 +1096,7 @@ func TestNestedManyToManyPreload3(t *testing.T) {
 	}
 }
 
-func TestNestedManyToManyPreload3ForStruct(t *testing.T) {
-	//t.Log("99) TestNestedManyToManyPreload3ForStruct")
+func NestedManyToManyPreload3ForStruct(t *testing.T) {
 	type (
 		Level1 struct {
 			ID    uint
@@ -1190,8 +1171,7 @@ func TestNestedManyToManyPreload3ForStruct(t *testing.T) {
 	}
 }
 
-func TestNestedManyToManyPreload4(t *testing.T) {
-	//t.Log("100) TestNestedManyToManyPreload4")
+func NestedManyToManyPreload4(t *testing.T) {
 	type (
 		Level4 struct {
 			ID       uint
@@ -1249,8 +1229,7 @@ func TestNestedManyToManyPreload4(t *testing.T) {
 	}
 }
 
-func TestManyToManyPreloadForPointer(t *testing.T) {
-	//t.Log("101) TestManyToManyPreloadForPointer")
+func ManyToManyPreloadForPointer(t *testing.T) {
 	type (
 		Level1 struct {
 			ID    uint
@@ -1334,8 +1313,7 @@ func TestManyToManyPreloadForPointer(t *testing.T) {
 	}
 }
 
-func TestNilPointerSlice(t *testing.T) {
-	//t.Log("102) TestNilPointerSlice")
+func NilPointerSlice(t *testing.T) {
 	type (
 		Level3 struct {
 			ID    uint
@@ -1402,8 +1380,7 @@ func TestNilPointerSlice(t *testing.T) {
 	}
 }
 
-func TestNilPointerSlice2(t *testing.T) {
-	//t.Log("103) TestNilPointerSlice2")
+func NilPointerSlice2(t *testing.T) {
 	type (
 		Level4 struct {
 			ID uint
@@ -1449,8 +1426,7 @@ func TestNilPointerSlice2(t *testing.T) {
 	}
 }
 
-func TestPrefixedPreloadDuplication(t *testing.T) {
-	//t.Log("104) TestPrefixedPreloadDuplication")
+func PrefixedPreloadDuplication(t *testing.T) {
 	type (
 		Level4 struct {
 			ID       uint

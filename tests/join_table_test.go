@@ -4,9 +4,7 @@ import (
 	"testing"
 )
 
-func TestJoinTable(t *testing.T) {
-	//t.Log("68) TestJoinTable")
-
+func DoJoinTable(t *testing.T) {
 	TestDB.Exec("drop table person_addresses;")
 	TestDB.AutoMigrate(&Person{})
 	TestDB.SetJoinTableHandler(&Person{}, "Addresses", &PersonAddress{})

@@ -5,8 +5,7 @@ import (
 	"testing"
 )
 
-func TestManyToManyWithMultiPrimaryKeys(t *testing.T) {
-	//t.Log("72) TestManyToManyWithMultiPrimaryKeys")
+func ManyToManyWithMultiPrimaryKeys(t *testing.T) {
 	if dialect := os.Getenv("GORM_DIALECT"); dialect != "" && dialect != "sqlite" {
 		TestDB.DropTable(&Blog{}, &Tag{})
 		TestDB.DropTable("blog_tags")
@@ -90,8 +89,7 @@ func TestManyToManyWithMultiPrimaryKeys(t *testing.T) {
 	}
 }
 
-func TestManyToManyWithCustomizedForeignKeys(t *testing.T) {
-	//t.Log("73) TestManyToManyWithCustomizedForeignKeys")
+func ManyToManyWithCustomizedForeignKeys(t *testing.T) {
 	if dialect := os.Getenv("GORM_DIALECT"); dialect != "" && dialect != "sqlite" {
 		TestDB.DropTable(&Blog{}, &Tag{})
 		TestDB.DropTable("shared_blog_tags")
@@ -208,8 +206,7 @@ func TestManyToManyWithCustomizedForeignKeys(t *testing.T) {
 	}
 }
 
-func TestManyToManyWithCustomizedForeignKeys2(t *testing.T) {
-	//t.Log("74) TestManyToManyWithCustomizedForeignKeys2")
+func ManyToManyWithCustomizedForeignKeys2(t *testing.T) {
 	if dialect := os.Getenv("GORM_DIALECT"); dialect != "" && dialect != "sqlite" {
 		TestDB.DropTable(&Blog{}, &Tag{})
 		TestDB.DropTable("locale_blog_tags")

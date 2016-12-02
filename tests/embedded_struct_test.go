@@ -2,8 +2,7 @@ package tests
 
 import "testing"
 
-func TestPrefixColumnNameForEmbeddedStruct(t *testing.T) {
-	//t.Log("65) TestPrefixColumnNameForEmbeddedStruct")
+func PrefixColumnNameForEmbeddedStruct(t *testing.T) {
 	TestDB.NewScope(&EngadgetPost{})
 	dialect := TestDB.Dialect()
 	if !dialect.HasColumn(TestDB.NewScope(&EngadgetPost{}).TableName(), "author_name") || !dialect.HasColumn(TestDB.NewScope(&EngadgetPost{}).TableName(), "author_email") {
@@ -15,8 +14,7 @@ func TestPrefixColumnNameForEmbeddedStruct(t *testing.T) {
 	}
 }
 
-func TestSaveAndQueryEmbeddedStruct(t *testing.T) {
-	//t.Log("66) TestSaveAndQueryEmbeddedStruct")
+func SaveAndQueryEmbeddedStruct(t *testing.T) {
 	TestDB.Save(&HNPost{BasePost: BasePost{Title: "news"}})
 	TestDB.Save(&HNPost{BasePost: BasePost{Title: "hn_news"}})
 	var news HNPost

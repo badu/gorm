@@ -6,8 +6,7 @@ import (
 	"time"
 )
 
-func TestIndexes(t *testing.T) {
-	//t.Log("69) TestIndexes")
+func Indexes(t *testing.T) {
 	if err := TestDB.Model(&Email{}).AddIndex("idx_email_email", "email").Error; err != nil {
 		t.Errorf("Got error when tried to create index: %+v", err)
 	}
@@ -76,8 +75,7 @@ func TestIndexes(t *testing.T) {
 	}
 }
 
-func TestAutoMigration(t *testing.T) {
-	//t.Log("70) TestAutoMigration")
+func AutoMigration(t *testing.T) {
 	TestDB.AutoMigrate(&Address{})
 	if err := TestDB.Table("emails").AutoMigrate(&BigEmail{}).Error; err != nil {
 		t.Errorf("Auto Migrate should not raise any error")
@@ -102,8 +100,7 @@ func TestAutoMigration(t *testing.T) {
 	}
 }
 
-func TestMultipleIndexes(t *testing.T) {
-	//t.Log("71) TestMultipleIndexes")
+func DoMultipleIndexes(t *testing.T) {
 	if err := TestDB.DropTableIfExists(&MultipleIndexes{}).Error; err != nil {
 		fmt.Printf("Got error when try to delete table multiple_indexes, %+v\n", err)
 	}

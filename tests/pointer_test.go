@@ -2,8 +2,8 @@ package tests
 
 import "testing"
 
-func TestPointerFields(t *testing.T) {
-	//t.Log("75) TestPointerFields")
+func PointerFields(t *testing.T) {
+
 	TestDB.DropTable(&PointerStruct{})
 	TestDB.AutoMigrate(&PointerStruct{})
 	var name = "pointer struct 1"

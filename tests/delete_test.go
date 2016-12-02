@@ -5,8 +5,7 @@ import (
 	"time"
 )
 
-func TestDelete(t *testing.T) {
-	//t.Log("62) TestDelete")
+func DoDelete(t *testing.T) {
 	user1, user2 := User{Name: "delete1"}, User{Name: "delete2"}
 	TestDB.Save(&user1)
 	TestDB.Save(&user2)
@@ -24,8 +23,7 @@ func TestDelete(t *testing.T) {
 	}
 }
 
-func TestInlineDelete(t *testing.T) {
-	//t.Log("63) TestInlineDelete")
+func InlineDelete(t *testing.T) {
 	user1, user2 := User{Name: "inline_delete1"}, User{Name: "inline_delete2"}
 	TestDB.Save(&user1)
 	TestDB.Save(&user2)
@@ -43,8 +41,7 @@ func TestInlineDelete(t *testing.T) {
 	}
 }
 
-func TestSoftDelete(t *testing.T) {
-	//t.Log("64) TestSoftDelete")
+func SoftDelete(t *testing.T) {
 	type User struct {
 		Id        int64
 		Name      string
