@@ -25,7 +25,7 @@
 - [ ] Integrate "Skip order sql when quering with distinct" commit of original
 - [ ] get rid of Scope "fields" so you can remove cloneFieldsToScope
 - [ ] simplify Relationship - having two pointers to StructField (source, target)
-- [ ] make slice of Relationship in ModelStruct and remove it from StructField 
+- [ ] make slice of Relationship in ModelStruct and remove it from StructField
 
 # Comments and thoughts 
 - As a general idea on golang projects : "fail fast" type of logic is the best approach
@@ -43,6 +43,9 @@
 - Removed MSSQL support - out of my concerns with this project
 
 # Changes log
+
+## 03.12.2016
+
 
 ## 02.12.2016
 - [x] tag settings are kept only if they have values - flags are set in parent StructField

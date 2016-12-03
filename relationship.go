@@ -12,6 +12,8 @@ const (
 	afk_field_not_found_warn  string = "rel [%q]: association foreign key field %q not found on model struct %q"
 	length_err                string = "rel [%q]: invalid foreign keys, should have same length"
 	poly_type                 string = "Type"
+	has_no_foreign_key        string = "rel : field has no foreign key setting"
+	has_no_association_key    string = "rel : field has no association key setting"
 )
 
 func (r *Relationship) Poly(field *StructField, toModel *ModelStruct, fromScope, toScope *Scope) string {
@@ -62,7 +64,12 @@ func (r *Relationship) ManyToMany(field *StructField,
 			foreignKeys.add(pk.DBName)
 		}
 	} else {
-		foreignKeys = field.getForeignKeys()
+		if field.HasSetting(FOREIGNKEY) {
+			foreignKeys.commaLoad(field.GetSetting(FOREIGNKEY))
+		} else {
+			errMsg := fmt.Sprintf(has_no_foreign_key, "Many2Many")
+			fromScope.Warn(errMsg)
+		}
 	}
 
 	if !field.HasSetting(ASSOCIATIONFOREIGNKEY) {
@@ -71,7 +78,12 @@ func (r *Relationship) ManyToMany(field *StructField,
 			associationForeignKeys.add(pk.DBName)
 		}
 	} else {
-		associationForeignKeys = field.getAssocForeignKeys()
+		if field.tagSettings.has(ASSOCIATIONFOREIGNKEY) {
+			associationForeignKeys.commaLoad(field.tagSettings.get(ASSOCIATIONFOREIGNKEY))
+		} else {
+			errMsg := fmt.Sprintf(has_no_association_key, "Many2Many")
+			fromScope.Warn(errMsg)
+		}
 	}
 
 	for _, fk := range foreignKeys {
@@ -241,7 +253,12 @@ func (r *Relationship) collectFKsAndAFKs(field *StructField,
 				associationForeignKeys.add(pk.StructName)
 			}
 		} else {
-			associationForeignKeys = field.getAssocForeignKeys()
+			if field.tagSettings.has(ASSOCIATIONFOREIGNKEY) {
+				associationForeignKeys.commaLoad(field.tagSettings.get(ASSOCIATIONFOREIGNKEY))
+			} else {
+				errMsg := fmt.Sprintf(has_no_association_key, "collectFKsAndAFKs")
+				scope.Warn(errMsg)
+			}
 			// generate foreign keys from defined association foreign keys
 			for _, afk := range associationForeignKeys {
 				if fkField, ok := model.FieldByName(afk); ok {
@@ -258,7 +275,12 @@ func (r *Relationship) collectFKsAndAFKs(field *StructField,
 			}
 		}
 	} else {
-		foreignKeys = field.getForeignKeys()
+		if field.HasSetting(FOREIGNKEY) {
+			foreignKeys.commaLoad(field.GetSetting(FOREIGNKEY))
+		} else {
+			errMsg := fmt.Sprintf(has_no_foreign_key, "collectFKsAndAFKs")
+			scope.Warn(errMsg)
+		}
 		// generate association foreign keys from foreign keys
 		if !field.HasSetting(ASSOCIATIONFOREIGNKEY) {
 			for _, fk := range foreignKeys {
@@ -280,7 +302,12 @@ func (r *Relationship) collectFKsAndAFKs(field *StructField,
 				associationForeignKeys = StrSlice{scope.PKName()}
 			}
 		} else {
-			associationForeignKeys = field.getAssocForeignKeys()
+			if field.tagSettings.has(ASSOCIATIONFOREIGNKEY) {
+				associationForeignKeys.commaLoad(field.tagSettings.get(ASSOCIATIONFOREIGNKEY))
+			} else {
+				errMsg := fmt.Sprintf(has_no_association_key, "collectFKsAndAFKs")
+				scope.Warn(errMsg)
+			}
 			if foreignKeys.len() != associationForeignKeys.len() {
 				scope.Err(errors.New(length_err))
 				return nil, nil
@@ -305,7 +332,7 @@ func (r Relationship) String() string {
 		vKind = "Many_To_Many"
 	}
 	collector.add("\t%s = %s (%d)\n", "Kind", vKind, r.Kind)
-	if r.PolymorphicType!="" {
+	if r.PolymorphicType != "" {
 		collector.add("\t%s = %q\n", "Poly type", r.PolymorphicType)
 		collector.add("\t%s = %q\n", "Poly value", r.PolymorphicValue)
 	}

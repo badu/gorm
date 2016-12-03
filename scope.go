@@ -82,7 +82,27 @@ func (scope *Scope) Warn(v ...interface{}) {
 // Fields get value's fields from ModelStruct
 func (scope *Scope) Fields() StructFields {
 	if scope.fields == nil {
-		scope.fields = scope.GetModelStruct().cloneFieldsToScope(IndirectValue(scope.Value))
+		var (
+			result        StructFields
+			modelStruct   = scope.GetModelStruct()
+			scopeValue    = IndirectValue(scope.Value)
+			scopeIsStruct = scopeValue.Kind() == reflect.Struct
+		)
+		for _, field := range modelStruct.fieldsMap.fields {
+			if scopeIsStruct {
+				fieldValue := scopeValue
+				for _, name := range field.Names {
+					fieldValue = reflect.Indirect(fieldValue).FieldByName(name)
+				}
+				clonedField := field.cloneWithValue(fieldValue)
+				result.add(clonedField)
+			} else {
+				clonedField := field.clone()
+				clonedField.SetIsBlank()
+				result.add(clonedField)
+			}
+		}
+		scope.fields = &result
 	}
 	return *scope.fields
 }

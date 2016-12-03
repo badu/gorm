@@ -448,22 +448,6 @@ func (field *StructField) checkIsBlank() {
 	}
 }
 
-func (field *StructField) getForeignKeys() StrSlice {
-	var result StrSlice
-	if field.tagSettings.has(FOREIGNKEY) {
-		result.commaLoad(field.tagSettings.get(FOREIGNKEY))
-	}
-	return result
-}
-
-func (field *StructField) getAssocForeignKeys() StrSlice {
-	var result StrSlice
-	if field.tagSettings.has(ASSOCIATIONFOREIGNKEY) {
-		result.commaLoad(field.tagSettings.get(ASSOCIATIONFOREIGNKEY))
-	}
-	return result
-}
-
 func (field *StructField) setFlag(value uint8) {
 	field.flags = field.flags | (1 << value)
 }
@@ -475,7 +459,13 @@ func (field *StructField) unsetFlag(value uint8) {
 //implementation of Stringer
 func (field StructField) String() string {
 	var collector Collector
-	collector.add("%s = %q\n", "Name", field.DBName)
+	namesNo := len(field.Names)
+	if namesNo == 1{
+		collector.add("%s %q [%d %s]\n", "Name:", field.DBName, namesNo, "name")
+	}else{
+		collector.add("%s %q [%d %s]\n", "Name:", field.DBName, namesNo, "names")
+	}
+
 	for _, n := range field.Names {
 		collector.add("\t%s = %q\n", "names", n)
 	}

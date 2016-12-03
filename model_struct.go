@@ -59,7 +59,7 @@ func (modelStruct *ModelStruct) Create(reflectType reflect.Type, scope *Scope) {
 	modelStruct.ModelType = reflectType
 	modelStruct.fieldsMap = fieldsMap{
 		aliases: make(map[string]*StructField),
-		l:  new(sync.RWMutex),
+		l:       new(sync.RWMutex),
 	}
 
 	//implements tabler?
@@ -136,26 +136,6 @@ func (modelStruct *ModelStruct) noOfPKs() int {
 	return modelStruct.cachedPrimaryFields.len()
 }
 
-func (modelStruct *ModelStruct) cloneFieldsToScope(indirectScopeValue reflect.Value) *StructFields {
-	var result StructFields
-	//Badu : can't use copy, we need to clone
-	for _, structField := range modelStruct.fieldsMap.fields {
-		if indirectScopeValue.Kind() == reflect.Struct {
-			fieldValue := indirectScopeValue
-			for _, name := range structField.Names {
-				fieldValue = reflect.Indirect(fieldValue).FieldByName(name)
-			}
-			clonedField := structField.cloneWithValue(fieldValue)
-			result.add(clonedField)
-		} else {
-			clonedField := structField.clone()
-			clonedField.SetIsBlank()
-			result.add(clonedField)
-		}
-	}
-	return &result
-}
-
 func (modelStruct *ModelStruct) processRelations(scope *Scope) {
 	for _, field := range modelStruct.StructFields() {
 		if field.HasRelations() {
@@ -164,19 +144,26 @@ func (modelStruct *ModelStruct) processRelations(scope *Scope) {
 			toModelStruct := toScope.GetModelStruct()
 			//ATTN : order matters, since it can be both slice and struct
 			if field.IsSlice() {
-				if field.Type.Kind() == reflect.Struct {
+				if field.IsStruct() {
+					//it's a slice of structs
 					if field.HasSetting(MANY2MANY) {
+						//many to many
 						relationship.ManyToMany(field, modelStruct, scope, toScope)
 					} else {
+						//has many
 						relationship.HasMany(field, modelStruct, toModelStruct, scope, toScope)
 					}
 				} else {
+					//it's a slice of primitive
 					field.SetIsNormal()
 
 				}
 			} else if field.IsStruct() {
+				//it's a struct - attempt to check if has one
 				if !relationship.HasOne(field, modelStruct, toModelStruct, scope, toScope) {
+					//attempt to check if belongs to
 					if !relationship.BelongTo(field, modelStruct, toModelStruct, scope, toScope) {
+						//Oops, neither
 						errMsg := fmt.Errorf(no_belong_or_hasone_err, modelStruct.ModelType.Name(), field.DBName, field.StructName)
 						scope.Warn(errMsg)
 					}
