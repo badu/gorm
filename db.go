@@ -682,7 +682,7 @@ func (con *DBCon) Association(column string) *Association {
 		err = errors.New("primary key can't be nil")
 	} else {
 		if field, ok := scope.FieldByName(column); ok {
-			if field.Relationship == nil || field.Relationship.ForeignFieldNames.len() == 0 {
+			if !field.HasRelations() || field.Relationship.ForeignFieldNames.len() == 0 {
 				err = fmt.Errorf("invalid association %v for %v", column, IndirectValue(scope.Value).Type())
 			} else {
 				return &Association{scope: scope, column: column, field: field}

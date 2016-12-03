@@ -7,7 +7,7 @@ import (
 
 //used in autoMigrate and createTable
 func createJoinTable(scope *Scope, field *StructField) {
-	if relationship := field.Relationship; relationship != nil && relationship.JoinTableHandler != nil {
+	if relationship := field.Relationship; relationship.JoinTableHandler != nil {
 		joinTableHandler := relationship.JoinTableHandler
 		joinTable := joinTableHandler.Table(scope.con)
 		//because we're using it in a for, we're getting it once
@@ -80,8 +80,9 @@ func createTable(scope *Scope) {
 		if field.IsPrimaryKey() {
 			primaryKeys = append(primaryKeys, Quote(field.DBName, dialect))
 		}
-
-		createJoinTable(scope, field)
+		if field.HasRelations() {
+			createJoinTable(scope, field)
+		}
 	}
 
 	if len(primaryKeys) > 0 && !primaryKeyInColumnType {
@@ -159,7 +160,9 @@ func autoMigrate(scope *Scope) {
 					).Exec()
 				}
 			}
-			createJoinTable(scope, field)
+			if field.HasRelations() {
+				createJoinTable(scope, field)
+			}
 		}
 		autoIndex(scope)
 	}

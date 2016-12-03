@@ -45,7 +45,10 @@
 # Changes log
 
 ## 03.12.2016
-
+- [x] Warning for relationship
+- [x] Unset field flag, so we can use HasRelations() instead of checking for relationship == nil (HAS_RELATIONS)
+- [x] test/types.go
+- [x] checking field.HasRelations() - instead of checking for relationship == nil 
 
 ## 02.12.2016
 - [x] tag settings are kept only if they have values - flags are set in parent StructField

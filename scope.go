@@ -549,13 +549,13 @@ func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
 			return scope
 		}
 
-		relationship := fromField.Relationship
 		//fail fast - relationship is nil
-		if relationship == nil {
+		if !fromField.HasRelations() {
 			aStr := fmt.Sprintf("%v = ?", Quote(toScope.PKName(), dialect))
 			scope.Err(toScope.con.Where(aStr, fromField.Value.Interface()).Find(value).Error)
 			return scope
 		}
+		relationship := fromField.Relationship
 		//now, fail fast is over
 		switch relationship.Kind {
 		case MANY_TO_MANY:
@@ -635,8 +635,8 @@ func (scope *Scope) saveFieldAsAssociation(field *StructField) (bool, *Relations
 			return false, nil
 		}
 	}
-	if relationship := field.Relationship; relationship != nil {
-		return true, relationship
+	if field.HasRelations() {
+		return true, field.Relationship
 	}
 
 	return false, nil
@@ -754,9 +754,8 @@ func (scope *Scope) createCallback() *Scope {
 					placeholders.add(scope.Search.addToVars(field.Value.Interface(), dialect))
 				}
 			} else {
-				relationship := field.Relationship
-				if relationship != nil && relationship.Kind == BELONGS_TO {
-					for _, foreignKey := range relationship.ForeignDBNames {
+				if field.HasRelations() && field.Relationship.Kind == BELONGS_TO {
+					for _, foreignKey := range field.Relationship.ForeignDBNames {
 						foreignField, ok := scope.FieldByName(foreignKey)
 						if ok && !scope.Search.changeableField(foreignField) {
 							columns.add(Quote(foreignField.DBName, dialect))
@@ -1145,9 +1144,8 @@ func (scope *Scope) updateCallback() *Scope {
 						),
 					)
 				} else {
-					relationship := field.Relationship
-					if relationship != nil && relationship.Kind == BELONGS_TO {
-						for _, foreignKey := range relationship.ForeignDBNames {
+					if field.HasRelations() && field.Relationship.Kind == BELONGS_TO {
+						for _, foreignKey := range field.Relationship.ForeignDBNames {
 							foreignField, ok := scope.FieldByName(foreignKey)
 							if ok && !scope.Search.changeableField(foreignField) {
 								sqls = append(sqls,

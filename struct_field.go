@@ -245,6 +245,10 @@ func (field *StructField) SetIsForeignKey() {
 	field.setFlag(IS_FOREIGNKEY)
 }
 
+func (field *StructField) UnsetHasRelations() {
+	field.unsetFlag(HAS_RELATIONS)
+}
+
 //gets a key (for code readability)
 func (field *StructField) HasSetting(named uint8) bool {
 	return field.tagSettings.has(named)
@@ -528,7 +532,7 @@ func (field StructField) String() string {
 		collector.add("%s = %s\n", "Type:", field.Type.String())
 	}
 	collector.add("%s = %s\n", "Value:", field.Value.String())
-	if field.Relationship != nil {
+	if field.HasRelations(){
 		collector.add("%s\n%s", "Relationship:", field.Relationship)
 	}
 	return collector.String()

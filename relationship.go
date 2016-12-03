@@ -12,8 +12,9 @@ const (
 	afk_field_not_found_warn  string = "rel [%q]: association foreign key field %q not found on model struct %q"
 	length_err                string = "rel [%q]: invalid foreign keys, should have same length"
 	poly_type                 string = "Type"
-	has_no_foreign_key        string = "rel : field has no foreign key setting"
-	has_no_association_key    string = "rel : field has no association key setting"
+	has_no_foreign_key        string = "rel [%q]: field has no foreign key setting"
+	has_no_association_key    string = "rel [%q]: field has no association key setting"
+	bad_relationship          string = "rel [%q]: bad relationship (zero length)"
 )
 
 func (r *Relationship) Poly(field *StructField, toModel *ModelStruct, fromScope, toScope *Scope) string {
@@ -153,6 +154,9 @@ func (r *Relationship) HasMany(field *StructField,
 
 	if r.ForeignFieldNames.len() != 0 {
 		field.Relationship = r
+	} else {
+		errMsg := fmt.Sprintf(bad_relationship, "HasMany")
+		toScope.Warn(errMsg)
 	}
 }
 

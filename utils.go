@@ -59,14 +59,16 @@ func QuoteIfPossible(str string, dialect Dialect) string {
 //using inline advantage
 // QuotedTableName return quoted table name
 func QuotedTableName(scope *Scope) string {
-	if scope.Search != nil && scope.Search.tableName != "" {
-		if strings.Index(scope.Search.tableName, " ") != -1 {
-			return scope.Search.tableName
-		}
-		return Quote(scope.Search.tableName, scope.con.parent.dialect)
+	//fail fast
+	if scope.Search == nil || scope.Search.tableName == "" {
+		return Quote(scope.TableName(), scope.con.parent.dialect)
 	}
 
-	return Quote(scope.TableName(), scope.con.parent.dialect)
+	if strings.Index(scope.Search.tableName, " ") != -1 {
+		return scope.Search.tableName
+	}
+
+	return Quote(scope.Search.tableName, scope.con.parent.dialect)
 }
 
 //using inline advantage

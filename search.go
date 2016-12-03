@@ -869,7 +869,7 @@ func (s *Search) doPreload(scope *Scope) {
 				}
 
 				for _, field := range currentFields {
-					if field.StructName != preloadField || field.Relationship == nil {
+					if field.StructName != preloadField || !field.HasRelations() {
 						continue
 					}
 
@@ -910,7 +910,6 @@ func (s *Search) doPreload(scope *Scope) {
 
 // handleRelationPreload to preload has one, has many and belongs to associations
 func handleRelationPreload(scope *Scope, field *StructField, conditions []interface{}) {
-
 	var (
 		indirectScopeValue = IndirectValue(scope.Value)
 		relation           = field.Relationship
@@ -1035,8 +1034,7 @@ func handleRelationPreload(scope *Scope, field *StructField, conditions []interf
 // handleManyToManyPreload used to preload many to many associations
 func handleManyToManyPreload(scope *Scope, field *StructField, conditions []interface{}) {
 	var (
-		relation           = field.Relationship
-		joinTableHandler   = relation.JoinTableHandler
+		joinTableHandler   = field.Relationship.JoinTableHandler
 		fieldType, isPtr   = field.Type, field.IsPointer()
 		foreignKeyValue    interface{}
 		foreignKeyType     = reflect.ValueOf(&foreignKeyValue).Type()
@@ -1110,7 +1108,7 @@ func handleManyToManyPreload(scope *Scope, field *StructField, conditions []inte
 
 	// assign find results
 
-	for _, dbName := range relation.ForeignFieldNames {
+	for _, dbName := range field.Relationship.ForeignFieldNames {
 		if field, ok := scope.FieldByName(dbName); ok {
 			foreignFieldNames.add(field.StructName)
 		}

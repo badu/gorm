@@ -170,6 +170,12 @@ func (modelStruct *ModelStruct) processRelations(scope *Scope) {
 				}
 			}
 		}
+		//unsetting the flag, so we can use HasRelations() instead of checking for relationship == nil
+		if field.Relationship == nil {
+			errMsg := fmt.Errorf(bad_relationship, "ModelStruct")
+			scope.Warn(errMsg)
+			field.UnsetHasRelations()
+		}
 	}
 }
 

@@ -124,7 +124,6 @@ func (association *Association) Replace(values ...interface{}) *Association {
 				association.setErr(relationship.JoinTableHandler.Delete(relationship.JoinTableHandler, conn, relationship))
 			}
 		case HAS_ONE, HAS_MANY:
-
 			// Delete Relations except new created
 			if len(values) > 0 {
 				var assocFKNames, assocDBNames StrSlice
