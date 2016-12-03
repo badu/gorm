@@ -70,8 +70,8 @@ type (
 		AssociationForeignFieldNames StrSlice
 		AssociationForeignDBNames    StrSlice
 		JoinTableHandler             JoinTableHandlerInterface
-		//source                       *StructField
-		//destination                  *StructField
+		source                       *StructField
+		destination                  *StructField
 	}
 
 	strCase bool
@@ -90,7 +90,7 @@ type (
 		cachedPrimaryFields StructFields //collected from fields.fields, so we won't iterate all the time
 		ModelType           reflect.Type
 		defaultTableName    string
-		//relations           []*Relationship
+		relations           []*Relationship
 	}
 
 	// Scope contain current operation's information when you perform any operation on the database

@@ -101,19 +101,9 @@ func NewStructField(fromStruct reflect.StructField) (*StructField, error) {
 		if !result.IsIgnored() && result.IsScanner() {
 			for i := 0; i < result.Type.NumField(); i++ {
 				result.parseTagSettings(result.Type.Field(i).Tag)
-				/**
-				tag := result.Type.Field(i).Tag
-				for _, str := range []string{tag.Get(TAG_SQL), tag.Get(TAG_GORM)} {
-					err := result.tagSettings.loadFromTags(result, str)
-					if err != nil {
-						return nil, err
-					}
-				}
-				**/
 			}
 		}
 	}
-
 	if !result.IsIgnored() && !result.IsScanner() && !result.IsTime() && !result.IsEmbedOrAnon() {
 		if result.IsSlice() {
 			result.setFlag(HAS_RELATIONS) //marker for later processing of relationships

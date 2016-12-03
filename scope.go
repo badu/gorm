@@ -75,8 +75,7 @@ func (scope *Scope) Log(v ...interface{}) {
 }
 
 func (scope *Scope) Warn(v ...interface{}) {
-	//TODO : @Badu - uncomment when needed
-	//scope.con.warnLog(v...)
+	scope.con.warnLog(v...)
 }
 
 // Fields get value's fields from ModelStruct

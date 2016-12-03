@@ -7,14 +7,14 @@ import (
 )
 
 const (
-	poly_field_not_found_warn string = "rel : polymorphic field %q not found on model struct %q"
-	fk_field_not_found_warn   string = "rel [%q]: foreign key field %q not found on model struct %q"
-	afk_field_not_found_warn  string = "rel [%q]: association foreign key field %q not found on model struct %q"
+	poly_field_not_found_warn string = "\nrel : polymorphic field %q not found on model struct %q"
+	fk_field_not_found_warn   string = "\nrel [%q]: foreign key field %q not found on model struct %q pointed by %q [%q]"
+	afk_field_not_found_warn  string = "\nrel [%q]: association foreign key field %q not found on model struct %q"
 	length_err                string = "rel [%q]: invalid foreign keys, should have same length"
 	poly_type                 string = "Type"
-	has_no_foreign_key        string = "rel [%q]: field has no foreign key setting"
-	has_no_association_key    string = "rel [%q]: field has no association key setting"
-	bad_relationship          string = "rel [%q]: bad relationship (zero length)"
+	has_no_foreign_key        string = "\nrel [%q]: field has no foreign key setting"
+	has_no_association_key    string = "\nrel [%q]: field has no association key setting"
+	bad_relationship          string = "\nrel [%q]: bad relationship (zero length) %q::%q [%q]"
 )
 
 func (r *Relationship) Poly(field *StructField, toModel *ModelStruct, fromScope, toScope *Scope) string {
@@ -79,8 +79,8 @@ func (r *Relationship) ManyToMany(field *StructField,
 			associationForeignKeys.add(pk.DBName)
 		}
 	} else {
-		if field.tagSettings.has(ASSOCIATIONFOREIGNKEY) {
-			associationForeignKeys.commaLoad(field.tagSettings.get(ASSOCIATIONFOREIGNKEY))
+		if field.HasSetting(ASSOCIATIONFOREIGNKEY) {
+			associationForeignKeys.commaLoad(field.GetSetting(ASSOCIATIONFOREIGNKEY))
 		} else {
 			errMsg := fmt.Sprintf(has_no_association_key, "Many2Many")
 			fromScope.Warn(errMsg)
@@ -94,7 +94,7 @@ func (r *Relationship) ManyToMany(field *StructField,
 			// join table foreign keys for source
 			r.ForeignDBNames.add(modelName + "_" + fkField.DBName)
 		} else {
-			errMsg := fmt.Sprintf(fk_field_not_found_warn, "Many2Many", fk, fromModel.ModelType.Name())
+			errMsg := fmt.Sprintf(fk_field_not_found_warn, "Many2Many", fk, fromModel.ModelType.Name(), field.StructName, toScope.GetModelStruct().ModelType.Name())
 			toScope.Warn(errMsg)
 		}
 	}
@@ -147,7 +147,7 @@ func (r *Relationship) HasMany(field *StructField,
 				toScope.Warn(errMsg)
 			}
 		} else {
-			errMsg := fmt.Sprintf(fk_field_not_found_warn, "HasMany", foreignKey, fromModel.ModelType.Name())
+			errMsg := fmt.Sprintf(fk_field_not_found_warn, "HasMany", foreignKey, fromModel.ModelType.Name(), field.StructName, toModel.ModelType.Name())
 			toScope.Warn(errMsg)
 		}
 	}
@@ -155,7 +155,7 @@ func (r *Relationship) HasMany(field *StructField,
 	if r.ForeignFieldNames.len() != 0 {
 		field.Relationship = r
 	} else {
-		errMsg := fmt.Sprintf(bad_relationship, "HasMany")
+		errMsg := fmt.Sprintf(bad_relationship, "HasMany", fromModel.ModelType.Name(), field.DBName, field.StructName)
 		toScope.Warn(errMsg)
 	}
 }
@@ -174,21 +174,21 @@ func (r *Relationship) HasOne(field *StructField,
 
 	for idx, foreignKey := range foreignKeys {
 		if foreignField, ok := toModel.FieldByName(foreignKey); ok {
-			if scopeField, ok := fromModel.FieldByName(associationForeignKeys[idx]); ok {
+			if assocField, ok := fromModel.FieldByName(associationForeignKeys[idx]); ok {
 				foreignField.SetIsForeignKey()
 				// source foreign keys
-				r.AssociationForeignFieldNames.add(scopeField.StructName)
-				r.AssociationForeignDBNames.add(scopeField.DBName)
+				r.AssociationForeignFieldNames.add(assocField.StructName)
+				r.AssociationForeignDBNames.add(assocField.DBName)
 
 				// association foreign keys
 				r.ForeignFieldNames.add(foreignField.StructName)
 				r.ForeignDBNames.add(foreignField.DBName)
 			} else {
-				errMsg := fmt.Sprintf(afk_field_not_found_warn, "HasOne fromModel", associationForeignKeys[idx], fromModel.ModelType.Name())
+				errMsg := fmt.Sprintf(afk_field_not_found_warn, "HasOne[1]", associationForeignKeys[idx], fromModel.ModelType.Name())
 				toScope.Warn(errMsg)
 			}
 		} else {
-			errMsg := fmt.Sprintf(fk_field_not_found_warn, "HasOne toModel", foreignKey, fromModel.ModelType.Name())
+			errMsg := fmt.Sprintf(fk_field_not_found_warn, "HasOne[2]", foreignKey, toModel.ModelType.Name(), field.StructName, toModel.ModelType.Name())
 			toScope.Warn(errMsg)
 		}
 	}
@@ -224,7 +224,7 @@ func (r *Relationship) BelongTo(field *StructField,
 				toScope.Warn(errMsg)
 			}
 		} else {
-			errMsg := fmt.Sprintf(fk_field_not_found_warn, "BelongTo", foreignKey, fromModel.ModelType.Name())
+			errMsg := fmt.Sprintf(fk_field_not_found_warn, "BelongTo", foreignKey, toModel.ModelType.Name(), field.StructName, fromModel.ModelType.Name())
 			toScope.Warn(errMsg)
 		}
 	}
@@ -257,8 +257,8 @@ func (r *Relationship) collectFKsAndAFKs(field *StructField,
 				associationForeignKeys.add(pk.StructName)
 			}
 		} else {
-			if field.tagSettings.has(ASSOCIATIONFOREIGNKEY) {
-				associationForeignKeys.commaLoad(field.tagSettings.get(ASSOCIATIONFOREIGNKEY))
+			if field.HasSetting(ASSOCIATIONFOREIGNKEY) {
+				associationForeignKeys.commaLoad(field.GetSetting(ASSOCIATIONFOREIGNKEY))
 			} else {
 				errMsg := fmt.Sprintf(has_no_association_key, "collectFKsAndAFKs")
 				scope.Warn(errMsg)
@@ -297,7 +297,7 @@ func (r *Relationship) collectFKsAndAFKs(field *StructField,
 					if _, ok := model.FieldByName(afk); ok {
 						associationForeignKeys.add(afk)
 					} else {
-						errMsg := fmt.Sprintf(fk_field_not_found_warn, "collectFKsAndAFKs", afk, model.ModelType.Name())
+						errMsg := fmt.Sprintf(fk_field_not_found_warn, "collectFKsAndAFKs", afk, model.ModelType.Name(), field.StructName, modelName)
 						scope.Warn(errMsg)
 					}
 				}
@@ -306,8 +306,8 @@ func (r *Relationship) collectFKsAndAFKs(field *StructField,
 				associationForeignKeys = StrSlice{scope.PKName()}
 			}
 		} else {
-			if field.tagSettings.has(ASSOCIATIONFOREIGNKEY) {
-				associationForeignKeys.commaLoad(field.tagSettings.get(ASSOCIATIONFOREIGNKEY))
+			if field.HasSetting(ASSOCIATIONFOREIGNKEY) {
+				associationForeignKeys.commaLoad(field.GetSetting(ASSOCIATIONFOREIGNKEY))
 			} else {
 				errMsg := fmt.Sprintf(has_no_association_key, "collectFKsAndAFKs")
 				scope.Warn(errMsg)
@@ -355,6 +355,12 @@ func (r Relationship) String() string {
 	}
 	if r.JoinTableHandler != nil {
 		collector.add("\t\thas JoinTableHandler.\n")
+	}
+	if r.source != nil{
+
+	}
+	if r.destination != nil{
+
 	}
 	return collector.String()
 }
