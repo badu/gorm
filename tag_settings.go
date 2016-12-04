@@ -17,12 +17,14 @@ const (
 	EMBEDDED_PREFIX         uint8 = 8
 	FOREIGNKEY              uint8 = 9
 	ASSOCIATIONFOREIGNKEY   uint8 = 10
-	POLYMORPHIC             uint8 = 11
-	POLYMORPHIC_VALUE       uint8 = 12
-	COLUMN                  uint8 = 13
-	TYPE                    uint8 = 14
-	UNIQUE                  uint8 = 15
-	SAVE_ASSOCIATIONS       uint8 = 16
+	COLUMN                  uint8 = 11
+	TYPE                    uint8 = 12
+	UNIQUE                  uint8 = 13
+	SAVE_ASSOCIATIONS       uint8 = 14
+	POLYMORPHIC             uint8 = 15
+	POLYMORPHIC_VALUE       uint8 = 16 //was both PolymorphicValue in Relationship struct, and also collected from tags
+	POLYMORPHIC_TYPE        uint8 = 17 //was PolymorphicType in Relationship struct
+	POLYMORPHIC_DBNAME      uint8 = 18 //was PolymorphicDBName in Relationship struct
 
 	key_not_found_err       string = "TagSetting : COULDN'T FIND KEY FOR %q ON %q"
 	auto_increment          string = "AUTO_INCREMENT"
@@ -83,7 +85,7 @@ func reverseTagSettingsMap() map[uint8]string {
 
 //returns a clone of tag settings (used in cloning StructField)
 func (t *TagSettings) clone() TagSettings {
-	clone := TagSettings{Uint8Map: make(map[uint8]string), l: new(sync.RWMutex)}
+	clone := TagSettings{Uint8Map: make(map[uint8]interface{}), l: new(sync.RWMutex)}
 	for key, value := range t.Uint8Map {
 		clone.Uint8Map[key] = value
 	}
@@ -91,7 +93,7 @@ func (t *TagSettings) clone() TagSettings {
 }
 
 //adds a key to the settings map
-func (t *TagSettings) set(named uint8, value string) {
+func (t *TagSettings) set(named uint8, value interface{}) {
 	t.l.Lock()
 	defer t.l.Unlock()
 	t.Uint8Map[named] = value
@@ -107,12 +109,12 @@ func (t *TagSettings) has(named uint8) bool {
 }
 
 //gets the string value of a certain key
-func (t *TagSettings) get(named uint8) string {
+func (t *TagSettings) get(named uint8) interface{} {
 	t.l.Lock()
 	defer t.l.Unlock()
 	value, ok := t.Uint8Map[named]
 	if !ok {
-		return ""
+		return nil
 	}
 	return value
 }
@@ -129,11 +131,20 @@ func (t TagSettings) String() string {
 	}
 	result := ""
 	for key, value := range t.Uint8Map {
-		if value == "" {
-			result += fmt.Sprintf("%q ; ", cachedReverseTagSettingsMap[key])
-		} else {
-			result += fmt.Sprintf("%q = %q ; ", cachedReverseTagSettingsMap[key], value)
+		switch key {
+		case ASSOCIATIONFOREIGNKEY, FOREIGNKEY:
+			slice, ok := value.(StrSlice)
+			if ok {
+				result += fmt.Sprintf("%s = %v ; ", cachedReverseTagSettingsMap[key], slice)
+			}
+		default:
+			if value == "" {
+				result += fmt.Sprintf("%s ; ", cachedReverseTagSettingsMap[key])
+			} else {
+				result += fmt.Sprintf("%s = %s ; ", cachedReverseTagSettingsMap[key], value.(string))
+			}
 		}
+
 	}
 	return result
 }

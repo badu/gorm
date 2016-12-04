@@ -35,7 +35,7 @@ func NewStructField(fromStruct reflect.StructField) (*StructField, error) {
 	result := &StructField{
 		StructName:  fromStruct.Name,
 		Names:       []string{fromStruct.Name},
-		tagSettings: TagSettings{Uint8Map: make(map[uint8]string), l: new(sync.RWMutex)},
+		tagSettings: TagSettings{Uint8Map: make(map[uint8]interface{}), l: new(sync.RWMutex)},
 	}
 	//field should process itself the tag settings
 	err := result.parseTagSettings(fromStruct.Tag)
@@ -45,8 +45,8 @@ func NewStructField(fromStruct reflect.StructField) (*StructField, error) {
 	}
 
 	// Even it is ignored, also possible to decode db value into the field
-	if value := result.tagSettings.get(COLUMN); value != "" {
-		result.DBName = value
+	if result.HasSetting(COLUMN) {
+		result.DBName = result.GetSetting(COLUMN)
 	} else {
 		result.DBName = NamesMap.ToDBName(fromStruct.Name)
 	}
@@ -239,13 +239,51 @@ func (field *StructField) UnsetHasRelations() {
 	field.unsetFlag(HAS_RELATIONS)
 }
 
+func (field *StructField) LinkPoly(withField *StructField, tableName string) {
+	field.setFlag(IS_FOREIGNKEY)
+	withField.tagSettings.set(POLYMORPHIC_TYPE, field.StructName)
+	withField.tagSettings.set(POLYMORPHIC_DBNAME, field.DBName)
+	// if Dog has multiple set of toys set name of the set (instead of default 'dogs')
+	if !withField.HasSetting(POLYMORPHIC_VALUE) {
+		withField.tagSettings.set(POLYMORPHIC_VALUE, tableName)
+	}
+}
+
 //gets a key (for code readability)
 func (field *StructField) HasSetting(named uint8) bool {
 	return field.tagSettings.has(named)
 }
 
 func (field *StructField) GetSetting(named uint8) string {
-	return field.tagSettings.get(named)
+	value := field.tagSettings.get(named)
+	if value == nil {
+		reverseTagSettingsMap()
+		fmt.Printf("ERROR : STRING %q NOT EXISTS!\n", cachedReverseTagSettingsMap[named])
+		return ""
+	}
+	strValue, ok := value.(string)
+	if !ok {
+		reverseTagSettingsMap()
+		fmt.Printf("ERROR : %q NOT STRING!\n", cachedReverseTagSettingsMap[named])
+		return ""
+	}
+	return strValue
+}
+
+func (field *StructField) GetSliceSetting(named uint8) StrSlice {
+	value := field.tagSettings.get(named)
+	if value == nil {
+		reverseTagSettingsMap()
+		fmt.Printf("ERROR : SLICE %q NOT EXISTS!\n", cachedReverseTagSettingsMap[named])
+		return nil
+	}
+	slice, ok := value.(StrSlice)
+	if !ok {
+		reverseTagSettingsMap()
+		fmt.Printf("ERROR : %q NOT SLICE!\n", cachedReverseTagSettingsMap[named])
+		return nil
+	}
+	return slice
 }
 
 func (field *StructField) Set(value interface{}) error {
@@ -323,7 +361,12 @@ func (field *StructField) ParseFieldStructForDialect() (reflect.Value, string, i
 
 	if field.tagSettings.has(SIZE) {
 		// Default Size
-		size, _ = strconv.Atoi(field.tagSettings.get(SIZE))
+		val, ok := field.tagSettings.get(SIZE).(string)
+		if !ok {
+			fmt.Printf("ERROR : SIZE \n")
+		}
+		//TODO : @Badu - store it integer from parseTagSettings
+		size, _ = strconv.Atoi(val)
 	} else {
 		size = 255
 	}
@@ -332,24 +375,114 @@ func (field *StructField) ParseFieldStructForDialect() (reflect.Value, string, i
 	additionalType := ""
 
 	if field.tagSettings.has(NOT_NULL) {
-		additionalType = field.tagSettings.get(NOT_NULL)
+		additionalType = field.GetSetting(NOT_NULL)
 	}
 
 	if field.tagSettings.has(UNIQUE) {
 		if additionalType != "" {
 			additionalType += " "
 		}
-		additionalType += field.tagSettings.get(UNIQUE)
+		additionalType += field.GetSetting(UNIQUE)
 	}
 
 	if field.tagSettings.has(DEFAULT) {
 		if additionalType != "" {
 			additionalType += " "
 		}
-		additionalType += "DEFAULT " + field.tagSettings.get(DEFAULT)
+		additionalType += "DEFAULT " + field.GetSetting(DEFAULT)
 	}
+	sqlType := ""
+	if field.HasSetting(TYPE) {
+		sqlType = field.GetSetting(TYPE)
+	}
+	return fieldValue, sqlType, size, strings.TrimSpace(additionalType)
+}
 
-	return fieldValue, field.tagSettings.get(TYPE), size, strings.TrimSpace(additionalType)
+//Function collects information from tags named `sql:""` and `gorm:""`
+func (field *StructField) parseTagSettings(tag reflect.StructTag) error {
+	for _, str := range []string{tag.Get(TAG_SQL), tag.Get(TAG_GORM)} {
+		tags := strings.Split(str, ";")
+
+		for _, value := range tags {
+			v := strings.Split(value, ":")
+			if len(v) > 0 {
+				k := strings.TrimSpace(strings.ToUpper(v[0]))
+
+				//set some flags directly
+				switch k {
+				case "":
+				//avoid empty keys : original gorm didn't mind creating them
+				case ignored:
+					//we don't store this in tagSettings, mark only flag
+					field.setFlag(IS_IGNORED)
+				case primary_key:
+					//we don't store this in tagSettings, mark only flag
+					field.setFlag(IS_PRIMARYKEY)
+				case auto_increment:
+					//we don't store this in tagSettings, mark only flag
+					field.setFlag(IS_AUTOINCREMENT)
+				case embedded:
+					//we don't store this in tagSettings, mark only flag
+					field.setFlag(IS_EMBED_OR_ANON)
+				default:
+					//other settings are kept in the map
+					uint8Key, ok := tagSettingMap[k]
+					if ok {
+						var storedValue interface{}
+						if len(v) >= 2 {
+							storedValue = strings.Join(v[1:], ":")
+						} else {
+							storedValue = k
+						}
+
+						switch k {
+						case default_str:
+							field.setFlag(HAS_DEFAULT_VALUE)
+						case association_foreign_key, foreignkey:
+							var strSlice StrSlice
+							if len(v) >= 2 {
+								strSlice = append(strSlice, v[1:]...)
+							} else {
+								strSlice = append(strSlice, k)
+							}
+							//field.tagSettings.set(uint8Key, strSlice)
+							storedValue = strSlice
+
+						}
+						field.tagSettings.set(uint8Key, storedValue)
+					} else {
+						errMsg := fmt.Sprintf(key_not_found_err, k, str)
+						fmt.Printf("\n\nERROR : %v\n\n", errMsg)
+						return errors.New(errMsg)
+					}
+				}
+			}
+
+		}
+		if field.IsAutoIncrement() && !field.IsPrimaryKey() {
+			field.setFlag(HAS_DEFAULT_VALUE)
+		}
+	}
+	return nil
+}
+
+//TODO : @Badu - seems expensive to be called everytime. Maybe a good solution would be to
+//change isBlank = true by default and modify the code to change it to false only when we have a value
+//to make this less expensive
+func (field *StructField) checkIsBlank() {
+	if reflect.DeepEqual(field.Value.Interface(), reflect.Zero(field.Value.Type()).Interface()) {
+		field.setFlag(IS_BLANK)
+	} else {
+		field.unsetFlag(IS_BLANK)
+	}
+}
+
+func (field *StructField) setFlag(value uint8) {
+	field.flags = field.flags | (1 << value)
+}
+
+func (field *StructField) unsetFlag(value uint8) {
+	field.flags = field.flags & ^(1 << value)
 }
 
 func (field *StructField) clone() *StructField {
@@ -382,81 +515,13 @@ func (field *StructField) cloneWithValue(value reflect.Value) *StructField {
 	return clone
 }
 
-//Function collects information from tags named `sql:""` and `gorm:""`
-func (field *StructField) parseTagSettings(tag reflect.StructTag) error {
-	for _, str := range []string{tag.Get(TAG_SQL), tag.Get(TAG_GORM)} {
-		tags := strings.Split(str, ";")
-
-		for _, value := range tags {
-			v := strings.Split(value, ":")
-			if len(v) > 0 {
-				k := strings.TrimSpace(strings.ToUpper(v[0]))
-				//avoid empty keys : original gorm didn't mind creating them
-				if k != "" {
-					//set some flags directly
-					switch k {
-					case ignored:
-						field.setFlag(IS_IGNORED)
-					case primary_key:
-						field.setFlag(IS_PRIMARYKEY)
-					case auto_increment:
-						field.setFlag(IS_AUTOINCREMENT)
-					case embedded:
-						field.setFlag(IS_EMBED_OR_ANON)
-					default:
-						if k == default_str {
-							field.setFlag(HAS_DEFAULT_VALUE)
-						}
-						//other settings are kept in the map
-						uint8Key, ok := tagSettingMap[k]
-						if ok {
-							if len(v) >= 2 {
-								field.tagSettings.set(uint8Key, strings.Join(v[1:], ":"))
-							} else {
-								field.tagSettings.set(uint8Key, k)
-							}
-						} else {
-							return errors.New(fmt.Sprintf(key_not_found_err, k, str))
-						}
-					}
-
-				}
-			}
-
-		}
-		if field.IsAutoIncrement() && !field.IsPrimaryKey() {
-			field.setFlag(HAS_DEFAULT_VALUE)
-		}
-	}
-	return nil
-}
-
-//TODO : @Badu - seems expensive to be called everytime. Maybe a good solution would be to
-//change isBlank = true by default and modify the code to change it to false only when we have a value
-//to make this less expensive
-func (field *StructField) checkIsBlank() {
-	if reflect.DeepEqual(field.Value.Interface(), reflect.Zero(field.Value.Type()).Interface()) {
-		field.setFlag(IS_BLANK)
-	} else {
-		field.unsetFlag(IS_BLANK)
-	}
-}
-
-func (field *StructField) setFlag(value uint8) {
-	field.flags = field.flags | (1 << value)
-}
-
-func (field *StructField) unsetFlag(value uint8) {
-	field.flags = field.flags & ^(1 << value)
-}
-
 //implementation of Stringer
 func (field StructField) String() string {
 	var collector Collector
 	namesNo := len(field.Names)
-	if namesNo == 1{
+	if namesNo == 1 {
 		collector.add("%s %q [%d %s]\n", "Name:", field.DBName, namesNo, "name")
-	}else{
+	} else {
 		collector.add("%s %q [%d %s]\n", "Name:", field.DBName, namesNo, "names")
 	}
 
@@ -522,7 +587,7 @@ func (field StructField) String() string {
 		collector.add("%s = %s\n", "Type:", field.Type.String())
 	}
 	collector.add("%s = %s\n", "Value:", field.Value.String())
-	if field.HasRelations(){
+	if field.HasRelations() {
 		collector.add("%s\n%s", "Relationship:", field.Relationship)
 	}
 	return collector.String()

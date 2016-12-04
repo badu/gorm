@@ -51,29 +51,6 @@ func SqlExpr(expression interface{}, args ...interface{}) *SqlPair {
 	return &SqlPair{expression: expression, args: args}
 }
 
-//TODO : @Badu - make expr string bytes buffer, allow args to be added, allow bytes buffer to be written into
-//TODO : @Badu - before doing above, benchmark bytesbuffer versus string concat
-/**
-var buf bytes.Buffer
-var prParams []interface{}
-if p.Id > 0 {
-	buf.WriteString("%q:%d,")
-	prParams = append(prParams, "id")
-	prParams = append(prParams, p.Id)
-}
-buf.WriteString("%q:%q,%q:%q,%q:%t,%q:{%v}")
-prParams = append(prParams, "name")
-prParams = append(prParams, p.DisplayName)
-prParams = append(prParams, "states")
-prParams = append(prParams, p.USStates)
-prParams = append(prParams, "customerPays")
-prParams = append(prParams, p.AppliesToCustomer)
-prParams = append(prParams, "price")
-prParams = append(prParams, p.Price)
-return fmt.Sprintf(buf.String(), prParams...)
-*/
-//TODO : @Badu - use it to build strings with multiple fmt.Sprintf calls - making one call
-
 func (p *SqlPair) addExpressions(values ...interface{}) {
 	p.args = append(p.args, values...)
 }
@@ -945,9 +922,10 @@ func handleRelationPreload(scope *Scope, field *StructField, conditions []interf
 			"%v IN (%v)",
 			toQueryCondition(relation.ForeignDBNames, dialect),
 			toQueryMarks(primaryKeys))
-		if relation.PolymorphicType != "" {
-			query += fmt.Sprintf(" AND %v = ?", Quote(relation.PolymorphicDBName, dialect))
-			values = append(values, relation.PolymorphicValue)
+
+		if field.HasSetting(POLYMORPHIC_TYPE) {
+			query += fmt.Sprintf(" AND %v = ?", Quote(field.GetSetting(POLYMORPHIC_DBNAME), dialect))
+			values = append(values, field.GetSetting(POLYMORPHIC_VALUE))
 		}
 	}
 

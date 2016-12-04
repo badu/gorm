@@ -65,13 +65,13 @@ func (association *Association) Replace(values ...interface{}) *Association {
 		}
 	default:
 		// Polymorphic Relations
-		if relationship.PolymorphicDBName != "" {
+		if field.HasSetting(POLYMORPHIC_DBNAME) {
 			conn = conn.Where(
 				fmt.Sprintf(
 					"%v = ?",
-					Quote(relationship.PolymorphicDBName, dialect),
+					Quote(field.GetSetting(POLYMORPHIC_DBNAME), dialect),
 				),
-				relationship.PolymorphicValue)
+				field.GetSetting(POLYMORPHIC_VALUE))
 		}
 
 		switch relationship.Kind {
@@ -355,17 +355,16 @@ func (association *Association) Count() int {
 		)
 	}
 
-	if relationship.PolymorphicType != "" {
+	if field.HasSetting(POLYMORPHIC_TYPE) {
 		conn = conn.Where(
 			fmt.Sprintf(
 				"%v.%v = ?",
 				QuotedTableName(scope.NewScope(fieldValue)),
-				Quote(relationship.PolymorphicDBName, dialect),
+				Quote(field.GetSetting(POLYMORPHIC_DBNAME), dialect),
 			),
-			relationship.PolymorphicValue,
+			field.GetSetting(POLYMORPHIC_VALUE),
 		)
 	}
-
 	conn.Model(fieldValue).Count(&count)
 	return count
 }

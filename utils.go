@@ -400,6 +400,8 @@ func GetTType(value interface{}) reflect.Type {
 
 	return result
 }
+
+//TODO : @Badu - we have the scanner field info in StructField
 func getScannerValue(value reflect.Value) reflect.Value {
 	fieldValue := value
 	if _, isScanner := reflect.New(fieldValue.Type()).Interface().(sql.Scanner); isScanner && fieldValue.Kind() == reflect.Struct {

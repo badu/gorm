@@ -1,9 +1,5 @@
 package gorm
 
-import (
-	"strings"
-)
-
 //============================================
 // Slice of strings for better reading
 //============================================
@@ -31,10 +27,6 @@ func (s StrSlice) rIndex(str string) int {
 //inserts in the slice
 func (s *StrSlice) insertAt(index int, name string) {
 	*s = append((*s)[:index], append([]string{name}, (*s)[index:]...)...)
-}
-
-func (s *StrSlice) commaLoad(target string) {
-	*s = strings.Split(target, ",")
 }
 
 func (s StrSlice) slice() []string {

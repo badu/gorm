@@ -174,8 +174,9 @@ func autoIndex(scope *Scope) {
 	var uniqueIndexes = map[string][]string{}
 
 	for _, field := range scope.GetModelStruct().StructFields() {
-		if name := field.GetSetting(INDEX); name != "" {
-			names := strings.Split(name, ",")
+
+		if field.HasSetting(INDEX) {
+			names := strings.Split(field.GetSetting(INDEX), ",")
 
 			for _, name := range names {
 				if name == "INDEX" || name == "" {
@@ -184,10 +185,8 @@ func autoIndex(scope *Scope) {
 				indexes[name] = append(indexes[name], field.DBName)
 			}
 		}
-
-		if name := field.GetSetting(UNIQUE_INDEX); name != "" {
-			names := strings.Split(name, ",")
-
+		if field.HasSetting(UNIQUE_INDEX) {
+			names := strings.Split(field.GetSetting(UNIQUE_INDEX), ",")
 			for _, name := range names {
 				if name == "UNIQUE_INDEX" || name == "" {
 					name = fmt.Sprintf("uix_%v_%v", scope.TableName(), field.DBName)

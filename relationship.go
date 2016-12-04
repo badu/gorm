@@ -21,12 +21,12 @@ func (r *Relationship) Poly(field *StructField, toModel *ModelStruct, fromScope,
 	modelName := ""
 	if field.HasSetting(POLYMORPHIC) {
 		polyName := field.GetSetting(POLYMORPHIC)
-		polyValue := field.GetSetting(POLYMORPHIC_VALUE)
 		polyFieldName := polyName + poly_type
 		// Dog has many toys, tag polymorphic is Owner, then associationType is Owner
 		// Toy use OwnerID, OwnerType ('dogs') as foreign key
-		if polymorphicType, ok := toModel.FieldByName(polyFieldName); ok {
+		if polyField, ok := toModel.FieldByName(polyFieldName); ok {
 			modelName = polyName
+			/**
 			r.PolymorphicType = polymorphicType.StructName
 			r.PolymorphicDBName = polymorphicType.DBName
 			// if Dog has multiple set of toys set name of the set (instead of default 'dogs')
@@ -36,6 +36,8 @@ func (r *Relationship) Poly(field *StructField, toModel *ModelStruct, fromScope,
 				r.PolymorphicValue = fromScope.TableName()
 			}
 			polymorphicType.SetIsForeignKey()
+			 */
+			polyField.LinkPoly(field, fromScope.TableName())
 		} else {
 			errMsg := fmt.Sprintf(poly_field_not_found_warn, polyFieldName, toModel.ModelType.Name())
 			toScope.Warn(errMsg)
@@ -66,7 +68,7 @@ func (r *Relationship) ManyToMany(field *StructField,
 		}
 	} else {
 		if field.HasSetting(FOREIGNKEY) {
-			foreignKeys.commaLoad(field.GetSetting(FOREIGNKEY))
+			foreignKeys = field.GetSliceSetting(FOREIGNKEY)
 		} else {
 			errMsg := fmt.Sprintf(has_no_foreign_key, "Many2Many")
 			fromScope.Warn(errMsg)
@@ -80,7 +82,7 @@ func (r *Relationship) ManyToMany(field *StructField,
 		}
 	} else {
 		if field.HasSetting(ASSOCIATIONFOREIGNKEY) {
-			associationForeignKeys.commaLoad(field.GetSetting(ASSOCIATIONFOREIGNKEY))
+			associationForeignKeys = field.GetSliceSetting(ASSOCIATIONFOREIGNKEY)
 		} else {
 			errMsg := fmt.Sprintf(has_no_association_key, "Many2Many")
 			fromScope.Warn(errMsg)
@@ -258,7 +260,7 @@ func (r *Relationship) collectFKsAndAFKs(field *StructField,
 			}
 		} else {
 			if field.HasSetting(ASSOCIATIONFOREIGNKEY) {
-				associationForeignKeys.commaLoad(field.GetSetting(ASSOCIATIONFOREIGNKEY))
+				associationForeignKeys = field.GetSliceSetting(ASSOCIATIONFOREIGNKEY)
 			} else {
 				errMsg := fmt.Sprintf(has_no_association_key, "collectFKsAndAFKs")
 				scope.Warn(errMsg)
@@ -280,7 +282,7 @@ func (r *Relationship) collectFKsAndAFKs(field *StructField,
 		}
 	} else {
 		if field.HasSetting(FOREIGNKEY) {
-			foreignKeys.commaLoad(field.GetSetting(FOREIGNKEY))
+			foreignKeys = field.GetSliceSetting(FOREIGNKEY)
 		} else {
 			errMsg := fmt.Sprintf(has_no_foreign_key, "collectFKsAndAFKs")
 			scope.Warn(errMsg)
@@ -307,7 +309,7 @@ func (r *Relationship) collectFKsAndAFKs(field *StructField,
 			}
 		} else {
 			if field.HasSetting(ASSOCIATIONFOREIGNKEY) {
-				associationForeignKeys.commaLoad(field.GetSetting(ASSOCIATIONFOREIGNKEY))
+				associationForeignKeys = field.GetSliceSetting(ASSOCIATIONFOREIGNKEY)
 			} else {
 				errMsg := fmt.Sprintf(has_no_association_key, "collectFKsAndAFKs")
 				scope.Warn(errMsg)
@@ -336,11 +338,7 @@ func (r Relationship) String() string {
 		vKind = "Many_To_Many"
 	}
 	collector.add("\t%s = %s (%d)\n", "Kind", vKind, r.Kind)
-	if r.PolymorphicType != "" {
-		collector.add("\t%s = %q\n", "Poly type", r.PolymorphicType)
-		collector.add("\t%s = %q\n", "Poly value", r.PolymorphicValue)
-	}
-	collector.add("\t%s = %q\n", "DB Name", r.PolymorphicDBName)
+
 	for _, fn := range r.ForeignFieldNames {
 		collector.add("\t%s = %q\n", "Foreign field name", fn)
 	}
@@ -355,12 +353,6 @@ func (r Relationship) String() string {
 	}
 	if r.JoinTableHandler != nil {
 		collector.add("\t\thas JoinTableHandler.\n")
-	}
-	if r.source != nil{
-
-	}
-	if r.destination != nil{
-
 	}
 	return collector.String()
 }

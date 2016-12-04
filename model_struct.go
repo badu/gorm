@@ -43,7 +43,6 @@ func (modelStruct *ModelStruct) HasColumn(column string) bool {
 func (modelStruct *ModelStruct) FieldByName(column string) (*StructField, bool) {
 	field, ok := modelStruct.fieldsMap.Get(column)
 	if !ok {
-		//fmt.Printf("couldn't find %q in fields map\n", column)
 		//couldn't find it in "fields" map
 		for _, field := range modelStruct.fieldsMap.fields {
 			if field.DBName == NamesMap.ToDBName(column) {
@@ -92,9 +91,11 @@ func (modelStruct *ModelStruct) Create(reflectType reflect.Type, scope *Scope) {
 					for _, subField := range scope.NewScope(fieldValue).GetModelStruct().StructFields() {
 						subField = subField.clone()
 						subField.Names = append([]string{fieldStruct.Name}, subField.Names...)
-						if prefix := field.GetSetting(EMBEDDED_PREFIX); prefix != "" {
-							subField.DBName = prefix + subField.DBName
+
+						if field.HasSetting(EMBEDDED_PREFIX) {
+							subField.DBName = field.GetSetting(EMBEDDED_PREFIX) + subField.DBName
 						}
+
 						err = modelStruct.fieldsMap.Add(subField)
 						if err != nil {
 							scope.Err(errors.New(fmt.Sprintf(add_field_err, modelStruct.ModelType.Name(), err)))
@@ -174,6 +175,8 @@ func (modelStruct *ModelStruct) processRelations(scope *Scope) {
 		if field.Relationship == nil {
 			field.UnsetHasRelations()
 		}
+		//TODO : @Badu - if you need to look at fields as they are built
+		//scope.con.Log("Processed\n", field)
 	}
 }
 

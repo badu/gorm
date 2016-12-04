@@ -75,7 +75,7 @@ func (scope *Scope) Log(v ...interface{}) {
 }
 
 func (scope *Scope) Warn(v ...interface{}) {
-	scope.con.warnLog(v...)
+	//scope.con.warnLog(v...)
 }
 
 // Fields get value's fields from ModelStruct
@@ -594,15 +594,16 @@ func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
 				}
 			}
 
-			if relationship.PolymorphicType != "" {
+			if fromField.HasSetting(POLYMORPHIC_TYPE) {
 				query = query.Where(
 					fmt.Sprintf(
 						"%v = ?",
-						Quote(relationship.PolymorphicDBName, dialect),
+						Quote(fromField.GetSetting(POLYMORPHIC_DBNAME), dialect),
 					),
-					relationship.PolymorphicValue,
+					fromField.GetSetting(POLYMORPHIC_VALUE),
 				)
 			}
+
 			scope.Err(query.Find(value).Error)
 		}
 		return scope
@@ -869,13 +870,12 @@ func (scope *Scope) saveAfterAssociationsCallback() *Scope {
 						}
 					}
 
-					if relationship.PolymorphicType != "" {
+					if field.HasSetting(POLYMORPHIC_TYPE) {
 						scope.Err(
 							newScope.SetColumn(
-								relationship.PolymorphicType,
-								relationship.PolymorphicValue))
+								field.GetSetting(POLYMORPHIC_TYPE),
+								field.GetSetting(POLYMORPHIC_VALUE)))
 					}
-
 					scope.Err(newCon.Save(elem).Error)
 
 					if joinTableHandler := relationship.JoinTableHandler; joinTableHandler != nil {
@@ -894,8 +894,11 @@ func (scope *Scope) saveAfterAssociationsCallback() *Scope {
 					}
 				}
 
-				if relationship.PolymorphicType != "" {
-					scope.Err(newScope.SetColumn(relationship.PolymorphicType, relationship.PolymorphicValue))
+				if field.HasSetting(POLYMORPHIC_TYPE) {
+					scope.Err(
+						newScope.SetColumn(
+							field.GetSetting(POLYMORPHIC_TYPE),
+							field.GetSetting(POLYMORPHIC_VALUE)))
 				}
 				scope.Err(newCon(scope.con).Save(elem).Error)
 			}

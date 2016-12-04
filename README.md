@@ -24,8 +24,6 @@
 - [ ] Generated SQL let's the SQL engine cast : SELECT * FROM aTable WHERE id = '1' (id being int). I think it's a bad practice and it should be fixed
 - [ ] Integrate "Skip order sql when quering with distinct" commit of original
 - [ ] get rid of Scope "fields" so you can remove cloneFieldsToScope
-- [ ] simplify Relationship - having two pointers to StructField (source, target)
-- [ ] make slice of Relationship in ModelStruct and remove it from StructField
 
 # Comments and thoughts 
 - As a general idea on golang projects : "fail fast" type of logic is the best approach
@@ -43,6 +41,11 @@
 - Removed MSSQL support - out of my concerns with this project
 
 # Changes log
+
+## 04.12.2016
+- [x] StrSlices for association and foreign keys gets created on parseTagSettings of StructField
+- [x] tag settings map changed from map[uint8]string to map[uint8]interface{}
+- [x] Relationship : PolymorphicType, PolymorphicDBName, PolymorphicValue were removed
 
 ## 03.12.2016
 - [x] Warning for relationship

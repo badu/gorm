@@ -1,9 +1,9 @@
 package tests
 
 import (
+	"gorm"
 	"testing"
 	"time"
-	"gorm"
 )
 
 func DoCustomizeColumn(t *testing.T) {
@@ -93,14 +93,19 @@ func OneToOneWithCustomizedColumn(t *testing.T) {
 		Address: "hello@example.com",
 	}
 
-	TestDB.Create(&user)
-	TestDB.Create(&invitation)
-
+	err := TestDB.Create(&user).Error
+	if err != nil {
+		t.Errorf("no error should happen on create user, but got %v", err)
+	}
+	err = TestDB.Create(&invitation).Error
+	if err != nil {
+		t.Errorf("no error should happen on create invitation, but got %v", err)
+	}
 	var invitation2 CustomizeInvitation
-	if err := TestDB.Preload("Person").Find(&invitation2, invitation.ID).Error; err != nil {
+	err = TestDB.Preload("Person").Find(&invitation2, invitation.ID).Error
+	if err != nil {
 		t.Errorf("no error should happen, but got %v", err)
 	}
-
 	if invitation2.Person.Email != user.Email {
 		t.Errorf("Should preload one to one relation with customize foreign keys")
 	}

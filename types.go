@@ -37,7 +37,7 @@ const (
 )
 
 type (
-	Uint8Map map[uint8]string
+	Uint8Map map[uint8]interface{}
 	//since there is no other way of embedding a map
 	TagSettings struct {
 		Uint8Map
@@ -62,16 +62,11 @@ type (
 	// Relationship described the relationship between models
 	Relationship struct {
 		Kind                         uint8
-		PolymorphicType              string
-		PolymorphicDBName            string
-		PolymorphicValue             string
 		ForeignFieldNames            StrSlice
 		ForeignDBNames               StrSlice
 		AssociationForeignFieldNames StrSlice
 		AssociationForeignDBNames    StrSlice
 		JoinTableHandler             JoinTableHandlerInterface
-		source                       *StructField
-		destination                  *StructField
 	}
 
 	strCase bool
@@ -90,7 +85,6 @@ type (
 		cachedPrimaryFields StructFields //collected from fields.fields, so we won't iterate all the time
 		ModelType           reflect.Type
 		defaultTableName    string
-		relations           []*Relationship
 	}
 
 	// Scope contain current operation's information when you perform any operation on the database
