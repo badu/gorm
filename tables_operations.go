@@ -7,8 +7,14 @@ import (
 
 //used in autoMigrate and createTable
 func createJoinTable(scope *Scope, field *StructField) {
-	if relationship := field.Relationship; relationship.JoinTableHandler != nil {
-		joinTableHandler := relationship.JoinTableHandler
+	if field.HasSetting(JOIN_TABLE_HANDLER) {
+		var (
+			ForeignDBNames               = field.GetSliceSetting(FOREIGN_DB_NAMES)
+			ForeignFieldNames            = field.GetSliceSetting(FOREIGN_FIELD_NAMES)
+			AssociationForeignFieldNames = field.GetSliceSetting(ASSOCIATION_FOREIGN_FIELD_NAMES)
+			AssociationForeignDBNames    = field.GetSliceSetting(ASSOCIATION_FOREIGN_DB_NAMES)
+			joinTableHandler             = field.JoinHandler()
+		)
 		joinTable := joinTableHandler.Table(scope.con)
 		//because we're using it in a for, we're getting it once
 		dialect := scope.con.parent.dialect
@@ -17,25 +23,25 @@ func createJoinTable(scope *Scope, field *StructField) {
 			toScope := &Scope{Value: field.Interface()}
 
 			var sqlTypes, primaryKeys []string
-			for idx, fieldName := range relationship.ForeignFieldNames {
+			for idx, fieldName := range ForeignFieldNames {
 				if field, ok := scope.FieldByName(fieldName); ok {
 					clonedField := field.clone()
 					clonedField.UnsetIsPrimaryKey()
 					//TODO : @Badu - document that you cannot use IS_JOINTABLE_FOREIGNKEY in conjunction with AUTO_INCREMENT
 					clonedField.UnsetIsAutoIncrement()
-					sqlTypes = append(sqlTypes, Quote(relationship.ForeignDBNames[idx], dialect)+" "+dialect.DataTypeOf(clonedField))
-					primaryKeys = append(primaryKeys, Quote(relationship.ForeignDBNames[idx], dialect))
+					sqlTypes = append(sqlTypes, Quote(ForeignDBNames[idx], dialect)+" "+dialect.DataTypeOf(clonedField))
+					primaryKeys = append(primaryKeys, Quote(ForeignDBNames[idx], dialect))
 				}
 			}
 
-			for idx, fieldName := range relationship.AssociationForeignFieldNames {
+			for idx, fieldName := range AssociationForeignFieldNames {
 				if field, ok := toScope.FieldByName(fieldName); ok {
 					clonedField := field.clone()
 					clonedField.UnsetIsPrimaryKey()
 					//TODO : @Badu - document that you cannot use IS_JOINTABLE_FOREIGNKEY in conjunction with AUTO_INCREMENT
 					clonedField.UnsetIsAutoIncrement()
-					sqlTypes = append(sqlTypes, Quote(relationship.AssociationForeignDBNames[idx], dialect)+" "+dialect.DataTypeOf(clonedField))
-					primaryKeys = append(primaryKeys, Quote(relationship.AssociationForeignDBNames[idx], dialect))
+					sqlTypes = append(sqlTypes, Quote(AssociationForeignDBNames[idx], dialect)+" "+dialect.DataTypeOf(clonedField))
+					primaryKeys = append(primaryKeys, Quote(AssociationForeignDBNames[idx], dialect))
 				}
 			}
 
@@ -176,7 +182,7 @@ func autoIndex(scope *Scope) {
 	for _, field := range scope.GetModelStruct().StructFields() {
 
 		if field.HasSetting(INDEX) {
-			names := strings.Split(field.GetSetting(INDEX), ",")
+			names := strings.Split(field.GetStrSetting(INDEX), ",")
 
 			for _, name := range names {
 				if name == "INDEX" || name == "" {
@@ -186,7 +192,7 @@ func autoIndex(scope *Scope) {
 			}
 		}
 		if field.HasSetting(UNIQUE_INDEX) {
-			names := strings.Split(field.GetSetting(UNIQUE_INDEX), ",")
+			names := strings.Split(field.GetStrSetting(UNIQUE_INDEX), ",")
 			for _, name := range names {
 				if name == "UNIQUE_INDEX" || name == "" {
 					name = fmt.Sprintf("uix_%v_%v", scope.TableName(), field.DBName)

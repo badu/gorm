@@ -416,9 +416,7 @@ func (scope *Scope) scan(rows *sql.Rows, columns []string, fields StructFields) 
 		}
 
 		for fieldIndex, field := range selectFields {
-
 			if field.DBName == column {
-
 				switch field.Value.Kind() {
 				case reflect.Ptr:
 					values[index] = field.Value.Addr().Interface()
@@ -427,11 +425,9 @@ func (scope *Scope) scan(rows *sql.Rows, columns []string, fields StructFields) 
 					reflectValue.Elem().Set(field.Value.Addr())
 					values[index] = reflectValue.Interface()
 					resetFields[index] = field
-
 				}
-
 				selectedColumnsMap[column] = fieldIndex
-				//TODO :@Badu - why if it's normal we break last ? shouldn't be first?
+				//we have a normal field, we break second for
 				if field.IsNormal() {
 					break
 				}
@@ -554,13 +550,17 @@ func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
 			scope.Err(toScope.con.Where(aStr, fromField.Value.Interface()).Find(value).Error)
 			return scope
 		}
-		relationship := fromField.Relationship
+		var (
+			ForeignDBNames            = fromField.GetSliceSetting(FOREIGN_DB_NAMES)
+			AssociationForeignDBNames = fromField.GetSliceSetting(ASSOCIATION_FOREIGN_DB_NAMES)
+		)
 		//now, fail fast is over
-		switch relationship.Kind {
+		switch fromField.RelKind() {
 		case MANY_TO_MANY:
+			joinTableHandler := fromField.JoinHandler()
 			scope.Err(
-				relationship.JoinTableHandler.JoinWith(
-					relationship.JoinTableHandler,
+				joinTableHandler.JoinWith(
+					joinTableHandler,
 					toScope.con,
 					scope.Value,
 				).
@@ -568,12 +568,12 @@ func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
 					Error)
 		case BELONGS_TO:
 			query := toScope.con
-			for idx, foreignKey := range relationship.ForeignDBNames {
+			for idx, foreignKey := range ForeignDBNames {
 				if field, ok := scope.FieldByName(foreignKey); ok {
 					query = query.Where(
 						fmt.Sprintf(
 							"%v = ?",
-							Quote(relationship.AssociationForeignDBNames[idx], dialect),
+							Quote(AssociationForeignDBNames[idx], dialect),
 						),
 						field.Value.Interface(),
 					)
@@ -582,8 +582,8 @@ func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
 			scope.Err(query.Find(value).Error)
 		case HAS_MANY, HAS_ONE:
 			query := toScope.con
-			for idx, foreignKey := range relationship.ForeignDBNames {
-				if field, ok := scope.FieldByName(relationship.AssociationForeignDBNames[idx]); ok {
+			for idx, foreignKey := range ForeignDBNames {
+				if field, ok := scope.FieldByName(AssociationForeignDBNames[idx]); ok {
 					query = query.Where(
 						fmt.Sprintf(
 							"%v = ?",
@@ -598,9 +598,9 @@ func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
 				query = query.Where(
 					fmt.Sprintf(
 						"%v = ?",
-						Quote(fromField.GetSetting(POLYMORPHIC_DBNAME), dialect),
+						Quote(fromField.GetStrSetting(POLYMORPHIC_DBNAME), dialect),
 					),
-					fromField.GetSetting(POLYMORPHIC_VALUE),
+					fromField.GetStrSetting(POLYMORPHIC_VALUE),
 				)
 			}
 
@@ -623,23 +623,23 @@ func (scope *Scope) getTableOptions() string {
 	return tableOptions.(string)
 }
 
-func (scope *Scope) saveFieldAsAssociation(field *StructField) (bool, *Relationship) {
+func (scope *Scope) saveFieldAsAssociation(field *StructField) bool {
 	if !scope.Search.canProcessField(field) {
-		return false, nil
+		return false
 	}
 
 	//TODO : @Badu - make field WillSaveAssociations FLAG
 	if field.HasSetting(SAVE_ASSOCIATIONS) {
-		set := field.GetSetting(SAVE_ASSOCIATIONS)
+		set := field.GetStrSetting(SAVE_ASSOCIATIONS)
 		if set == "false" || set == "skip" {
-			return false, nil
+			return false
 		}
 	}
 	if field.HasRelations() {
-		return true, field.Relationship
+		return true
 	}
 
-	return false, nil
+	return false
 }
 
 func (scope *Scope) callCallbacks(funcs ScopedFuncs) *Scope {
@@ -691,13 +691,17 @@ func (scope *Scope) saveBeforeAssociationsCallback() *Scope {
 		if !scope.Search.canProcessField(field) {
 			continue
 		}
-		if ok, relationship := scope.saveFieldAsAssociation(field); ok && relationship.Kind == BELONGS_TO {
+		if scope.saveFieldAsAssociation(field) && field.RelKind() == BELONGS_TO {
 			fieldValue := field.Value.Addr().Interface()
 			scope.Err(newCon(scope.con).Save(fieldValue).Error)
-			if relationship.ForeignFieldNames.len() != 0 {
+			var (
+				ForeignFieldNames         = field.GetSliceSetting(FOREIGN_FIELD_NAMES)
+				AssociationForeignDBNames = field.GetSliceSetting(ASSOCIATION_FOREIGN_DB_NAMES)
+			)
+			if ForeignFieldNames.len() != 0 {
 				// set value's foreign key
-				for idx, fieldName := range relationship.ForeignFieldNames {
-					associationForeignName := relationship.AssociationForeignDBNames[idx]
+				for idx, fieldName := range ForeignFieldNames {
+					associationForeignName := AssociationForeignDBNames[idx]
 					if foreignField, ok := scope.NewScope(fieldValue).FieldByName(associationForeignName); ok {
 						scope.Err(scope.SetColumn(fieldName, foreignField.Value.Interface()))
 					}
@@ -743,6 +747,7 @@ func (scope *Scope) createCallback() *Scope {
 			if !scope.Search.changeableField(field) {
 				continue
 			}
+
 			if field.IsNormal() {
 				isBlankWithDefaultValue := field.IsBlank() && field.HasDefaultValue()
 				isNotPKOrBlank := !field.IsPrimaryKey() || !field.IsBlank()
@@ -754,8 +759,9 @@ func (scope *Scope) createCallback() *Scope {
 					placeholders.add(scope.Search.addToVars(field.Value.Interface(), dialect))
 				}
 			} else {
-				if field.HasRelations() && field.Relationship.Kind == BELONGS_TO {
-					for _, foreignKey := range field.Relationship.ForeignDBNames {
+				if field.HasRelations() && field.RelKind() == BELONGS_TO {
+					ForeignDBNames := field.GetSliceSetting(FOREIGN_DB_NAMES)
+					for _, foreignKey := range ForeignDBNames {
 						foreignField, ok := scope.FieldByName(foreignKey)
 						if ok && !scope.Search.changeableField(foreignField) {
 							columns.add(Quote(foreignField.DBName, dialect))
@@ -850,9 +856,10 @@ func (scope *Scope) saveAfterAssociationsCallback() *Scope {
 		}
 
 		//Attention : relationship.Kind <= HAS_ONE
-		if ok, relationship := scope.saveFieldAsAssociation(field); ok && relationship.Kind <= HAS_ONE {
+		if scope.saveFieldAsAssociation(field) && field.RelKind() <= HAS_ONE {
 			value := field.Value
-
+			ForeignFieldNames := field.GetSliceSetting(FOREIGN_FIELD_NAMES)
+			AssociationForeignDBNames := field.GetSliceSetting(ASSOCIATION_FOREIGN_DB_NAMES)
 			switch value.Kind() {
 			case reflect.Slice:
 				for i := 0; i < value.Len(); i++ {
@@ -861,9 +868,9 @@ func (scope *Scope) saveAfterAssociationsCallback() *Scope {
 					elem := value.Index(i).Addr().Interface()
 					newScope := newCon.NewScope(elem)
 
-					if relationship.JoinTableHandler == nil && relationship.ForeignFieldNames.len() != 0 {
-						for idx, fieldName := range relationship.ForeignFieldNames {
-							associationForeignName := relationship.AssociationForeignDBNames[idx]
+					if !field.HasSetting(JOIN_TABLE_HANDLER) && ForeignFieldNames.len() != 0 {
+						for idx, fieldName := range ForeignFieldNames {
+							associationForeignName := AssociationForeignDBNames[idx]
 							if f, ok := scope.FieldByName(associationForeignName); ok {
 								scope.Err(newScope.SetColumn(fieldName, f.Value.Interface()))
 							}
@@ -873,21 +880,23 @@ func (scope *Scope) saveAfterAssociationsCallback() *Scope {
 					if field.HasSetting(POLYMORPHIC_TYPE) {
 						scope.Err(
 							newScope.SetColumn(
-								field.GetSetting(POLYMORPHIC_TYPE),
-								field.GetSetting(POLYMORPHIC_VALUE)))
+								field.GetStrSetting(POLYMORPHIC_TYPE),
+								field.GetStrSetting(POLYMORPHIC_VALUE)))
 					}
 					scope.Err(newCon.Save(elem).Error)
 
-					if joinTableHandler := relationship.JoinTableHandler; joinTableHandler != nil {
+					if field.HasSetting(JOIN_TABLE_HANDLER) {
+						joinTableHandler := field.JoinHandler()
 						scope.Err(joinTableHandler.Add(joinTableHandler, newCon, scope.Value, newScope.Value))
 					}
 				}
 			default:
 				elem := value.Addr().Interface()
 				newScope := scope.NewScope(elem)
-				if relationship.ForeignFieldNames.len() != 0 {
-					for idx, fieldName := range relationship.ForeignFieldNames {
-						associationForeignName := relationship.AssociationForeignDBNames[idx]
+
+				if ForeignFieldNames.len() != 0 {
+					for idx, fieldName := range ForeignFieldNames {
+						associationForeignName := AssociationForeignDBNames[idx]
 						if f, ok := scope.FieldByName(associationForeignName); ok {
 							scope.Err(newScope.SetColumn(fieldName, f.Value.Interface()))
 						}
@@ -897,8 +906,8 @@ func (scope *Scope) saveAfterAssociationsCallback() *Scope {
 				if field.HasSetting(POLYMORPHIC_TYPE) {
 					scope.Err(
 						newScope.SetColumn(
-							field.GetSetting(POLYMORPHIC_TYPE),
-							field.GetSetting(POLYMORPHIC_VALUE)))
+							field.GetStrSetting(POLYMORPHIC_TYPE),
+							field.GetStrSetting(POLYMORPHIC_VALUE)))
 				}
 				scope.Err(newCon(scope.con).Save(elem).Error)
 			}
@@ -1146,8 +1155,11 @@ func (scope *Scope) updateCallback() *Scope {
 						),
 					)
 				} else {
-					if field.HasRelations() && field.Relationship.Kind == BELONGS_TO {
-						for _, foreignKey := range field.Relationship.ForeignDBNames {
+					if field.HasRelations() && field.RelKind() == BELONGS_TO {
+						var (
+							ForeignDBNames = field.GetSliceSetting(FOREIGN_DB_NAMES)
+						)
+						for _, foreignKey := range ForeignDBNames {
 							foreignField, ok := scope.FieldByName(foreignKey)
 							if ok && !scope.Search.changeableField(foreignField) {
 								sqls = append(sqls,

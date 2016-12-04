@@ -46,6 +46,10 @@
 - [x] StrSlices for association and foreign keys gets created on parseTagSettings of StructField
 - [x] tag settings map changed from map[uint8]string to map[uint8]interface{}
 - [x] Relationship : PolymorphicType, PolymorphicDBName, PolymorphicValue were removed
+- [x] Relationship : Moved relationship kind to tag settings
+- [x] Relationship : removed JoinTableHandler (holded by tag settings now)
+- [x] Relationship removed.
+- [x] seems JoinTableHandler did nothing with sources parameter of Delete method : in association Replace method was passing relationship
 
 ## 03.12.2016
 - [x] Warning for relationship

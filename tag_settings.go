@@ -1,32 +1,40 @@
 package gorm
 
 import (
-	"fmt"
 	"sync"
 )
 
 const (
-	//StructField TagSettings constants
-	MANY2MANY               uint8 = 1
-	INDEX                   uint8 = 2
-	NOT_NULL                uint8 = 3
-	SIZE                    uint8 = 4
-	UNIQUE_INDEX            uint8 = 5
-	IS_JOINTABLE_FOREIGNKEY uint8 = 6
-	DEFAULT                 uint8 = 7
-	EMBEDDED_PREFIX         uint8 = 8
-	FOREIGNKEY              uint8 = 9
-	ASSOCIATIONFOREIGNKEY   uint8 = 10
-	COLUMN                  uint8 = 11
-	TYPE                    uint8 = 12
-	UNIQUE                  uint8 = 13
-	SAVE_ASSOCIATIONS       uint8 = 14
-	POLYMORPHIC             uint8 = 15
-	POLYMORPHIC_VALUE       uint8 = 16 //was both PolymorphicValue in Relationship struct, and also collected from tags
-	POLYMORPHIC_TYPE        uint8 = 17 //was PolymorphicType in Relationship struct
-	POLYMORPHIC_DBNAME      uint8 = 18 //was PolymorphicDBName in Relationship struct
+	//error if tag not defined
+	key_not_found_err string = "TagSetting : COULDN'T FIND KEY FOR %q ON %q"
 
-	key_not_found_err       string = "TagSetting : COULDN'T FIND KEY FOR %q ON %q"
+	//StructField TagSettings constants
+	MANY2MANY_NAME                  uint8 = 1
+	INDEX                           uint8 = 2
+	NOT_NULL                        uint8 = 3
+	SIZE                            uint8 = 4
+	UNIQUE_INDEX                    uint8 = 5
+	IS_JOINTABLE_FOREIGNKEY         uint8 = 6
+	DEFAULT                         uint8 = 7
+	EMBEDDED_PREFIX                 uint8 = 8
+	FOREIGNKEY                      uint8 = 9
+	ASSOCIATIONFOREIGNKEY           uint8 = 10
+	COLUMN                          uint8 = 11
+	TYPE                            uint8 = 12
+	UNIQUE                          uint8 = 13
+	SAVE_ASSOCIATIONS               uint8 = 14
+	POLYMORPHIC                     uint8 = 15
+	POLYMORPHIC_VALUE               uint8 = 16 //was both PolymorphicValue in Relationship struct, and also collected from tags
+	POLYMORPHIC_TYPE                uint8 = 17 //was PolymorphicType in Relationship struct
+	POLYMORPHIC_DBNAME              uint8 = 18 //was PolymorphicDBName in Relationship struct
+	RELATION_KIND                   uint8 = 19 //was Kind in Relationship struct
+	JOIN_TABLE_HANDLER              uint8 = 20 //was JoinTableHandler in Relationship struct
+	FOREIGN_FIELD_NAMES             uint8 = 21 //was ForeignFieldNames in Relationship struct
+	FOREIGN_DB_NAMES                uint8 = 22 // was ForeignDBNames in Relationship struct
+	ASSOCIATION_FOREIGN_FIELD_NAMES uint8 = 23 // was AssociationForeignFieldNames in Relationship struct
+	ASSOCIATION_FOREIGN_DB_NAMES    uint8 = 24 // was AssociationForeignDBNames in Relationship struct
+
+	//Tags that can be defined `sql` or `gorm`
 	auto_increment          string = "AUTO_INCREMENT"
 	primary_key             string = "PRIMARY_KEY"
 	ignored                 string = "-"
@@ -47,28 +55,56 @@ const (
 	type_str                string = "TYPE"
 	unique                  string = "UNIQUE"
 	save_associations       string = "SAVE_ASSOCIATIONS"
+
+	//not really tags, but used in cachedReverseTagSettingsMap for Stringer
+	relation_kind             string = "Relation kind"
+	join_table_handler        string = "Join table handler"
+	foreign_field_names       string = "Foreign field names"
+	foreign_db_names          string = "Foreign db names"
+	assoc_foreign_field_names string = "Assoc foreign field names"
+	assoc_foreign_db_names    string = "Assoc foreign db names"
+
+	//Relationship Kind constants
+	MANY_TO_MANY uint8 = 1
+	HAS_MANY     uint8 = 2
+	HAS_ONE      uint8 = 3
+	BELONGS_TO   uint8 = 4 //Attention : relationship.Kind <= HAS_ONE in callback_functions.go saveAfterAssociationsCallback()
 )
 
 var (
 	//this is a map for transforming strings into uint8 when reading tags of structs
 	tagSettingMap = map[string]uint8{
-		many_to_many:            MANY2MANY,
-		index:                   INDEX,
-		not_null:                NOT_NULL,
-		size:                    SIZE,
-		unique_index:            UNIQUE_INDEX,
-		is_jointable_foreignkey: IS_JOINTABLE_FOREIGNKEY,
-		default_str:             DEFAULT,
-		embedded_prefix:         EMBEDDED_PREFIX,
-		foreignkey:              FOREIGNKEY,
-		association_foreign_key: ASSOCIATIONFOREIGNKEY,
-		polymorphic:             POLYMORPHIC,
-		polymorphic_value:       POLYMORPHIC_VALUE,
-		column:                  COLUMN,
-		type_str:                TYPE,
-		unique:                  UNIQUE,
-		save_associations:       SAVE_ASSOCIATIONS,
+		many_to_many:              MANY2MANY_NAME,
+		index:                     INDEX,
+		not_null:                  NOT_NULL,
+		size:                      SIZE,
+		unique_index:              UNIQUE_INDEX,
+		is_jointable_foreignkey:   IS_JOINTABLE_FOREIGNKEY,
+		default_str:               DEFAULT,
+		embedded_prefix:           EMBEDDED_PREFIX,
+		foreignkey:                FOREIGNKEY,
+		association_foreign_key:   ASSOCIATIONFOREIGNKEY,
+		polymorphic:               POLYMORPHIC,
+		polymorphic_value:         POLYMORPHIC_VALUE,
+		column:                    COLUMN,
+		type_str:                  TYPE,
+		unique:                    UNIQUE,
+		save_associations:         SAVE_ASSOCIATIONS,
+		relation_kind:             RELATION_KIND,
+		join_table_handler:        JOIN_TABLE_HANDLER,
+		foreign_field_names:       FOREIGN_FIELD_NAMES,
+		foreign_db_names:          FOREIGN_DB_NAMES,
+		assoc_foreign_field_names: ASSOCIATION_FOREIGN_FIELD_NAMES,
+		assoc_foreign_db_names:    ASSOCIATION_FOREIGN_DB_NAMES,
 	}
+
+	kindNamesMap = map[uint8]string{
+		MANY_TO_MANY: "Many to many",
+		HAS_MANY:     "Has many",
+		HAS_ONE:      "Has one",
+		BELONGS_TO:   "Belongs to",
+	}
+
 	cachedReverseTagSettingsMap map[uint8]string
 )
 
@@ -108,15 +144,11 @@ func (t *TagSettings) has(named uint8) bool {
 	return ok
 }
 
-//gets the string value of a certain key
-func (t *TagSettings) get(named uint8) interface{} {
+func (t *TagSettings) get(named uint8) (interface{}, bool) {
 	t.l.Lock()
 	defer t.l.Unlock()
 	value, ok := t.Uint8Map[named]
-	if !ok {
-		return nil
-	}
-	return value
+	return value, ok
 }
 
 func (t *TagSettings) len() int {
@@ -129,22 +161,35 @@ func (t TagSettings) String() string {
 	if cachedReverseTagSettingsMap == nil {
 		reverseTagSettingsMap()
 	}
-	result := ""
+	var collector Collector
+
 	for key, value := range t.Uint8Map {
 		switch key {
-		case ASSOCIATIONFOREIGNKEY, FOREIGNKEY:
+		case ASSOCIATIONFOREIGNKEY,
+			FOREIGNKEY,
+			FOREIGN_FIELD_NAMES,
+			FOREIGN_DB_NAMES,
+			ASSOCIATION_FOREIGN_FIELD_NAMES,
+			ASSOCIATION_FOREIGN_DB_NAMES:
 			slice, ok := value.(StrSlice)
 			if ok {
-				result += fmt.Sprintf("%s = %v ; ", cachedReverseTagSettingsMap[key], slice)
+				collector.add("\t\t\t%s=%s\n", cachedReverseTagSettingsMap[key], slice)
 			}
+		case RELATION_KIND:
+			kind, ok := value.(uint8)
+			if ok {
+				collector.add("\t\t\t%s=%s\n", cachedReverseTagSettingsMap[key], kindNamesMap[kind])
+			}
+		case JOIN_TABLE_HANDLER:
+			collector.add("\t\t\t%s\n", cachedReverseTagSettingsMap[key])
 		default:
 			if value == "" {
-				result += fmt.Sprintf("%s ; ", cachedReverseTagSettingsMap[key])
+				collector.add("\t\t\t%s\n", cachedReverseTagSettingsMap[key])
 			} else {
-				result += fmt.Sprintf("%s = %s ; ", cachedReverseTagSettingsMap[key], value.(string))
+				collector.add("\t\t\t%s=%s\n", cachedReverseTagSettingsMap[key], value.(string))
 			}
 		}
 
 	}
-	return result
+	return collector.String()
 }

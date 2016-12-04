@@ -682,7 +682,8 @@ func (con *DBCon) Association(column string) *Association {
 		err = errors.New("primary key can't be nil")
 	} else {
 		if field, ok := scope.FieldByName(column); ok {
-			if !field.HasRelations() || field.Relationship.ForeignFieldNames.len() == 0 {
+			ForeignFieldNames := field.GetSliceSetting(FOREIGN_FIELD_NAMES)
+			if !field.HasRelations() || ForeignFieldNames.len() == 0 {
 				err = fmt.Errorf("invalid association %v for %v", column, IndirectValue(scope.Value).Type())
 			} else {
 				return &Association{scope: scope, column: column, field: field}
@@ -700,12 +701,13 @@ func (con *DBCon) SetJoinTableHandler(source interface{}, column string, handler
 	scope := con.NewScope(source)
 	for _, field := range scope.GetModelStruct().StructFields() {
 		if field.StructName == column || field.DBName == column {
-			if field.HasSetting(MANY2MANY) {
+			if field.HasSetting(MANY2MANY_NAME) {
 				src := (&Scope{Value: source}).GetModelStruct().ModelType
 				destination := (&Scope{Value: field.Interface()}).GetModelStruct().ModelType
-				handler.SetTable(field.GetSetting(MANY2MANY))
-				handler.Setup(field.Relationship, src, destination)
-				field.Relationship.JoinTableHandler = handler
+				handler.SetTable(field.GetStrSetting(MANY2MANY_NAME))
+				handler.Setup(field, src, destination)
+				//field.Relationship.JoinTableHandler = handler
+				field.SetTagSetting(JOIN_TABLE_HANDLER, handler)
 				if table := handler.Table(con); con.parent.dialect.HasTable(table) {
 					con.Table(table).AutoMigrate(handler)
 				}

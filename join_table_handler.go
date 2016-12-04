@@ -22,26 +22,33 @@ func (jth *JoinTableHandler) DestinationForeignKeys() []JoinTableForeignKey {
 //implementation of JoinTableHandlerInterface
 // Setup initialize a default join table handler
 func (jth *JoinTableHandler) Setup(
-	relationship *Relationship,
+	field *StructField,
 	source reflect.Type,
 	destination reflect.Type) {
 
+	var (
+		ForeignDBNames               = field.GetSliceSetting(FOREIGN_DB_NAMES)
+		ForeignFieldNames            = field.GetSliceSetting(FOREIGN_FIELD_NAMES)
+		AssociationForeignFieldNames = field.GetSliceSetting(ASSOCIATION_FOREIGN_FIELD_NAMES)
+		AssociationForeignDBNames    = field.GetSliceSetting(ASSOCIATION_FOREIGN_DB_NAMES)
+	)
+
 	jth.Source = JoinTableSource{ModelType: source}
-	for idx, dbName := range relationship.ForeignFieldNames {
+	for idx, dbName := range ForeignFieldNames {
 		jth.Source.ForeignKeys = append(jth.Source.ForeignKeys,
 			JoinTableForeignKey{
-				DBName:            relationship.ForeignDBNames[idx],
+				DBName:            ForeignDBNames[idx],
 				AssociationDBName: dbName,
 			},
 		)
 	}
 
 	jth.Destination = JoinTableSource{ModelType: destination}
-	for idx, dbName := range relationship.AssociationForeignFieldNames {
+	for idx, dbName := range AssociationForeignFieldNames {
 		jth.Destination.ForeignKeys = append(
 			jth.Destination.ForeignKeys,
 			JoinTableForeignKey{
-				DBName:            relationship.AssociationForeignDBNames[idx],
+				DBName:            AssociationForeignDBNames[idx],
 				AssociationDBName: dbName,
 			},
 		)
@@ -105,27 +112,9 @@ func (jth *JoinTableHandler) SetTable(name string) {
 
 //implementation of JoinTableHandlerInterface
 // Delete delete relationship in join table for sources
-func (jth JoinTableHandler) Delete(handler JoinTableHandlerInterface, con *DBCon, sources ...interface{}) error {
-	var (
-		scope      = con.NewScope(nil)
-		conditions []string
-		values     []interface{}
-		//because we're using it in a for, we're getting it once
-		scopeDialect = scope.con.parent.dialect
-	)
-
-	for key, value := range getSearchMap(jth, con, sources...) {
-		conditions = append(
-			conditions,
-			fmt.Sprintf(
-				"%v = ?",
-				Quote(key, scopeDialect),
-			),
-		)
-		values = append(values, value)
-	}
-
-	return con.Table(handler.Table(con)).Where(strings.Join(conditions, " AND "), values...).Delete("").Error
+// TODO : @Badu - it's a lie : did nothing with sources, because sources was Relationship
+func (jth JoinTableHandler) Delete(handler JoinTableHandlerInterface, con *DBCon) error {
+	return con.Table(handler.Table(con)).Delete("").Error
 }
 
 //implementation of JoinTableHandlerInterface

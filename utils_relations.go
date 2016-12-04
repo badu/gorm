@@ -14,52 +14,40 @@ const (
 	poly_type                 string = "Type"
 	has_no_foreign_key        string = "\nrel [%q]: field has no foreign key setting"
 	has_no_association_key    string = "\nrel [%q]: field has no association key setting"
-	bad_relationship          string = "\nrel [%q]: bad relationship (zero length) %q::%q [%q]"
 )
 
-func (r *Relationship) Poly(field *StructField, toModel *ModelStruct, fromScope, toScope *Scope) string {
+func makePoly(field *StructField, toModel *ModelStruct, fromScope *Scope) string {
 	modelName := ""
 	if field.HasSetting(POLYMORPHIC) {
-		polyName := field.GetSetting(POLYMORPHIC)
+		polyName := field.GetStrSetting(POLYMORPHIC)
 		polyFieldName := polyName + poly_type
 		// Dog has many toys, tag polymorphic is Owner, then associationType is Owner
 		// Toy use OwnerID, OwnerType ('dogs') as foreign key
 		if polyField, ok := toModel.FieldByName(polyFieldName); ok {
 			modelName = polyName
-			/**
-			r.PolymorphicType = polymorphicType.StructName
-			r.PolymorphicDBName = polymorphicType.DBName
-			// if Dog has multiple set of toys set name of the set (instead of default 'dogs')
-			if polyValue != "" {
-				r.PolymorphicValue = polyValue
-			} else {
-				r.PolymorphicValue = fromScope.TableName()
-			}
-			polymorphicType.SetIsForeignKey()
-			 */
 			polyField.LinkPoly(field, fromScope.TableName())
 		} else {
 			errMsg := fmt.Sprintf(poly_field_not_found_warn, polyFieldName, toModel.ModelType.Name())
-			toScope.Warn(errMsg)
+			fromScope.Warn(errMsg)
 		}
 	}
 	return modelName
 }
 
 //creates a many to many relationship, even if we don't have tags
-func (r *Relationship) ManyToMany(field *StructField,
+func makeManyToMany(field *StructField,
 	fromModel *ModelStruct,
 	fromScope, toScope *Scope) {
 
 	var foreignKeys, associationForeignKeys StrSlice
 
-	r.Kind = MANY_TO_MANY
+	//rel.Kind = MANY_TO_MANY
 	elemType := field.Type
 	elemName := NamesMap.ToDBName(elemType.Name())
 	modelType := fromModel.ModelType
 	modelName := NamesMap.ToDBName(modelType.Name())
 	//many to many is set (check is in ModelStruct)
-	referencedTable := field.GetSetting(MANY2MANY)
+	referencedTable := field.GetStrSetting(MANY2MANY_NAME)
 
 	if !field.HasSetting(FOREIGNKEY) {
 		// if no foreign keys defined with tag, we add the primary keys
@@ -89,12 +77,19 @@ func (r *Relationship) ManyToMany(field *StructField,
 		}
 	}
 
+	var (
+		ForeignFieldNames            StrSlice
+		ForeignDBNames               StrSlice
+		AssociationForeignFieldNames StrSlice
+		AssociationForeignDBNames    StrSlice
+	)
+
 	for _, fk := range foreignKeys {
 		if fkField, ok := fromModel.FieldByName(fk); ok {
 			// source foreign keys (db names)
-			r.ForeignFieldNames.add(fkField.DBName)
+			ForeignFieldNames.add(fkField.DBName)
 			// join table foreign keys for source
-			r.ForeignDBNames.add(modelName + "_" + fkField.DBName)
+			ForeignDBNames.add(modelName + "_" + fkField.DBName)
 		} else {
 			errMsg := fmt.Sprintf(fk_field_not_found_warn, "Many2Many", fk, fromModel.ModelType.Name(), field.StructName, toScope.GetModelStruct().ModelType.Name())
 			toScope.Warn(errMsg)
@@ -104,46 +99,58 @@ func (r *Relationship) ManyToMany(field *StructField,
 	for _, fk := range associationForeignKeys {
 		if fkField, ok := toScope.FieldByName(fk); ok {
 			// association foreign keys (db names)
-			r.AssociationForeignFieldNames.add(fkField.DBName)
+			AssociationForeignFieldNames.add(fkField.DBName)
 			// join table foreign keys for association
-			r.AssociationForeignDBNames.add(elemName + "_" + fkField.DBName)
+			AssociationForeignDBNames.add(elemName + "_" + fkField.DBName)
 		} else {
 			errMsg := fmt.Sprintf(afk_field_not_found_warn, "Many2Many", fk, toScope.GetModelStruct().ModelType.Name())
 			toScope.Warn(errMsg)
 		}
 	}
 
+	field.SetTagSetting(FOREIGN_FIELD_NAMES, ForeignFieldNames)
+	field.SetTagSetting(FOREIGN_DB_NAMES, ForeignDBNames)
+	field.SetTagSetting(ASSOCIATION_FOREIGN_FIELD_NAMES, AssociationForeignFieldNames)
+	field.SetTagSetting(ASSOCIATION_FOREIGN_DB_NAMES, AssociationForeignDBNames)
+	field.SetHasRelations()
+
 	joinTableHandler := JoinTableHandler{TableName: referencedTable}
-	joinTableHandler.Setup(r, modelType, elemType)
-	r.JoinTableHandler = &joinTableHandler
-	field.Relationship = r
+	joinTableHandler.Setup(field, modelType, elemType)
+	field.SetTagSetting(JOIN_TABLE_HANDLER, &joinTableHandler)
 }
 
-func (r *Relationship) HasMany(field *StructField,
+func makeHasMany(field *StructField,
 	fromModel, toModel *ModelStruct,
 	fromScope, toScope *Scope) {
 
 	// User has many comments, associationType is User, comment use UserID as foreign key
 	modelName := NamesMap.ToDBName(fromModel.ModelType.Name())
-	r.Kind = HAS_MANY
+	//r.Kind = HAS_MANY
 
-	if polyName := r.Poly(field, toModel, fromScope, toScope); polyName != "" {
+	if polyName := makePoly(field, toModel, fromScope); polyName != "" {
 		modelName = polyName
 	}
 
-	foreignKeys, associationForeignKeys := r.collectFKsAndAFKs(field, fromModel, fromScope, modelName)
+	foreignKeys, associationForeignKeys := collectFKsAndAFKs(field, fromModel, fromScope, modelName)
+
+	var (
+		ForeignFieldNames            StrSlice
+		ForeignDBNames               StrSlice
+		AssociationForeignFieldNames StrSlice
+		AssociationForeignDBNames    StrSlice
+	)
 
 	for idx, foreignKey := range foreignKeys {
 		if foreignField, ok := toModel.FieldByName(foreignKey); ok {
 			if associationField, ok := fromModel.FieldByName(associationForeignKeys[idx]); ok {
 				// source foreign keys
 				foreignField.SetIsForeignKey()
-				r.AssociationForeignFieldNames.add(associationField.StructName)
-				r.AssociationForeignDBNames.add(associationField.DBName)
+				AssociationForeignFieldNames.add(associationField.StructName)
+				AssociationForeignDBNames.add(associationField.DBName)
 
 				// association foreign keys
-				r.ForeignFieldNames.add(foreignField.StructName)
-				r.ForeignDBNames.add(foreignField.DBName)
+				ForeignFieldNames.add(foreignField.StructName)
+				ForeignDBNames.add(foreignField.DBName)
 			} else {
 				errMsg := fmt.Sprintf(afk_field_not_found_warn, "HasMany", associationForeignKeys[idx], fromModel.ModelType.Name())
 				toScope.Warn(errMsg)
@@ -154,37 +161,46 @@ func (r *Relationship) HasMany(field *StructField,
 		}
 	}
 
-	if r.ForeignFieldNames.len() != 0 {
-		field.Relationship = r
-	} else {
-		errMsg := fmt.Sprintf(bad_relationship, "HasMany", fromModel.ModelType.Name(), field.DBName, field.StructName)
-		toScope.Warn(errMsg)
+	if ForeignFieldNames.len() != 0 {
+		field.SetTagSetting(RELATION_KIND, HAS_MANY)
+		field.SetTagSetting(FOREIGN_FIELD_NAMES, ForeignFieldNames)
+		field.SetTagSetting(FOREIGN_DB_NAMES, ForeignDBNames)
+		field.SetTagSetting(ASSOCIATION_FOREIGN_FIELD_NAMES, AssociationForeignFieldNames)
+		field.SetTagSetting(ASSOCIATION_FOREIGN_DB_NAMES, AssociationForeignDBNames)
+		field.SetHasRelations()
 	}
 }
 
-func (r *Relationship) HasOne(field *StructField,
+func makeHasOne(field *StructField,
 	fromModel, toModel *ModelStruct,
 	fromScope, toScope *Scope) bool {
 
 	modelName := NamesMap.ToDBName(fromModel.ModelType.Name())
 
-	if polyName := r.Poly(field, toModel, fromScope, toScope); polyName != "" {
+	if polyName := makePoly(field, toModel, fromScope); polyName != "" {
 		modelName = polyName
 	}
 
-	foreignKeys, associationForeignKeys := r.collectFKsAndAFKs(field, fromModel, fromScope, modelName)
+	foreignKeys, associationForeignKeys := collectFKsAndAFKs(field, fromModel, fromScope, modelName)
+
+	var (
+		ForeignFieldNames            StrSlice
+		ForeignDBNames               StrSlice
+		AssociationForeignFieldNames StrSlice
+		AssociationForeignDBNames    StrSlice
+	)
 
 	for idx, foreignKey := range foreignKeys {
 		if foreignField, ok := toModel.FieldByName(foreignKey); ok {
 			if assocField, ok := fromModel.FieldByName(associationForeignKeys[idx]); ok {
 				foreignField.SetIsForeignKey()
 				// source foreign keys
-				r.AssociationForeignFieldNames.add(assocField.StructName)
-				r.AssociationForeignDBNames.add(assocField.DBName)
+				AssociationForeignFieldNames.add(assocField.StructName)
+				AssociationForeignDBNames.add(assocField.DBName)
 
 				// association foreign keys
-				r.ForeignFieldNames.add(foreignField.StructName)
-				r.ForeignDBNames.add(foreignField.DBName)
+				ForeignFieldNames.add(foreignField.StructName)
+				ForeignDBNames.add(foreignField.DBName)
 			} else {
 				errMsg := fmt.Sprintf(afk_field_not_found_warn, "HasOne[1]", associationForeignKeys[idx], fromModel.ModelType.Name())
 				toScope.Warn(errMsg)
@@ -195,19 +211,30 @@ func (r *Relationship) HasOne(field *StructField,
 		}
 	}
 
-	if r.ForeignFieldNames.len() != 0 {
-		r.Kind = HAS_ONE
-		field.Relationship = r
+	if ForeignFieldNames.len() != 0 {
+		field.SetTagSetting(RELATION_KIND, HAS_ONE)
+		field.SetTagSetting(FOREIGN_FIELD_NAMES, ForeignFieldNames)
+		field.SetTagSetting(FOREIGN_DB_NAMES, ForeignDBNames)
+		field.SetTagSetting(ASSOCIATION_FOREIGN_FIELD_NAMES, AssociationForeignFieldNames)
+		field.SetTagSetting(ASSOCIATION_FOREIGN_DB_NAMES, AssociationForeignDBNames)
+		field.SetHasRelations()
 		return true
 	}
 	return false
 }
 
-func (r *Relationship) BelongTo(field *StructField,
+func makeBelongTo(field *StructField,
 	fromModel, toModel *ModelStruct,
 	fromScope, toScope *Scope) bool {
 
-	foreignKeys, associationForeignKeys := r.collectFKsAndAFKs(field, toModel, fromScope, "")
+	foreignKeys, associationForeignKeys := collectFKsAndAFKs(field, toModel, fromScope, "")
+
+	var (
+		ForeignFieldNames            StrSlice
+		ForeignDBNames               StrSlice
+		AssociationForeignFieldNames StrSlice
+		AssociationForeignDBNames    StrSlice
+	)
 
 	for idx, foreignKey := range foreignKeys {
 		if foreignField, ok := fromModel.FieldByName(foreignKey); ok {
@@ -215,12 +242,12 @@ func (r *Relationship) BelongTo(field *StructField,
 				foreignField.SetIsForeignKey()
 
 				// association foreign keys
-				r.AssociationForeignFieldNames.add(associationField.StructName)
-				r.AssociationForeignDBNames.add(associationField.DBName)
+				AssociationForeignFieldNames.add(associationField.StructName)
+				AssociationForeignDBNames.add(associationField.DBName)
 
 				// source foreign keys
-				r.ForeignFieldNames.add(foreignField.StructName)
-				r.ForeignDBNames.add(foreignField.DBName)
+				ForeignFieldNames.add(foreignField.StructName)
+				ForeignDBNames.add(foreignField.DBName)
 			} else {
 				errMsg := fmt.Sprintf(afk_field_not_found_warn, "BelongTo", associationForeignKeys[idx], fromModel.ModelType.Name())
 				toScope.Warn(errMsg)
@@ -231,15 +258,19 @@ func (r *Relationship) BelongTo(field *StructField,
 		}
 	}
 
-	if r.ForeignFieldNames.len() != 0 {
-		r.Kind = BELONGS_TO
-		field.Relationship = r
+	if ForeignFieldNames.len() != 0 {
+		field.SetTagSetting(RELATION_KIND, BELONGS_TO)
+		field.SetTagSetting(FOREIGN_FIELD_NAMES, ForeignFieldNames)
+		field.SetTagSetting(FOREIGN_DB_NAMES, ForeignDBNames)
+		field.SetTagSetting(ASSOCIATION_FOREIGN_FIELD_NAMES, AssociationForeignFieldNames)
+		field.SetTagSetting(ASSOCIATION_FOREIGN_DB_NAMES, AssociationForeignDBNames)
+		field.SetHasRelations()
 		return true
 	}
 	return false
 }
 
-func (r *Relationship) collectFKsAndAFKs(field *StructField,
+func collectFKsAndAFKs(field *StructField,
 	model *ModelStruct,
 	scope *Scope,
 	modelName string) (StrSlice, StrSlice) {
@@ -321,38 +352,4 @@ func (r *Relationship) collectFKsAndAFKs(field *StructField,
 		}
 	}
 	return foreignKeys, associationForeignKeys
-}
-
-//implementation of Stringer
-func (r Relationship) String() string {
-	var collector Collector
-	vKind := "Unknown"
-	switch r.Kind {
-	case BELONGS_TO:
-		vKind = "Belongs_To"
-	case HAS_MANY:
-		vKind = "Has_Many"
-	case HAS_ONE:
-		vKind = "Has_One"
-	case MANY_TO_MANY:
-		vKind = "Many_To_Many"
-	}
-	collector.add("\t%s = %s (%d)\n", "Kind", vKind, r.Kind)
-
-	for _, fn := range r.ForeignFieldNames {
-		collector.add("\t%s = %q\n", "Foreign field name", fn)
-	}
-	for _, fn := range r.ForeignDBNames {
-		collector.add("\t%s = %q\n", "Foreign db name", fn)
-	}
-	for _, fn := range r.AssociationForeignFieldNames {
-		collector.add("\t%s = %q\n", "Foreign assoc field name", fn)
-	}
-	for _, fn := range r.AssociationForeignDBNames {
-		collector.add("\t%s = %q\n", "Foreign assoc db name", fn)
-	}
-	if r.JoinTableHandler != nil {
-		collector.add("\t\thas JoinTableHandler.\n")
-	}
-	return collector.String()
 }

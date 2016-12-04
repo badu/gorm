@@ -727,7 +727,7 @@ func (*PersonAddress) Add(handler gorm.JoinTableHandlerInterface, db *gorm.DBCon
 	}).FirstOrCreate(&PersonAddress{}).Error
 }
 
-func (*PersonAddress) Delete(handler gorm.JoinTableHandlerInterface, db *gorm.DBCon, sources ...interface{}) error {
+func (*PersonAddress) Delete(handler gorm.JoinTableHandlerInterface, db *gorm.DBCon) error {
 	return db.Delete(&PersonAddress{}).Error
 }
 

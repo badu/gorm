@@ -850,7 +850,7 @@ func (s *Search) doPreload(scope *Scope) {
 						continue
 					}
 
-					switch field.Relationship.Kind {
+					switch field.RelKind() {
 					case HAS_ONE, HAS_MANY, BELONGS_TO:
 						handleRelationPreload(currentScope, field, currentPreloadConditions)
 					case MANY_TO_MANY:
@@ -889,17 +889,22 @@ func (s *Search) doPreload(scope *Scope) {
 func handleRelationPreload(scope *Scope, field *StructField, conditions []interface{}) {
 	var (
 		indirectScopeValue = IndirectValue(scope.Value)
-		relation           = field.Relationship
-		dialect            = scope.con.parent.dialect
-		query              = ""
-		primaryKeys        [][]interface{}
+
+		dialect     = scope.con.parent.dialect
+		query       = ""
+		primaryKeys [][]interface{}
+
+		ForeignDBNames               = field.GetSliceSetting(FOREIGN_DB_NAMES)
+		ForeignFieldNames            = field.GetSliceSetting(FOREIGN_FIELD_NAMES)
+		AssociationForeignFieldNames = field.GetSliceSetting(ASSOCIATION_FOREIGN_FIELD_NAMES)
+		AssociationForeignDBNames    = field.GetSliceSetting(ASSOCIATION_FOREIGN_DB_NAMES)
 	)
 
 	// get relations's primary keys
-	if relation.Kind == BELONGS_TO {
-		primaryKeys = getColumnAsArray(relation.ForeignFieldNames, scope.Value)
+	if field.RelKind() == BELONGS_TO {
+		primaryKeys = getColumnAsArray(ForeignFieldNames, scope.Value)
 	} else {
-		primaryKeys = getColumnAsArray(relation.AssociationForeignFieldNames, scope.Value)
+		primaryKeys = getColumnAsArray(AssociationForeignFieldNames, scope.Value)
 	}
 
 	if len(primaryKeys) == 0 {
@@ -912,20 +917,20 @@ func handleRelationPreload(scope *Scope, field *StructField, conditions []interf
 	values := toQueryValues(primaryKeys)
 
 	// find relations
-	if relation.Kind == BELONGS_TO {
+	if field.RelKind() == BELONGS_TO {
 		query = fmt.Sprintf(
 			"%v IN (%v)",
-			toQueryCondition(relation.AssociationForeignDBNames, dialect),
+			toQueryCondition(AssociationForeignDBNames, dialect),
 			toQueryMarks(primaryKeys))
 	} else {
 		query = fmt.Sprintf(
 			"%v IN (%v)",
-			toQueryCondition(relation.ForeignDBNames, dialect),
+			toQueryCondition(ForeignDBNames, dialect),
 			toQueryMarks(primaryKeys))
 
 		if field.HasSetting(POLYMORPHIC_TYPE) {
-			query += fmt.Sprintf(" AND %v = ?", Quote(field.GetSetting(POLYMORPHIC_DBNAME), dialect))
-			values = append(values, field.GetSetting(POLYMORPHIC_VALUE))
+			query += fmt.Sprintf(" AND %v = ?", Quote(field.GetStrSetting(POLYMORPHIC_DBNAME), dialect))
+			values = append(values, field.GetStrSetting(POLYMORPHIC_VALUE))
 		}
 	}
 
@@ -933,18 +938,18 @@ func handleRelationPreload(scope *Scope, field *StructField, conditions []interf
 	scope.Err(preloadDB.Where(query, values...).Find(results, preloadConditions...).Error)
 	// assign find results
 
-	switch relation.Kind {
+	switch field.RelKind() {
 	case HAS_ONE:
 		switch indirectScopeValue.Kind() {
 		case reflect.Slice:
 			for j := 0; j < indirectScopeValue.Len(); j++ {
 				for i := 0; i < resultsValue.Len(); i++ {
 					result := resultsValue.Index(i)
-					foreignValues := getValueFromFields(relation.ForeignFieldNames, result)
+					foreignValues := getValueFromFields(ForeignFieldNames, result)
 					indirectValue := FieldValue(indirectScopeValue, j)
 					if equalAsString(
 						getValueFromFields(
-							relation.AssociationForeignFieldNames,
+							AssociationForeignFieldNames,
 							indirectValue,
 						),
 						foreignValues,
@@ -966,13 +971,13 @@ func handleRelationPreload(scope *Scope, field *StructField, conditions []interf
 			preloadMap := make(map[string][]reflect.Value)
 			for i := 0; i < resultsValue.Len(); i++ {
 				result := resultsValue.Index(i)
-				foreignValues := getValueFromFields(relation.ForeignFieldNames, result)
+				foreignValues := getValueFromFields(ForeignFieldNames, result)
 				preloadMap[toString(foreignValues)] = append(preloadMap[toString(foreignValues)], result)
 			}
 
 			for j := 0; j < indirectScopeValue.Len(); j++ {
 				reflectValue := FieldValue(indirectScopeValue, j)
-				objectRealValue := getValueFromFields(relation.AssociationForeignFieldNames, reflectValue)
+				objectRealValue := getValueFromFields(AssociationForeignFieldNames, reflectValue)
 				f := reflectValue.FieldByName(field.StructName)
 				if results, ok := preloadMap[toString(objectRealValue)]; ok {
 					f.Set(reflect.Append(f, results...))
@@ -988,12 +993,12 @@ func handleRelationPreload(scope *Scope, field *StructField, conditions []interf
 		for i := 0; i < resultsValue.Len(); i++ {
 			result := resultsValue.Index(i)
 			if indirectScopeValue.Kind() == reflect.Slice {
-				value := getValueFromFields(relation.AssociationForeignFieldNames, result)
+				value := getValueFromFields(AssociationForeignFieldNames, result)
 				for j := 0; j < indirectScopeValue.Len(); j++ {
 					reflectValue := FieldValue(indirectScopeValue, j)
 					if equalAsString(
 						getValueFromFields(
-							relation.ForeignFieldNames,
+							ForeignFieldNames,
 							reflectValue,
 						),
 						value,
@@ -1012,7 +1017,7 @@ func handleRelationPreload(scope *Scope, field *StructField, conditions []interf
 // handleManyToManyPreload used to preload many to many associations
 func handleManyToManyPreload(scope *Scope, field *StructField, conditions []interface{}) {
 	var (
-		joinTableHandler   = field.Relationship.JoinTableHandler
+		//joinTableHandler   = field.Relationship.JoinTableHandler
 		fieldType, isPtr   = field.Type, field.IsPointer()
 		foreignKeyValue    interface{}
 		foreignKeyType     = reflect.ValueOf(&foreignKeyValue).Type()
@@ -1021,6 +1026,9 @@ func handleManyToManyPreload(scope *Scope, field *StructField, conditions []inte
 		fieldsSourceMap    = map[string][]reflect.Value{}
 		foreignFieldNames  = StrSlice{}
 		sourceKeys         = []string{}
+
+		ForeignFieldNames = field.GetSliceSetting(FOREIGN_FIELD_NAMES)
+		joinTableHandler  = field.JoinHandler()
 	)
 
 	for _, key := range joinTableHandler.SourceForeignKeys() {
@@ -1086,7 +1094,7 @@ func handleManyToManyPreload(scope *Scope, field *StructField, conditions []inte
 
 	// assign find results
 
-	for _, dbName := range field.Relationship.ForeignFieldNames {
+	for _, dbName := range ForeignFieldNames {
 		if field, ok := scope.FieldByName(dbName); ok {
 			foreignFieldNames.add(field.StructName)
 		}

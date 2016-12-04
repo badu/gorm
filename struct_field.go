@@ -27,8 +27,7 @@ const (
 	IS_EMBED_OR_ANON  uint8 = 11
 	IS_AUTOINCREMENT  uint8 = 12
 	IS_POINTER        uint8 = 13
-	IS_OMITTED        uint8 = 14
-	IS_INCLUDED       uint8 = 15
+	RELATION_CHECK    uint8 = 14
 )
 
 func NewStructField(fromStruct reflect.StructField) (*StructField, error) {
@@ -46,7 +45,7 @@ func NewStructField(fromStruct reflect.StructField) (*StructField, error) {
 
 	// Even it is ignored, also possible to decode db value into the field
 	if result.HasSetting(COLUMN) {
-		result.DBName = result.GetSetting(COLUMN)
+		result.DBName = result.GetStrSetting(COLUMN)
 	} else {
 		result.DBName = NamesMap.ToDBName(fromStruct.Name)
 	}
@@ -106,9 +105,9 @@ func NewStructField(fromStruct reflect.StructField) (*StructField, error) {
 	}
 	if !result.IsIgnored() && !result.IsScanner() && !result.IsTime() && !result.IsEmbedOrAnon() {
 		if result.IsSlice() {
-			result.setFlag(HAS_RELATIONS) //marker for later processing of relationships
+			result.setFlag(RELATION_CHECK) //marker for later processing of relationships
 		} else if result.IsStruct() {
-			result.setFlag(HAS_RELATIONS) //marker for later processing of relationships
+			result.setFlag(RELATION_CHECK) //marker for later processing of relationships
 		} else {
 			result.setFlag(IS_NORMAL)
 		}
@@ -184,22 +183,16 @@ func (field *StructField) HasRelations() bool {
 	return field.flags&(1<<HAS_RELATIONS) != 0
 }
 
+func (field *StructField) WillCheckRelations() bool {
+	return field.flags&(1<<RELATION_CHECK) != 0
+}
+
 func (field *StructField) IsEmbedOrAnon() bool {
 	return field.flags&(1<<IS_EMBED_OR_ANON) != 0
 }
 
 func (field *StructField) IsAutoIncrement() bool {
 	return field.flags&(1<<IS_AUTOINCREMENT) != 0
-}
-
-//TODO : @Badu - make field aware of "it's include or not"
-func (field *StructField) IsOmmited() bool {
-	return field.flags&(1<<IS_OMITTED) != 0
-}
-
-//TODO : @Badu - make field aware of "it's include or not"
-func (field *StructField) IsIncluded() bool {
-	return field.flags&(1<<IS_INCLUDED) != 0
 }
 
 func (field *StructField) UnsetIsAutoIncrement() {
@@ -235,8 +228,8 @@ func (field *StructField) SetIsForeignKey() {
 	field.setFlag(IS_FOREIGNKEY)
 }
 
-func (field *StructField) UnsetHasRelations() {
-	field.unsetFlag(HAS_RELATIONS)
+func (field *StructField) SetHasRelations() {
+	field.setFlag(HAS_RELATIONS)
 }
 
 func (field *StructField) LinkPoly(withField *StructField, tableName string) {
@@ -254,33 +247,59 @@ func (field *StructField) HasSetting(named uint8) bool {
 	return field.tagSettings.has(named)
 }
 
-func (field *StructField) GetSetting(named uint8) string {
-	value := field.tagSettings.get(named)
-	if value == nil {
-		reverseTagSettingsMap()
-		fmt.Printf("ERROR : STRING %q NOT EXISTS!\n", cachedReverseTagSettingsMap[named])
+func (field *StructField) GetStrSetting(named uint8) string {
+	value, ok := field.tagSettings.get(named)
+	if !ok {
+		//Doesn't exist
 		return ""
 	}
 	strValue, ok := value.(string)
 	if !ok {
-		reverseTagSettingsMap()
-		fmt.Printf("ERROR : %q NOT STRING!\n", cachedReverseTagSettingsMap[named])
+		//Can't convert to string
 		return ""
 	}
 	return strValue
 }
 
+func (field *StructField) SetTagSetting(named uint8, value interface{}) {
+	field.tagSettings.set(named, value)
+}
+
+func (field *StructField) RelKind() uint8 {
+	kind, ok := field.tagSettings.get(RELATION_KIND)
+	if !ok {
+		return 0
+	}
+	return kind.(uint8)
+}
+
+func (field *StructField) JoinHandler() JoinTableHandlerInterface {
+	iHandler, ok := field.tagSettings.get(JOIN_TABLE_HANDLER)
+	if !ok {
+		//doesn't has one
+		return nil
+	}
+	handler, ok := iHandler.(JoinTableHandlerInterface)
+	if !ok {
+		//can't convert
+		return nil
+	}
+	return handler
+}
+
 func (field *StructField) GetSliceSetting(named uint8) StrSlice {
-	value := field.tagSettings.get(named)
-	if value == nil {
-		reverseTagSettingsMap()
-		fmt.Printf("ERROR : SLICE %q NOT EXISTS!\n", cachedReverseTagSettingsMap[named])
+	value, ok := field.tagSettings.get(named)
+	if !ok {
+		//doesn't exist
+		//reverseTagSettingsMap()
+		//fmt.Printf("ERROR : SLICE %q NOT EXISTS!\n", cachedReverseTagSettingsMap[named])
+		//_, file, line, _ := runtime.Caller(1)
+		//fmt.Printf("Called from %s %d\n", file, line)
 		return nil
 	}
 	slice, ok := value.(StrSlice)
 	if !ok {
-		reverseTagSettingsMap()
-		fmt.Printf("ERROR : %q NOT SLICE!\n", cachedReverseTagSettingsMap[named])
+		//can't convert to slice
 		return nil
 	}
 	return slice
@@ -354,46 +373,46 @@ func (field *StructField) ParseFieldStructForDialect() (reflect.Value, string, i
 	var (
 		size       = 0
 		fieldValue = reflect.Indirect(reflect.New(field.Type))
+
+		additionalType = ""
+		sqlType        = ""
 	)
 
+	//TODO : @Badu - we have the scanner field info in StructField
 	// Get scanner's real value
 	fieldValue = getScannerValue(fieldValue)
 
 	if field.tagSettings.has(SIZE) {
 		// Default Size
-		val, ok := field.tagSettings.get(SIZE).(string)
-		if !ok {
-			fmt.Printf("ERROR : SIZE \n")
+		val, ok := field.tagSettings.get(SIZE)
+		if ok {
+			size = val.(int)
 		}
-		//TODO : @Badu - store it integer from parseTagSettings
-		size, _ = strconv.Atoi(val)
 	} else {
 		size = 255
 	}
 
-	// Default type from tag setting
-	additionalType := ""
-
 	if field.tagSettings.has(NOT_NULL) {
-		additionalType = field.GetSetting(NOT_NULL)
+		additionalType = field.GetStrSetting(NOT_NULL)
 	}
 
 	if field.tagSettings.has(UNIQUE) {
 		if additionalType != "" {
 			additionalType += " "
 		}
-		additionalType += field.GetSetting(UNIQUE)
+		additionalType += field.GetStrSetting(UNIQUE)
 	}
 
+	// Default type from tag setting
 	if field.tagSettings.has(DEFAULT) {
 		if additionalType != "" {
 			additionalType += " "
 		}
-		additionalType += "DEFAULT " + field.GetSetting(DEFAULT)
+		additionalType += "DEFAULT " + field.GetStrSetting(DEFAULT)
 	}
-	sqlType := ""
+
 	if field.HasSetting(TYPE) {
-		sqlType = field.GetSetting(TYPE)
+		sqlType = field.GetStrSetting(TYPE)
 	}
 	return fieldValue, sqlType, size, strings.TrimSpace(additionalType)
 }
@@ -438,6 +457,10 @@ func (field *StructField) parseTagSettings(tag reflect.StructTag) error {
 						switch k {
 						case default_str:
 							field.setFlag(HAS_DEFAULT_VALUE)
+						case many_to_many:
+							field.tagSettings.set(RELATION_KIND, MANY_TO_MANY)
+						case size:
+							storedValue, _ = strconv.Atoi(v[1])
 						case association_foreign_key, foreignkey:
 							var strSlice StrSlice
 							if len(v) >= 2 {
@@ -445,9 +468,7 @@ func (field *StructField) parseTagSettings(tag reflect.StructTag) error {
 							} else {
 								strSlice = append(strSlice, k)
 							}
-							//field.tagSettings.set(uint8Key, strSlice)
 							storedValue = strSlice
-
 						}
 						field.tagSettings.set(uint8Key, storedValue)
 					} else {
@@ -487,13 +508,12 @@ func (field *StructField) unsetFlag(value uint8) {
 
 func (field *StructField) clone() *StructField {
 	clone := &StructField{
-		flags:        field.flags,
-		DBName:       field.DBName,
-		Names:        field.Names,
-		tagSettings:  field.tagSettings.clone(),
-		StructName:   field.StructName,
-		Relationship: field.Relationship,
-		Type:         field.Type,
+		flags:       field.flags,
+		DBName:      field.DBName,
+		Names:       field.Names,
+		tagSettings: field.tagSettings.clone(),
+		StructName:  field.StructName,
+		Type:        field.Type,
 	}
 
 	return clone
@@ -501,14 +521,13 @@ func (field *StructField) clone() *StructField {
 
 func (field *StructField) cloneWithValue(value reflect.Value) *StructField {
 	clone := &StructField{
-		flags:        field.flags,
-		DBName:       field.DBName,
-		Names:        field.Names,
-		tagSettings:  field.tagSettings.clone(),
-		StructName:   field.StructName,
-		Relationship: field.Relationship,
-		Value:        value,
-		Type:         field.Type,
+		flags:       field.flags,
+		DBName:      field.DBName,
+		Names:       field.Names,
+		tagSettings: field.tagSettings.clone(),
+		StructName:  field.StructName,
+		Value:       value,
+		Type:        field.Type,
 	}
 	//check if the value is blank
 	clone.checkIsBlank()
@@ -572,23 +591,17 @@ func (field StructField) String() string {
 	if field.flags&(1<<IS_POINTER) != 0 {
 		collector.add(" IsPointer")
 	}
-	if field.flags&(1<<IS_OMITTED) != 0 {
-		collector.add(" IsOmmited")
-	}
-	if field.flags&(1<<IS_INCLUDED) != 0 {
-		collector.add(" HasIncluded")
-	}
 	collector.add("\n")
 
 	if field.tagSettings.len() > 0 {
-		collector.add("%s = %q\n", "Tags:", field.tagSettings)
+		collector.add("%s\n%s", "Tags:", field.tagSettings)
+		if field.HasRelations() && field.RelKind() == 0 {
+			collector.add("ERROR : Has relations but invalid relation kind\n")
+		}
 	}
 	if field.Type != nil {
 		collector.add("%s = %s\n", "Type:", field.Type.String())
 	}
 	collector.add("%s = %s\n", "Value:", field.Value.String())
-	if field.HasRelations() {
-		collector.add("%s\n%s", "Relationship:", field.Relationship)
-	}
 	return collector.String()
 }

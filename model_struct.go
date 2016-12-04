@@ -93,7 +93,7 @@ func (modelStruct *ModelStruct) Create(reflectType reflect.Type, scope *Scope) {
 						subField.Names = append([]string{fieldStruct.Name}, subField.Names...)
 
 						if field.HasSetting(EMBEDDED_PREFIX) {
-							subField.DBName = field.GetSetting(EMBEDDED_PREFIX) + subField.DBName
+							subField.DBName = field.GetStrSetting(EMBEDDED_PREFIX) + subField.DBName
 						}
 
 						err = modelStruct.fieldsMap.Add(subField)
@@ -139,20 +139,19 @@ func (modelStruct *ModelStruct) noOfPKs() int {
 
 func (modelStruct *ModelStruct) processRelations(scope *Scope) {
 	for _, field := range modelStruct.StructFields() {
-		if field.HasRelations() {
-			relationship := &Relationship{}
+		if field.WillCheckRelations() {
 			toScope := scope.NewScope(field.Interface())
 			toModelStruct := toScope.GetModelStruct()
 			//ATTN : order matters, since it can be both slice and struct
 			if field.IsSlice() {
 				if field.IsStruct() {
 					//it's a slice of structs
-					if field.HasSetting(MANY2MANY) {
+					if field.HasSetting(MANY2MANY_NAME) {
 						//many to many
-						relationship.ManyToMany(field, modelStruct, scope, toScope)
+						makeManyToMany(field, modelStruct, scope, toScope)
 					} else {
 						//has many
-						relationship.HasMany(field, modelStruct, toModelStruct, scope, toScope)
+						makeHasMany(field, modelStruct, toModelStruct, scope, toScope)
 					}
 				} else {
 					//it's a slice of primitive
@@ -161,19 +160,15 @@ func (modelStruct *ModelStruct) processRelations(scope *Scope) {
 				}
 			} else if field.IsStruct() {
 				//it's a struct - attempt to check if has one
-				if !relationship.HasOne(field, modelStruct, toModelStruct, scope, toScope) {
+				if !makeHasOne(field, modelStruct, toModelStruct, scope, toScope) {
 					//attempt to check if belongs to
-					if !relationship.BelongTo(field, modelStruct, toModelStruct, scope, toScope) {
+					if !makeBelongTo(field, modelStruct, toModelStruct, scope, toScope) {
 						//Oops, neither
 						errMsg := fmt.Errorf(no_belong_or_hasone_err, modelStruct.ModelType.Name(), field.DBName, field.StructName)
 						scope.Warn(errMsg)
 					}
 				}
 			}
-		}
-		//unsetting the flag, so we can use HasRelations() instead of checking for relationship == nil
-		if field.Relationship == nil {
-			field.UnsetHasRelations()
 		}
 		//TODO : @Badu - if you need to look at fields as they are built
 		//scope.con.Log("Processed\n", field)

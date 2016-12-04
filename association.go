@@ -6,14 +6,6 @@ import (
 	"reflect"
 )
 
-const (
-	//Relationship Kind constants
-	MANY_TO_MANY uint8 = 1
-	HAS_MANY     uint8 = 2
-	HAS_ONE      uint8 = 3
-	BELONGS_TO   uint8 = 4 //Attention : relationship.Kind <= HAS_ONE in callback_functions.go saveAfterAssociationsCallback()
-)
-
 // Find find out all related associations
 func (association *Association) Find(value interface{}) *Association {
 	association.scope.related(value, association.column)
@@ -26,7 +18,7 @@ func (association *Association) Append(values ...interface{}) *Association {
 		return association
 	}
 
-	if relationship := association.field.Relationship; relationship.Kind == HAS_ONE {
+	if association.field.RelKind() == HAS_ONE {
 		return association.Replace(values...)
 	}
 	return association.saveAssociations(values...)
@@ -39,26 +31,28 @@ func (association *Association) Replace(values ...interface{}) *Association {
 	}
 
 	var (
-		scope        = association.scope
-		field        = association.field
-		relationship = field.Relationship
-		fieldValue   = field.Value
-		conn         = newCon(scope.con)
-		dialect      = conn.parent.dialect
+		scope      = association.scope
+		field      = association.field
+		fieldValue = field.Value
+		conn       = newCon(scope.con)
+		dialect    = conn.parent.dialect
+
+		ForeignDBNames               = field.GetSliceSetting(FOREIGN_DB_NAMES)
+		AssociationForeignFieldNames = field.GetSliceSetting(ASSOCIATION_FOREIGN_FIELD_NAMES)
 	)
 
 	// Append new values
 	field.Set(reflect.Zero(field.Value.Type()))
 	association.saveAssociations(values...)
 
-	switch relationship.Kind {
+	switch field.RelKind() {
 
 	case BELONGS_TO:
 		// Set foreign key to be null when clearing value (length equals 0)
 		if len(values) == 0 {
 			// Set foreign key to be nil
 			var foreignKeyMap = map[string]interface{}{}
-			for _, foreignKey := range relationship.ForeignDBNames {
+			for _, foreignKey := range ForeignDBNames {
 				foreignKeyMap[foreignKey] = nil
 			}
 			association.setErr(conn.Model(scope.Value).UpdateColumn(foreignKeyMap).Error)
@@ -69,24 +63,24 @@ func (association *Association) Replace(values ...interface{}) *Association {
 			conn = conn.Where(
 				fmt.Sprintf(
 					"%v = ?",
-					Quote(field.GetSetting(POLYMORPHIC_DBNAME), dialect),
+					Quote(field.GetStrSetting(POLYMORPHIC_DBNAME), dialect),
 				),
-				field.GetSetting(POLYMORPHIC_VALUE))
+				field.GetStrSetting(POLYMORPHIC_VALUE))
 		}
 
-		switch relationship.Kind {
+		switch field.RelKind() {
 		case MANY_TO_MANY:
 
 			// Delete Relations except new created
 			if len(values) > 0 {
 				var associationForeignFieldNames, associationForeignDBNames StrSlice
-
+				AssociationForeignDBNames := field.GetSliceSetting(ASSOCIATION_FOREIGN_DB_NAMES)
 				// if many to many relations, get association fields name from association foreign keys
 				associationScope := scope.NewScope(fieldValue.Interface())
-				for idx, dbName := range relationship.AssociationForeignFieldNames {
+				for idx, dbName := range AssociationForeignFieldNames {
 					if field, ok := associationScope.FieldByName(dbName); ok {
 						associationForeignFieldNames.add(field.StructName)
-						associationForeignDBNames.add(relationship.AssociationForeignDBNames[idx])
+						associationForeignDBNames.add(AssociationForeignDBNames[idx])
 					}
 				}
 
@@ -104,8 +98,8 @@ func (association *Association) Replace(values ...interface{}) *Association {
 
 			// if many to many relations, delete related relations from join table
 			var sourceForeignFieldNames StrSlice
-
-			for _, dbName := range relationship.ForeignFieldNames {
+			ForeignFieldNames := field.GetSliceSetting(FOREIGN_FIELD_NAMES)
+			for _, dbName := range ForeignFieldNames {
 				if field, ok := scope.FieldByName(dbName); ok {
 					sourceForeignFieldNames.add(field.StructName)
 				}
@@ -115,13 +109,13 @@ func (association *Association) Replace(values ...interface{}) *Association {
 				conn = conn.Where(
 					fmt.Sprintf(
 						"%v IN (%v)",
-						toQueryCondition(relationship.ForeignDBNames, dialect),
+						toQueryCondition(ForeignDBNames, dialect),
 						toQueryMarks(sourcePrimaryKeys),
 					),
 					toQueryValues(sourcePrimaryKeys)...,
 				)
-
-				association.setErr(relationship.JoinTableHandler.Delete(relationship.JoinTableHandler, conn, relationship))
+				joinTableHandler := field.JoinHandler()
+				association.setErr(joinTableHandler.Delete(joinTableHandler, conn))
 			}
 		case HAS_ONE, HAS_MANY:
 			// Delete Relations except new created
@@ -149,9 +143,9 @@ func (association *Association) Replace(values ...interface{}) *Association {
 			// has_one or has_many relations, set foreign key to be nil (TODO or delete them?)
 			var foreignKeyMap = map[string]interface{}{}
 
-			for idx, foreignKey := range relationship.ForeignDBNames {
+			for idx, foreignKey := range ForeignDBNames {
 				foreignKeyMap[foreignKey] = nil
-				if field, ok := scope.FieldByName(relationship.AssociationForeignFieldNames[idx]); ok {
+				if field, ok := scope.FieldByName(AssociationForeignFieldNames[idx]); ok {
 					conn = conn.Where(fmt.Sprintf("%v = ?", Quote(foreignKey, dialect)), field.Value.Interface())
 				}
 			}
@@ -171,12 +165,14 @@ func (association *Association) Delete(values ...interface{}) *Association {
 	}
 
 	var (
-		field        = association.field
-		relationship = field.Relationship
-		fieldValue   = field.Value
-		scope        = association.scope
-		conn         = newCon(scope.con)
-		dialect      = conn.parent.dialect
+		field      = association.field
+		fieldValue = field.Value
+		scope      = association.scope
+		conn       = newCon(scope.con)
+		dialect    = conn.parent.dialect
+
+		ForeignDBNames               = field.GetSliceSetting(FOREIGN_DB_NAMES)
+		AssociationForeignFieldNames = field.GetSliceSetting(ASSOCIATION_FOREIGN_FIELD_NAMES)
 	)
 
 	if len(values) == 0 {
@@ -191,11 +187,13 @@ func (association *Association) Delete(values ...interface{}) *Association {
 
 	deletingPrimaryKeys := getColumnAsArray(deletingResourcePrimaryFieldNames, values...)
 
-	switch relationship.Kind {
+	switch field.RelKind() {
 	case MANY_TO_MANY:
+		ForeignFieldNames := field.GetSliceSetting(FOREIGN_FIELD_NAMES)
+		AssociationForeignDBNames := field.GetSliceSetting(ASSOCIATION_FOREIGN_DB_NAMES)
 		// source value's foreign keys
-		for idx, foreignKey := range relationship.ForeignDBNames {
-			if field, ok := scope.FieldByName(relationship.ForeignFieldNames[idx]); ok {
+		for idx, foreignKey := range ForeignDBNames {
+			if field, ok := scope.FieldByName(ForeignFieldNames[idx]); ok {
 				conn = conn.Where(
 					fmt.Sprintf(
 						"%v = ?",
@@ -208,7 +206,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 		// get association's foreign fields name
 		var associationScope = scope.NewScope(fieldValue.Interface())
 		var associationForeignFieldNames StrSlice
-		for _, associationDBName := range relationship.AssociationForeignFieldNames {
+		for _, associationDBName := range AssociationForeignFieldNames {
 			if field, ok := associationScope.FieldByName(associationDBName); ok {
 				associationForeignFieldNames.add(field.StructName)
 			}
@@ -218,25 +216,25 @@ func (association *Association) Delete(values ...interface{}) *Association {
 		deletingPrimaryKeys := getColumnAsArray(associationForeignFieldNames, values...)
 		sql := fmt.Sprintf(
 			"%v IN (%v)",
-			toQueryCondition(relationship.AssociationForeignDBNames, dialect),
+			toQueryCondition(AssociationForeignDBNames, dialect),
 			toQueryMarks(deletingPrimaryKeys),
 		)
 		conn = conn.Where(sql, toQueryValues(deletingPrimaryKeys)...)
-
-		association.setErr(relationship.JoinTableHandler.Delete(relationship.JoinTableHandler, conn, relationship))
+		joinTableHandler := field.JoinHandler()
+		association.setErr(joinTableHandler.Delete(joinTableHandler, conn))
 	default:
 		var foreignKeyMap = map[string]interface{}{}
-		for _, foreignKey := range relationship.ForeignDBNames {
+		for _, foreignKey := range ForeignDBNames {
 			foreignKeyMap[foreignKey] = nil
 		}
-		switch relationship.Kind {
+		switch field.RelKind() {
 		case BELONGS_TO:
 			// find with deleting relation's foreign keys
-			primaryKeys := getColumnAsArray(relationship.AssociationForeignFieldNames, values...)
+			primaryKeys := getColumnAsArray(AssociationForeignFieldNames, values...)
 			conn = conn.Where(
 				fmt.Sprintf(
 					"%v IN (%v)",
-					toQueryCondition(relationship.ForeignDBNames, dialect),
+					toQueryCondition(ForeignDBNames, dialect),
 					toQueryMarks(primaryKeys),
 				),
 				toQueryValues(primaryKeys)...,
@@ -253,11 +251,11 @@ func (association *Association) Delete(values ...interface{}) *Association {
 			}
 		case HAS_ONE, HAS_MANY:
 			// find all relations
-			primaryKeys := getColumnAsArray(relationship.AssociationForeignFieldNames, scope.Value)
+			primaryKeys := getColumnAsArray(AssociationForeignFieldNames, scope.Value)
 			conn = conn.Where(
 				fmt.Sprintf(
 					"%v IN (%v)",
-					toQueryCondition(relationship.ForeignDBNames, dialect),
+					toQueryCondition(ForeignDBNames, dialect),
 					toQueryMarks(primaryKeys),
 				),
 				toQueryValues(primaryKeys)...,
@@ -322,33 +320,38 @@ func (association *Association) Clear() *Association {
 // Count return the count of current associations
 func (association *Association) Count() int {
 	var (
-		count        = 0
-		field        = association.field
-		relationship = field.Relationship
-		fieldValue   = field.Value.Interface()
-		scope        = association.scope
-		conn         = scope.con
-		dialect      = conn.parent.dialect
+		count = 0
+		field = association.field
+
+		fieldValue = field.Value.Interface()
+		scope      = association.scope
+		conn       = scope.con
+		dialect    = conn.parent.dialect
 	)
-	switch relationship.Kind {
+	switch field.RelKind() {
 	case MANY_TO_MANY:
-		conn = relationship.JoinTableHandler.JoinWith(relationship.JoinTableHandler, conn, scope.Value)
+		joinTableHandler := field.JoinHandler()
+		conn = joinTableHandler.JoinWith(joinTableHandler, conn, scope.Value)
 	case HAS_MANY, HAS_ONE:
-		primaryKeys := getColumnAsArray(relationship.AssociationForeignFieldNames, scope.Value)
+		AssociationForeignFieldNames := field.GetSliceSetting(ASSOCIATION_FOREIGN_FIELD_NAMES)
+		primaryKeys := getColumnAsArray(AssociationForeignFieldNames, scope.Value)
+		ForeignDBNames := field.GetSliceSetting(FOREIGN_DB_NAMES)
 		conn = conn.Where(
 			fmt.Sprintf(
 				"%v IN (%v)",
-				toQueryCondition(relationship.ForeignDBNames, dialect),
+				toQueryCondition(ForeignDBNames, dialect),
 				toQueryMarks(primaryKeys),
 			),
 			toQueryValues(primaryKeys)...,
 		)
 	case BELONGS_TO:
-		primaryKeys := getColumnAsArray(relationship.ForeignFieldNames, scope.Value)
+		ForeignFieldNames := field.GetSliceSetting(FOREIGN_FIELD_NAMES)
+		AssociationForeignDBNames := field.GetSliceSetting(ASSOCIATION_FOREIGN_DB_NAMES)
+		primaryKeys := getColumnAsArray(ForeignFieldNames, scope.Value)
 		conn = conn.Where(
 			fmt.Sprintf(
 				"%v IN (%v)",
-				toQueryCondition(relationship.AssociationForeignDBNames, dialect),
+				toQueryCondition(AssociationForeignDBNames, dialect),
 				toQueryMarks(primaryKeys),
 			),
 			toQueryValues(primaryKeys)...,
@@ -360,9 +363,9 @@ func (association *Association) Count() int {
 			fmt.Sprintf(
 				"%v.%v = ?",
 				QuotedTableName(scope.NewScope(fieldValue)),
-				Quote(field.GetSetting(POLYMORPHIC_DBNAME), dialect),
+				Quote(field.GetStrSetting(POLYMORPHIC_DBNAME), dialect),
 			),
-			field.GetSetting(POLYMORPHIC_VALUE),
+			field.GetStrSetting(POLYMORPHIC_VALUE),
 		)
 	}
 	conn.Model(fieldValue).Count(&count)
@@ -371,9 +374,9 @@ func (association *Association) Count() int {
 
 func (association *Association) reflect(reflectValue reflect.Value) {
 	var (
-		scope                                         = association.scope
-		field                                         = association.field
-		relationship                                  = field.Relationship
+		scope = association.scope
+		field = association.field
+
 		fieldType                                     = field.Value.Type()
 		setFieldBackToValue, setSliceFieldBackToValue bool
 	)
@@ -385,7 +388,7 @@ func (association *Association) reflect(reflectValue reflect.Value) {
 	}
 
 	// value has to been saved for many2many
-	if relationship.Kind == MANY_TO_MANY {
+	if field.RelKind() == MANY_TO_MANY {
 		if scope.NewScope(reflectValue.Interface()).PrimaryKeyZero() {
 			association.setErr(newCon(scope.con).Save(reflectValue.Interface()).Error)
 		}
@@ -408,10 +411,11 @@ func (association *Association) reflect(reflectValue reflect.Value) {
 		}
 	}
 
-	if relationship.Kind == MANY_TO_MANY {
+	if field.RelKind() == MANY_TO_MANY {
+		joinTableHandler := field.JoinHandler()
 		association.setErr(
-			relationship.JoinTableHandler.Add(
-				relationship.JoinTableHandler,
+			joinTableHandler.Add(
+				joinTableHandler,
 				newCon(scope.con),
 				scope.Value,
 				reflectValue.Interface(),

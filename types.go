@@ -44,30 +44,18 @@ type (
 		l *sync.RWMutex
 	}
 	// StructField model field's struct definition
-	//TODO : @Badu - a StructField should support multiple relationships
 	StructField struct {
-		flags        uint16
-		DBName       string
-		StructName   string
-		Names        []string
-		tagSettings  TagSettings
-		Value        reflect.Value
-		Type         reflect.Type
-		Relationship *Relationship
+		flags       uint16
+		DBName      string
+		StructName  string
+		Names       []string
+		tagSettings TagSettings
+		Value       reflect.Value
+		Type        reflect.Type
 	}
 
 	//easier to read and can apply methods
 	StructFields []*StructField
-
-	// Relationship described the relationship between models
-	Relationship struct {
-		Kind                         uint8
-		ForeignFieldNames            StrSlice
-		ForeignDBNames               StrSlice
-		AssociationForeignFieldNames StrSlice
-		AssociationForeignDBNames    StrSlice
-		JoinTableHandler             JoinTableHandlerInterface
-	}
 
 	strCase bool
 	//TODO : @Badu - Association has a field named Error - should be passed to DBCon
@@ -244,7 +232,7 @@ type (
 	// JoinTableHandlerInterface is an interface for how to handle many2many relations
 	JoinTableHandlerInterface interface {
 		// initialize join table handler
-		Setup(relationship *Relationship, source reflect.Type, destination reflect.Type)
+		Setup(field *StructField, source reflect.Type, destination reflect.Type)
 		// Table return join table's table name
 		Table(db *DBCon) string
 		// Sets table name
@@ -252,7 +240,7 @@ type (
 		// Add create relationship in join table for source and destination
 		Add(handler JoinTableHandlerInterface, db *DBCon, source interface{}, destination interface{}) error
 		// Delete delete relationship in join table for sources
-		Delete(handler JoinTableHandlerInterface, db *DBCon, sources ...interface{}) error
+		Delete(handler JoinTableHandlerInterface, db *DBCon) error
 		// JoinWith query with `Join` conditions
 		JoinWith(handler JoinTableHandlerInterface, db *DBCon, source interface{}) *DBCon
 		// SourceForeignKeys return source foreign keys
