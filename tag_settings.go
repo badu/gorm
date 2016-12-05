@@ -69,6 +69,7 @@ const (
 	HAS_MANY     uint8 = 2
 	HAS_ONE      uint8 = 3
 	BELONGS_TO   uint8 = 4 //Attention : relationship.Kind <= HAS_ONE in callback_functions.go saveAfterAssociationsCallback()
+	//which means except BELONGS_TO
 )
 
 var (
@@ -133,6 +134,12 @@ func (t *TagSettings) set(named uint8, value interface{}) {
 	t.l.Lock()
 	defer t.l.Unlock()
 	t.Uint8Map[named] = value
+}
+
+func (t *TagSettings) unset(named uint8) {
+	t.l.Lock()
+	defer t.l.Unlock()
+	delete(t.Uint8Map, named)
 }
 
 //checks if has such a key (for code readability)

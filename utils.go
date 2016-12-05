@@ -420,7 +420,7 @@ func getScannerValue(value reflect.Value) reflect.Value {
 //    import _ "github.com/badu/gorm/dialects/mysql"
 //    // import _ "github.com/badu/gorm/dialects/postgres"
 //    // import _ "github.com/badu/gorm/dialects/sqlite"
-//    // import _ "github.com/badu/gorm/dialects/mssql"
+
 func Open(dialectName string, args ...interface{}) (*DBCon, error) {
 	var db DBCon
 	var err error

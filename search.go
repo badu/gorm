@@ -365,7 +365,6 @@ func (s *Search) setUnscoped() *Search {
 	return s
 }
 
-//TODO : @Badu - make field aware of "it's include or not"
 func (s *Search) checkFieldIncluded(field *StructField) bool {
 	for _, pair := range s.Conditions[Select_query] {
 		switch strs := pair.expression.(type) {
@@ -510,9 +509,30 @@ func (s *Search) buildWhereCondition(fromPair SqlPair, scope *Scope) string {
 		} else if expType != "" {
 			str = fmt.Sprintf("(%v)", expType)
 		}
-	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, sql.NullInt64:
+	case int,
+		int8,
+		int16,
+		int32,
+		int64,
+		uint,
+		uint8,
+		uint16,
+		uint32,
+		uint64,
+		sql.NullInt64:
 		return fmt.Sprintf("(%v.%v = %v)", quotedTableName, quotedPKName, s.addToVars(expType, dialect))
-	case []int, []int8, []int16, []int32, []int64, []uint, []uint8, []uint16, []uint32, []uint64, []string, []interface{}:
+	case []int,
+		[]int8,
+		[]int16,
+		[]int32,
+		[]int64,
+		[]uint,
+		[]uint8,
+		[]uint16,
+		[]uint32,
+		[]uint64,
+		[]string,
+		[]interface{}:
 		str = fmt.Sprintf("(%v.%v IN (?))", quotedTableName, quotedPKName)
 		//TODO : @Badu - seems really bad "work around" (boiler plate logic)
 		fromPair.args = []interface{}{expType}
@@ -605,9 +625,29 @@ func (s *Search) buildNotCondition(fromPair SqlPair, scope *Scope) string {
 			str = fmt.Sprintf("(%v.%v NOT IN (?))", quotedTableName, Quote(exprType, dialect))
 			notEqualSQL = fmt.Sprintf("(%v.%v <> ?)", quotedTableName, Quote(exprType, dialect))
 		}
-	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, sql.NullInt64:
+	case int,
+		int8,
+		int16,
+		int32,
+		int64,
+		uint,
+		uint8,
+		uint16,
+		uint32,
+		uint64,
+		sql.NullInt64:
 		return fmt.Sprintf("(%v.%v <> %v)", quotedTableName, Quote(primaryKey, dialect), exprType)
-	case []int, []int8, []int16, []int32, []int64, []uint, []uint8, []uint16, []uint32, []uint64, []string:
+	case []int,
+		[]int8,
+		[]int16,
+		[]int32,
+		[]int64,
+		[]uint,
+		[]uint8,
+		[]uint16,
+		[]uint32,
+		[]uint64,
+		[]string:
 		if reflect.ValueOf(exprType).Len() > 0 {
 			str = fmt.Sprintf("(%v.%v NOT IN (?))", quotedTableName, Quote(primaryKey, dialect))
 			//TODO : @Badu - seems really bad "work around" (boiler plate logic)
@@ -898,15 +938,18 @@ func handleRelationPreload(scope *Scope, field *StructField, conditions []interf
 		ForeignFieldNames            = field.GetSliceSetting(FOREIGN_FIELD_NAMES)
 		AssociationForeignFieldNames = field.GetSliceSetting(ASSOCIATION_FOREIGN_FIELD_NAMES)
 		AssociationForeignDBNames    = field.GetSliceSetting(ASSOCIATION_FOREIGN_DB_NAMES)
+		FieldNames                   StrSlice
+		DBNames                      StrSlice
 	)
 
 	// get relations's primary keys
 	if field.RelKind() == BELONGS_TO {
-		primaryKeys = getColumnAsArray(ForeignFieldNames, scope.Value)
+		FieldNames = ForeignFieldNames
 	} else {
-		primaryKeys = getColumnAsArray(AssociationForeignFieldNames, scope.Value)
+		FieldNames = AssociationForeignFieldNames
 	}
 
+	primaryKeys = getColumnAsArray(FieldNames, scope.Value)
 	if len(primaryKeys) == 0 {
 		return
 	}
@@ -918,20 +961,19 @@ func handleRelationPreload(scope *Scope, field *StructField, conditions []interf
 
 	// find relations
 	if field.RelKind() == BELONGS_TO {
-		query = fmt.Sprintf(
-			"%v IN (%v)",
-			toQueryCondition(AssociationForeignDBNames, dialect),
-			toQueryMarks(primaryKeys))
+		DBNames = AssociationForeignDBNames
 	} else {
-		query = fmt.Sprintf(
-			"%v IN (%v)",
-			toQueryCondition(ForeignDBNames, dialect),
-			toQueryMarks(primaryKeys))
+		DBNames = ForeignDBNames
+	}
 
-		if field.HasSetting(POLYMORPHIC_TYPE) {
-			query += fmt.Sprintf(" AND %v = ?", Quote(field.GetStrSetting(POLYMORPHIC_DBNAME), dialect))
-			values = append(values, field.GetStrSetting(POLYMORPHIC_VALUE))
-		}
+	query = fmt.Sprintf(
+		"%v IN (%v)",
+		toQueryCondition(DBNames, dialect),
+		toQueryMarks(primaryKeys))
+
+	if field.HasSetting(POLYMORPHIC_TYPE) {
+		query += fmt.Sprintf(" AND %v = ?", Quote(field.GetStrSetting(POLYMORPHIC_DBNAME), dialect))
+		values = append(values, field.GetStrSetting(POLYMORPHIC_VALUE))
 	}
 
 	results, resultsValue := field.makeSlice()
@@ -1017,7 +1059,6 @@ func handleRelationPreload(scope *Scope, field *StructField, conditions []interf
 // handleManyToManyPreload used to preload many to many associations
 func handleManyToManyPreload(scope *Scope, field *StructField, conditions []interface{}) {
 	var (
-		//joinTableHandler   = field.Relationship.JoinTableHandler
 		fieldType, isPtr   = field.Type, field.IsPointer()
 		foreignKeyValue    interface{}
 		foreignKeyType     = reflect.ValueOf(&foreignKeyValue).Type()
@@ -1138,12 +1179,5 @@ func (s *Search) changeableField(field *StructField) bool {
 		return false
 	}
 
-	return true
-}
-
-func (s *Search) canProcessField(field *StructField) bool {
-	if !s.changeableField(field) || field.IsBlank() || field.IsIgnored() {
-		return false
-	}
 	return true
 }

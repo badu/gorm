@@ -20,7 +20,6 @@
 # Todo
 - [ ] Debug SQL string even when it fails 
 - [ ] Documentation for tests and build examples
-- [ ] Relationships should be kept by ModelStruct (to accept many)
 - [ ] Generated SQL let's the SQL engine cast : SELECT * FROM aTable WHERE id = '1' (id being int). I think it's a bad practice and it should be fixed
 - [ ] Integrate "Skip order sql when quering with distinct" commit of original
 - [ ] get rid of Scope "fields" so you can remove cloneFieldsToScope
@@ -41,6 +40,12 @@
 - Removed MSSQL support - out of my concerns with this project
 
 # Changes log
+
+## 05.12.2016
+- [x] removed getTableOptions from Scope : was used in creation operations, so we don't need it there
+- [x] after processing relations, we cleanup tag setting's ASSOCIATIONFOREIGNKEY and FOREIGNKEY for allocation sake
+- [x] added sort for test results
+- [x] autoIndex in tables_operations calls directly addIndex (instead of going through dbcon)
 
 ## 04.12.2016
 - [x] StrSlices for association and foreign keys gets created on parseTagSettings of StructField

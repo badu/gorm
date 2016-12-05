@@ -614,17 +614,8 @@ func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
 	return scope
 }
 
-// getTableOptions return the table options string or an empty string if the table options does not exist
-func (scope *Scope) getTableOptions() string {
-	tableOptions, ok := scope.Get(TABLE_OPT_SETTING)
-	if !ok {
-		return ""
-	}
-	return tableOptions.(string)
-}
-
 func (scope *Scope) saveFieldAsAssociation(field *StructField) bool {
-	if !scope.Search.canProcessField(field) {
+	if field.IsBlank() || field.IsIgnored() || !scope.Search.changeableField(field) {
 		return false
 	}
 
@@ -688,7 +679,8 @@ func (scope *Scope) saveBeforeAssociationsCallback() *Scope {
 		return scope
 	}
 	for _, field := range scope.Fields() {
-		if !scope.Search.canProcessField(field) {
+
+		if field.IsBlank() || field.IsIgnored() || !scope.Search.changeableField(field) {
 			continue
 		}
 		if scope.saveFieldAsAssociation(field) && field.RelKind() == BELONGS_TO {
@@ -851,11 +843,11 @@ func (scope *Scope) saveAfterAssociationsCallback() *Scope {
 		return scope
 	}
 	for _, field := range scope.Fields() {
-		if !scope.Search.canProcessField(field) {
+		if field.IsBlank() || field.IsIgnored() || !scope.Search.changeableField(field) {
 			continue
 		}
 
-		//Attention : relationship.Kind <= HAS_ONE
+		//Attention : relationship.Kind <= HAS_ONE means except BELONGS_TO
 		if scope.saveFieldAsAssociation(field) && field.RelKind() <= HAS_ONE {
 			value := field.Value
 			ForeignFieldNames := field.GetSliceSetting(FOREIGN_FIELD_NAMES)

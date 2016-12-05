@@ -220,6 +220,10 @@ func (field *StructField) UnsetIsBlank() {
 	field.unsetFlag(IS_BLANK)
 }
 
+func (field *StructField) UnsetCheckRelations() {
+	field.unsetFlag(RELATION_CHECK)
+}
+
 func (field *StructField) SetIsBlank() {
 	field.setFlag(IS_BLANK)
 }
@@ -240,6 +244,10 @@ func (field *StructField) LinkPoly(withField *StructField, tableName string) {
 	if !withField.HasSetting(POLYMORPHIC_VALUE) {
 		withField.tagSettings.set(POLYMORPHIC_VALUE, tableName)
 	}
+}
+
+func (field *StructField) UnsetTagSetting(named uint8) {
+	field.tagSettings.unset(named)
 }
 
 //gets a key (for code readability)

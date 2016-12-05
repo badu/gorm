@@ -9,6 +9,7 @@ import (
 	_ "gorm/dialects/sqlite"
 	"os"
 	"runtime"
+	"sort"
 	"testing"
 	"time"
 )
@@ -24,50 +25,67 @@ func parseTime(str string) *time.Time {
 }
 
 func DialectHasTzSupport() bool {
-	// NB: mssql and FoundationDB do not support time zones.
-	if dialect := os.Getenv("GORM_DIALECT"); dialect == "mssql" || dialect == "foundation" {
+	// NB: FoundationDB do not support time zones.
+	if dialect := os.Getenv("GORM_DIALECT"); dialect == "foundation" {
 		return false
 	}
 	return true
 }
 
 func OpenTestConnection(t *testing.T) {
-
+	//t.Logf("Opening connection...")
 	osDialect := os.Getenv("GORM_DIALECT")
 	osDBAddress := os.Getenv("GORM_DBADDRESS")
 
 	//osDialect = "mysql"
-	//osDBAddress = "127.0.0.1:3306"
 
 	switch osDialect {
 	case "mysql":
+		//osDBAddress = "127.0.0.1:3306"
+
 		// CREATE USER 'gorm'@'localhost' IDENTIFIED BY 'gorm';
 		// CREATE DATABASE gorm;
 		// GRANT ALL ON * TO 'gorm'@'localhost';
-		fmt.Println("testing mysql...")
-
 		if osDBAddress != "" {
 			osDBAddress = fmt.Sprintf("tcp(%v)", osDBAddress)
 		}
 		TestDB, TestDBErr = gorm.Open("mysql", fmt.Sprintf("root:@%v/gorm?charset=utf8&parseTime=True", osDBAddress))
+		if TestDBErr == nil {
+			//t.Log("Using MySQL")
+		} else {
+			t.Fatalf("ERROR : %v", TestDBErr)
+		}
 	case "postgres":
-		fmt.Println("testing postgres...")
 		if osDBAddress != "" {
 			osDBAddress = fmt.Sprintf("host=%v ", osDBAddress)
 		}
 		TestDB, TestDBErr = gorm.Open("postgres", fmt.Sprintf("%vuser=gorm password=gorm DB.name=gorm sslmode=disable", osDBAddress))
+		if TestDBErr == nil {
+			//t.Log("Using Postgres")
+		} else {
+			t.Fatalf("ERROR : %v", TestDBErr)
+		}
 	case "foundation":
-		fmt.Println("testing foundation...")
 		TestDB, TestDBErr = gorm.Open("foundation", "dbname=gorm port=15432 sslmode=disable")
+		if TestDBErr == nil {
+			//t.Log("Using Foundation")
+		} else {
+			t.Fatalf("ERROR : %v", TestDBErr)
+		}
 	default:
-
 		TestDB, TestDBErr = gorm.Open("sqlite3", "test.db?cache=shared&mode=memory")
+		if TestDBErr == nil {
+			//t.Log("Using SQLite 3")
+		} else {
+			t.Fatalf("ERROR : %v", TestDBErr)
+		}
 	}
 
 	TestDB.DB().SetMaxIdleConns(10)
 }
 
 func RunMigration(t *testing.T) {
+	//t.Log("Running migration...")
 	if err := TestDB.DropTableIfExists(&User{}).Error; err != nil {
 		fmt.Printf("Got error when try to delete table users, %+v\n", err)
 	}
@@ -107,6 +125,7 @@ func RunMigration(t *testing.T) {
 	if err := TestDB.AutoMigrate(values...).Error; err != nil {
 		panic(fmt.Sprintf("No error should happen when create table, but got %+v", err))
 	}
+	//t.Log("Migration done.")
 }
 
 func measureAndRun(t *testing.T, name string, f func(t *testing.T)) bool {
@@ -289,14 +308,49 @@ func TestEverything(t *testing.T) {
 		duration:  0,
 	}
 
+	sort.Sort(measuresData)
+
 	for _, measurement := range measuresData {
 		totals.netAllocs += measurement.netAllocs
 		totals.netBytes += measurement.netBytes
 		totals.duration += measurement.duration
-		t.Logf("%s : %s , %d allocs, %d bytes", measurement.name, measurement.duration, measurement.netAllocs, measurement.netBytes)
+		t.Logf("%s\n\t\t\t\t %s, %d allocs, %d bytes", measurement.name, measurement.duration, measurement.netAllocs, measurement.netBytes)
 	}
 
-	t.Logf("%s , %d allocs, %d bytes.", totals.duration, totals.netAllocs, totals.netBytes)
+	t.Logf("\t\t\t%s, %d allocs, %d bytes.", totals.duration, totals.netAllocs, totals.netBytes)
+}
+
+type (
+	MeasureData []*Measure
+	Measure     struct {
+		name        string
+		duration    time.Duration
+		startAllocs uint64 // The initial states of memStats.Mallocs and memStats.TotalAlloc.
+		startBytes  uint64
+		netAllocs   uint64 // The net total of this test after being run.
+		netBytes    uint64
+		start       time.Time
+	}
+)
+
+var (
+	memStats     runtime.MemStats
+	measuresData MeasureData = make(MeasureData, 0, 0)
+)
+
+//implementation of Sort
+func (ts MeasureData) Len() int {
+	return len(ts)
+}
+
+//implementation of Sort
+func (ts MeasureData) Swap(i, j int) {
+	ts[i], ts[j] = ts[j], ts[i]
+}
+
+//implementation of Sort
+func (ts MeasureData) Less(i, j int) bool {
+	return (ts[i].duration.Nanoseconds() < ts[j].duration.Nanoseconds() && ts[i].netAllocs < ts[j].netAllocs && ts[i].netBytes < ts[j].netBytes)
 }
 
 func TempTestAuto(t *testing.T) {

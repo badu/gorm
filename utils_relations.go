@@ -112,6 +112,11 @@ func makeManyToMany(field *StructField,
 	field.SetTagSetting(FOREIGN_DB_NAMES, ForeignDBNames)
 	field.SetTagSetting(ASSOCIATION_FOREIGN_FIELD_NAMES, AssociationForeignFieldNames)
 	field.SetTagSetting(ASSOCIATION_FOREIGN_DB_NAMES, AssociationForeignDBNames)
+
+	//we've finished with this information - removing for allocation sake
+	field.UnsetTagSetting(ASSOCIATIONFOREIGNKEY)
+	field.UnsetTagSetting(FOREIGNKEY)
+
 	field.SetHasRelations()
 
 	joinTableHandler := JoinTableHandler{TableName: referencedTable}
@@ -167,6 +172,9 @@ func makeHasMany(field *StructField,
 		field.SetTagSetting(FOREIGN_DB_NAMES, ForeignDBNames)
 		field.SetTagSetting(ASSOCIATION_FOREIGN_FIELD_NAMES, AssociationForeignFieldNames)
 		field.SetTagSetting(ASSOCIATION_FOREIGN_DB_NAMES, AssociationForeignDBNames)
+		//we've finished with this information - removing for allocation sake
+		field.UnsetTagSetting(ASSOCIATIONFOREIGNKEY)
+		field.UnsetTagSetting(FOREIGNKEY)
 		field.SetHasRelations()
 	}
 }
@@ -217,6 +225,9 @@ func makeHasOne(field *StructField,
 		field.SetTagSetting(FOREIGN_DB_NAMES, ForeignDBNames)
 		field.SetTagSetting(ASSOCIATION_FOREIGN_FIELD_NAMES, AssociationForeignFieldNames)
 		field.SetTagSetting(ASSOCIATION_FOREIGN_DB_NAMES, AssociationForeignDBNames)
+		//we've finished with this information - removing for allocation sake
+		field.UnsetTagSetting(ASSOCIATIONFOREIGNKEY)
+		field.UnsetTagSetting(FOREIGNKEY)
 		field.SetHasRelations()
 		return true
 	}
@@ -264,6 +275,9 @@ func makeBelongTo(field *StructField,
 		field.SetTagSetting(FOREIGN_DB_NAMES, ForeignDBNames)
 		field.SetTagSetting(ASSOCIATION_FOREIGN_FIELD_NAMES, AssociationForeignFieldNames)
 		field.SetTagSetting(ASSOCIATION_FOREIGN_DB_NAMES, AssociationForeignDBNames)
+		//we've finished with this information - removing for allocation sake
+		field.UnsetTagSetting(ASSOCIATIONFOREIGNKEY)
+		field.UnsetTagSetting(FOREIGNKEY)
 		field.SetHasRelations()
 		return true
 	}

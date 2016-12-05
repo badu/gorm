@@ -44,6 +44,14 @@ func createJoinTable(scope *Scope, field *StructField) {
 					primaryKeys = append(primaryKeys, Quote(AssociationForeignDBNames[idx], dialect))
 				}
 			}
+			//TODO : @Badu - for now, TABLE_OPT_SETTING is nowhere set - maybe it's a leftover
+			// getTableOptions return the table options string or an empty string if the table options does not exist
+			tableOptions, ok := scope.Get(TABLE_OPT_SETTING)
+			if !ok {
+				tableOptions = ""
+			} else {
+				tableOptions = tableOptions.(string)
+			}
 
 			scope.Err(newCon(scope.con).Exec(
 				fmt.Sprintf(
@@ -51,7 +59,7 @@ func createJoinTable(scope *Scope, field *StructField) {
 					Quote(joinTable, dialect),
 					strings.Join(sqlTypes, ","),
 					strings.Join(primaryKeys, ","),
-					scope.getTableOptions(),
+					tableOptions,
 				),
 			).Error)
 		}
@@ -95,20 +103,29 @@ func createTable(scope *Scope) {
 		primaryKeyStr = fmt.Sprintf(", PRIMARY KEY (%v)", strings.Join(primaryKeys, ","))
 	}
 
+	//TODO : @Badu - for now, TABLE_OPT_SETTING is nowhere set - maybe it's a leftover
+	// getTableOptions return the table options string or an empty string if the table options does not exist
+	tableOptions, ok := scope.Get(TABLE_OPT_SETTING)
+	if !ok {
+		tableOptions = ""
+	} else {
+		tableOptions = tableOptions.(string)
+	}
+
 	scope.Raw(
 		fmt.Sprintf(
 			"CREATE TABLE %v (%v %v) %s",
 			QuotedTableName(scope),
 			strings.Join(tags, ","),
 			primaryKeyStr,
-			scope.getTableOptions(),
+			tableOptions,
 		),
 	).Exec()
 
 	autoIndex(scope)
 }
 
-//used in db.AddIndex and db.AddUniqueIndex
+//used in db.AddIndex and db.AddUniqueIndex and autoIndex
 func addIndex(scope *Scope, unique bool, indexName string, column ...string) {
 	var (
 		columns []string
@@ -185,7 +202,7 @@ func autoIndex(scope *Scope) {
 			names := strings.Split(field.GetStrSetting(INDEX), ",")
 
 			for _, name := range names {
-				if name == "INDEX" || name == "" {
+				if name == index || name == "" {
 					name = fmt.Sprintf("idx_%v_%v", scope.TableName(), field.DBName)
 				}
 				indexes[name] = append(indexes[name], field.DBName)
@@ -194,7 +211,7 @@ func autoIndex(scope *Scope) {
 		if field.HasSetting(UNIQUE_INDEX) {
 			names := strings.Split(field.GetStrSetting(UNIQUE_INDEX), ",")
 			for _, name := range names {
-				if name == "UNIQUE_INDEX" || name == "" {
+				if name == unique_index || name == "" {
 					name = fmt.Sprintf("uix_%v_%v", scope.TableName(), field.DBName)
 				}
 				uniqueIndexes[name] = append(uniqueIndexes[name], field.DBName)
@@ -203,10 +220,11 @@ func autoIndex(scope *Scope) {
 	}
 
 	for name, columns := range indexes {
-		newCon(scope.con).Model(scope.Value).AddIndex(name, columns...)
+		addIndex(newCon(scope.con).Unscoped().NewScope(scope.Value), false, name, columns...)
+
 	}
 
 	for name, columns := range uniqueIndexes {
-		newCon(scope.con).Model(scope.Value).AddUniqueIndex(name, columns...)
+		addIndex(newCon(scope.con).Unscoped().NewScope(scope.Value), true, name, columns...)
 	}
 }

@@ -140,6 +140,8 @@ func (modelStruct *ModelStruct) noOfPKs() int {
 func (modelStruct *ModelStruct) processRelations(scope *Scope) {
 	for _, field := range modelStruct.StructFields() {
 		if field.WillCheckRelations() {
+			//TODO : @Badu - if you need to look at fields as they are built
+			//scope.con.Log("Before\n", field)
 			toScope := scope.NewScope(field.Interface())
 			toModelStruct := toScope.GetModelStruct()
 			//ATTN : order matters, since it can be both slice and struct
@@ -169,9 +171,10 @@ func (modelStruct *ModelStruct) processRelations(scope *Scope) {
 					}
 				}
 			}
+			field.UnsetCheckRelations()
+			//TODO : @Badu - if you need to look at fields as they are built
+			//scope.con.Log("Processed\n", field)
 		}
-		//TODO : @Badu - if you need to look at fields as they are built
-		//scope.con.Log("Processed\n", field)
 	}
 }
 

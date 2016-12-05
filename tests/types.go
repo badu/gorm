@@ -29,9 +29,6 @@ var (
 		sort.Strings(contents)
 		return reflect.DeepEqual(toyContents, contents)
 	}
-
-	memStats     runtime.MemStats
-	measuresData []*Measure = make([]*Measure, 0, 0)
 )
 
 type (
@@ -485,16 +482,6 @@ type (
 	}
 
 	Cart struct {
-	}
-
-	Measure struct {
-		name        string
-		duration    time.Duration
-		startAllocs uint64 // The initial states of memStats.Mallocs and memStats.TotalAlloc.
-		startBytes  uint64
-		netAllocs   uint64 // The net total of this test after being run.
-		netBytes    uint64
-		start       time.Time
 	}
 )
 
