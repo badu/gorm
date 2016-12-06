@@ -39,7 +39,14 @@
     `db = &gorm.DB{*dbcon}`
 - Removed MSSQL support - out of my concerns with this project
 
-# Changes log
+# Changes log (29.10.2016-present)
+
+## 06.12.2016
+- [ ] slockij/block-global-update-delete commit
+- [ ] Skip order sql when quering with distinct commit
+- [ ] Add gorm:association:source for association operations for plugins to extend GORM commit
+- [ ] copy missing tests from original
+- [ ] comparative tests in another project
 
 ## 05.12.2016
 - [x] removed getTableOptions from Scope : was used in creation operations, so we don't need it there

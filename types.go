@@ -118,6 +118,7 @@ type (
 		Error         error
 
 		RowsAffected int64
+		//TODO : @Badu - add flags - which includes singularTable, future blockGlobalUpdate and logMode (encoded on 3 bytes)
 	}
 	//declared to allow existing code to run, dbcon.Open(...) db = &gorm.DB{*dbcon}
 	DB struct {
