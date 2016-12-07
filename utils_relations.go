@@ -42,7 +42,6 @@ func makeManyToMany(field *StructField,
 
 	var foreignKeys, associationForeignKeys StrSlice
 
-	//rel.Kind = MANY_TO_MANY
 	elemType := field.Type
 	elemName := NamesMap.ToDBName(elemType.Name())
 	modelType := fromModel.ModelType
@@ -131,7 +130,6 @@ func makeHasMany(field *StructField,
 
 	// User has many comments, associationType is User, comment use UserID as foreign key
 	modelName := NamesMap.ToDBName(fromModel.ModelType.Name())
-	//r.Kind = HAS_MANY
 
 	if polyName := makePoly(field, toModel, fromScope); polyName != "" {
 		modelName = polyName

@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
-	"runtime"
 	"time"
-	"unicode"
 )
 
 type (
@@ -32,29 +30,6 @@ var (
 	regexpTest   = regexp.MustCompile(`/gorm/tests/.*.go`)
 	regExpLogger = regexp.MustCompile(`(\$\d+)|\?`)
 )
-
-func isPrintable(s string) bool {
-	for _, r := range s {
-		if !unicode.IsPrint(r) {
-			return false
-		}
-	}
-	return true
-}
-
-func fileWithLineNum() string {
-	for i := 6; i < 15; i++ {
-		_, file, line, ok := runtime.Caller(i)
-		if ok && regexpTest.MatchString(file) {
-			//matching test files - we print that
-			return fmt.Sprintf("[%d] %v:%v", i, file, line)
-		} else if ok && !regexpSelf.MatchString(file) {
-			//otherwise
-			return fmt.Sprintf("[%d] %v:%v", i, file, line)
-		}
-	}
-	return ""
-}
 
 // Print format & print log
 func (logger Logger) Print(values ...interface{}) {

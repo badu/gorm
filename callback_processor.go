@@ -1,19 +1,19 @@
 package gorm
 
 // After insert a new callback after callback `callbackName`, refer `Callbacks.Create`
-func (cp *CallbackProcessor) After(callbackName string) *CallbackProcessor {
+func (cp *CallbacksProcessor) After(callbackName string) *CallbacksProcessor {
 	cp.after = callbackName
 	return cp
 }
 
 // Before insert a new callback before callback `callbackName`, refer `Callbacks.Create`
-func (cp *CallbackProcessor) Before(callbackName string) *CallbackProcessor {
+func (cp *CallbacksProcessor) Before(callbackName string) *CallbacksProcessor {
 	cp.before = callbackName
 	return cp
 }
 
 // Register a new callback, refer `Callbacks.Create`
-func (cp *CallbackProcessor) Register(callbackName string, callback ScopedFunc) {
+func (cp *CallbacksProcessor) Register(callbackName string, callback ScopedFunc) {
 	cp.name = callbackName
 	cp.processor = &callback
 	cp.parent.processors.add(cp)
@@ -22,7 +22,7 @@ func (cp *CallbackProcessor) Register(callbackName string, callback ScopedFunc) 
 
 // Remove a registered callback
 //     db.Callback().Create().Remove("gorm:update_time_stamp_when_create")
-func (cp *CallbackProcessor) Remove(callbackName string) {
+func (cp *CallbacksProcessor) Remove(callbackName string) {
 	//fmt.Printf("[info] removing callback `%v` from %v\n", callbackName, fileWithLineNum())
 	cp.name = callbackName
 	cp.remove = true
@@ -35,7 +35,7 @@ func (cp *CallbackProcessor) Remove(callbackName string) {
 //		   scope.SetColumn("Created", now)
 //		   scope.SetColumn("Updated", now)
 //     })
-func (cp *CallbackProcessor) Replace(callbackName string, callback ScopedFunc) {
+func (cp *CallbacksProcessor) Replace(callbackName string, callback ScopedFunc) {
 	//fmt.Printf("[info] replacing callback `%v` from %v\n", callbackName, fileWithLineNum())
 	cp.name = callbackName
 	cp.processor = &callback
@@ -46,7 +46,7 @@ func (cp *CallbackProcessor) Replace(callbackName string, callback ScopedFunc) {
 
 // Get registered callback
 //    db.Callback().Create().Get("gorm:create")
-func (cp *CallbackProcessor) Get(callbackName string) ScopedFunc {
+func (cp *CallbacksProcessor) Get(callbackName string) ScopedFunc {
 	for _, p := range cp.parent.processors {
 		if p.name == callbackName && p.kind == cp.kind && !cp.remove {
 			return *p.processor
@@ -56,7 +56,7 @@ func (cp *CallbackProcessor) Get(callbackName string) ScopedFunc {
 }
 
 //sorts callback processors
-func (cp *CallbackProcessor) sortCallbackProcessor(allNames, sortedNames *StrSlice, parent CallbackProcessors) {
+func (cp *CallbacksProcessor) sortCallbackProcessor(allNames, sortedNames *StrSlice, parent CallbacksProcessors) {
 	if sortedNames.rIndex(cp.name) == -1 { // if not sorted
 		if cp.before != "" {
 			// if defined before callback

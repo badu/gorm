@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"runtime"
 	"strings"
+	"unicode"
 )
 
 // RegisterDialect register new dialect
@@ -401,13 +403,35 @@ func GetTType(value interface{}) reflect.Type {
 	return result
 }
 
-
 func getScannerValue(value reflect.Value) reflect.Value {
 	fieldValue := value
 	if _, isScanner := reflect.New(fieldValue.Type()).Interface().(sql.Scanner); isScanner && fieldValue.Kind() == reflect.Struct {
 		return getScannerValue(fieldValue.Field(0))
 	}
 	return fieldValue
+}
+
+func isPrintable(s string) bool {
+	for _, r := range s {
+		if !unicode.IsPrint(r) {
+			return false
+		}
+	}
+	return true
+}
+
+func fileWithLineNum() string {
+	for i := 6; i < 15; i++ {
+		_, file, line, ok := runtime.Caller(i)
+		if ok && regexpTest.MatchString(file) {
+			//matching test files - we print that
+			return fmt.Sprintf("[%d] %v:%v", i, file, line)
+		} else if ok && !regexpSelf.MatchString(file) {
+			//otherwise
+			return fmt.Sprintf("[%d] %v:%v", i, file, line)
+		}
+	}
+	return ""
 }
 
 // Open initialize a new db connection, need to import driver first, e.g:
@@ -460,11 +484,11 @@ func Open(dialectName string, args ...interface{}) (*DBCon, error) {
 	db = DBCon{
 		dialect:  conDialect,
 		logger:   defaultLogger,
-		callback: &Callback{},
+		callbacks: &Callbacks{},
 		settings: map[uint64]interface{}{},
 		sqli:     dbSQL,
 	}
-	//TODO : @Badu - don't like that it points itself
+	//TODO : @Badu - don't like that it points itself - maybe what's kept in initial should be gormSetting (use dbcon.get() to get them)
 	db.parent = &db
 
 	if err == nil {

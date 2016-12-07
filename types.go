@@ -34,6 +34,7 @@ const (
 	UPDATE_ATTRS_SETTING       uint64 = 12
 	STARTED_TX_SETTING         uint64 = 13
 	BLANK_COLS_DEFAULT_SETTING uint64 = 14
+	//TODO : @Badu - maybe it's better to keep this info in Association struct
 	ASSOCIATION_SOURCE_SETTING uint64 = 15
 )
 
@@ -110,15 +111,15 @@ type (
 		parent        *DBCon
 		dialect       Dialect
 		settings      map[uint64]interface{}
-		search        *Search
+		search        *Search //TODO : @Badu - should always have a Scope, not a Search - better hierarchy
 		logMode       int
 		logger        logger
-		callback      *Callback
+		callbacks     *Callbacks
 		sqli          sqlInterf
 		singularTable bool
 		Error         error
 
-		RowsAffected int64
+		RowsAffected int64 //TODO : @Badu - this should sit inside Scope, because it's contextual
 		//TODO : @Badu - add flags - which includes singularTable, future blockGlobalUpdate and logMode (encoded on 3 bytes)
 	}
 	//declared to allow existing code to run, dbcon.Open(...) db = &gorm.DB{*dbcon}
@@ -142,7 +143,7 @@ type (
 	ScopedFunc  func(*Scope)
 
 	//easier to read and can apply methods
-	CallbackProcessors []*CallbackProcessor
+	CallbacksProcessors []*CallbacksProcessor
 	// Callback is a struct that contains all CURD callbacks
 	//   Field `creates` contains callbacks will be call when creating object
 	//   Field `updates` contains callbacks will be call when updating object
@@ -150,17 +151,17 @@ type (
 	//   Field `queries` contains callbacks will be call when querying object with query methods like Find, First, Related, Association...
 	//   Field `rowQueries` contains callbacks will be call when querying object with Row, Rows...
 	//   Field `processors` contains all callback processors, will be used to generate above callbacks in order
-	Callback struct {
+	Callbacks struct {
 		creates    ScopedFuncs
 		updates    ScopedFuncs
 		deletes    ScopedFuncs
 		queries    ScopedFuncs
 		rowQueries ScopedFuncs
-		processors CallbackProcessors
+		processors CallbacksProcessors
 	}
 
 	// CallbackProcessor contains callback informations
-	CallbackProcessor struct {
+	CallbacksProcessor struct {
 		//remember : we can't remove "name" property, since callbacks gets sorted/re-ordered
 		name      string      // current callback's name
 		before    string      // register current callback before a callback
@@ -169,7 +170,7 @@ type (
 		remove    bool        // delete callbacks with same name
 		kind      uint8       // callback type: create, update, delete, query, row_query
 		processor *ScopedFunc // callback handler
-		parent    *Callback
+		parent    *Callbacks
 	}
 
 	// DefaultForeignKeyNamer contains the default foreign key name generator method
@@ -191,6 +192,7 @@ type (
 	}
 
 	// JoinTableForeignKey join table foreign key struct
+	//TODO : @Badu -this holds some sort of processed clone of FOREIGN_DB_NAMES, FOREIGN_FIELD_NAMES, ASSOCIATION_FOREIGN_FIELD_NAMES, ASSOCIATION_FOREIGN_DB_NAMES
 	JoinTableForeignKey struct {
 		DBName            string
 		AssociationDBName string
@@ -260,6 +262,7 @@ type (
 		// BindVar return the placeholder for actual values in SQL statements, in many dbs it is "?", Postgres using $1
 		BindVar(i int) string
 		// GetQuoter returns the rune for quoting field name to avoid SQL parsing exceptions by using a reserved word as a field name
+		//TODO : @Badu - should return a rune
 		GetQuoter() string
 		// DataTypeOf return data's sql type
 		DataTypeOf(field *StructField) string
@@ -307,7 +310,7 @@ var (
 	defaultLogger = Logger{log.New(os.Stdout, "\r\n", 0)}
 
 	//reverse map to allow external settings
-	settingsMap = map[string]uint64{
+	gormSettingsMap = map[string]uint64{
 		"gorm:update_column":                    UPDATE_COLUMN_SETTING,
 		"gorm:insert_option":                    INSERT_OPT_SETTING,
 		"gorm:update_option":                    UPDATE_OPT_SETTING,

@@ -2,16 +2,16 @@ package gorm
 
 import "fmt"
 
-func (cps *CallbackProcessors) add(proc ...*CallbackProcessor) {
+func (cps *CallbacksProcessors) add(proc ...*CallbacksProcessor) {
 	*cps = append(*cps, proc...)
 }
 
-func (cps *CallbackProcessors) len() int {
+func (cps *CallbacksProcessors) len() int {
 	return len(*cps)
 }
 
-func (cps *CallbackProcessors) reorder(ofCallback *Callback) {
-	var creates, updates, deletes, queries, rowQueries CallbackProcessors
+func (cps *CallbacksProcessors) reorder(ofCallback *Callbacks) {
+	var creates, updates, deletes, queries, rowQueries CallbacksProcessors
 	//collect processors by their kind
 	for _, processor := range *cps {
 		if processor.name != "" {
@@ -49,7 +49,7 @@ func (cps *CallbackProcessors) reorder(ofCallback *Callback) {
 }
 
 // sortProcessors sort callback processors based on its before, after, remove, replace
-func (cps CallbackProcessors) sortProcessors() ScopedFuncs {
+func (cps CallbacksProcessors) sortProcessors() ScopedFuncs {
 	var allNames, sortedNames StrSlice
 	var sortedFuncs ScopedFuncs
 

@@ -449,7 +449,7 @@ func (scope *Scope) row() *sql.Row {
 	if scope.con.logMode == 2 {
 		defer scope.trace(NowFunc())
 	}
-	scope.callCallbacks(scope.con.parent.callback.rowQueries)
+	scope.callCallbacks(scope.con.parent.callbacks.rowQueries)
 	scope.Search.prepareQuerySQL(scope)
 	return scope.Search.QueryRow(scope)
 }
@@ -459,7 +459,7 @@ func (scope *Scope) rows() (*sql.Rows, error) {
 	if scope.con.logMode == 2 {
 		defer scope.trace(NowFunc())
 	}
-	scope.callCallbacks(scope.con.parent.callback.rowQueries)
+	scope.callCallbacks(scope.con.parent.callbacks.rowQueries)
 	scope.Search.prepareQuerySQL(scope)
 	return scope.Search.Query(scope)
 }
