@@ -34,6 +34,7 @@ const (
 	UPDATE_ATTRS_SETTING       uint64 = 12
 	STARTED_TX_SETTING         uint64 = 13
 	BLANK_COLS_DEFAULT_SETTING uint64 = 14
+	ASSOCIATION_SOURCE_SETTING uint64 = 15
 )
 
 type (
@@ -321,6 +322,7 @@ var (
 		"gorm:update_attrs":                     UPDATE_ATTRS_SETTING,
 		"gorm:started_transaction":              STARTED_TX_SETTING,
 		"gorm:blank_columns_with_default_value": BLANK_COLS_DEFAULT_SETTING,
+		"gorm:association:source":               ASSOCIATION_SOURCE_SETTING,
 	}
 	// Attention : using "unprepared" regexp.MustCompile is really slow : ten times slower
 	// only matches string like `name`, `users.name`

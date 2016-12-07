@@ -524,6 +524,7 @@ func (scope *Scope) shouldSaveAssociations() bool {
 
 func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
 	toScope := scope.con.NewScope(value)
+	tx := scope.con.set(ASSOCIATION_SOURCE_SETTING, scope.Value)
 	//TODO : @Badu - boilerplate string
 	allKeys := append(foreignKeys, GetType(toScope.Value).Name()+"Id", GetType(scope.Value).Name()+"Id")
 
@@ -540,14 +541,14 @@ func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
 				continue
 			}
 			aStr := fmt.Sprintf("%v = ?", Quote(toField.DBName, dialect))
-			scope.Err(toScope.con.Where(aStr, scope.PrimaryKeyValue()).Find(value).Error)
+			scope.Err(tx.Where(aStr, scope.PrimaryKeyValue()).Find(value).Error)
 			return scope
 		}
 
 		//fail fast - relationship is nil
 		if !fromField.HasRelations() {
 			aStr := fmt.Sprintf("%v = ?", Quote(toScope.PKName(), dialect))
-			scope.Err(toScope.con.Where(aStr, fromField.Value.Interface()).Find(value).Error)
+			scope.Err(tx.Where(aStr, fromField.Value.Interface()).Find(value).Error)
 			return scope
 		}
 		var (
@@ -561,16 +562,16 @@ func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
 			scope.Err(
 				joinTableHandler.JoinWith(
 					joinTableHandler,
-					toScope.con,
+					tx,
 					scope.Value,
 				).
 					Find(value).
 					Error)
+
 		case BELONGS_TO:
-			query := toScope.con
 			for idx, foreignKey := range ForeignDBNames {
 				if field, ok := scope.FieldByName(foreignKey); ok {
-					query = query.Where(
+					tx = tx.Where(
 						fmt.Sprintf(
 							"%v = ?",
 							Quote(AssociationForeignDBNames[idx], dialect),
@@ -579,12 +580,12 @@ func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
 					)
 				}
 			}
-			scope.Err(query.Find(value).Error)
+			scope.Err(tx.Find(value).Error)
+
 		case HAS_MANY, HAS_ONE:
-			query := toScope.con
 			for idx, foreignKey := range ForeignDBNames {
 				if field, ok := scope.FieldByName(AssociationForeignDBNames[idx]); ok {
-					query = query.Where(
+					tx = tx.Where(
 						fmt.Sprintf(
 							"%v = ?",
 							Quote(foreignKey, dialect),
@@ -595,7 +596,7 @@ func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
 			}
 
 			if fromField.HasSetting(POLYMORPHIC_TYPE) {
-				query = query.Where(
+				tx = tx.Where(
 					fmt.Sprintf(
 						"%v = ?",
 						Quote(fromField.GetStrSetting(POLYMORPHIC_DBNAME), dialect),
@@ -604,7 +605,7 @@ func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
 				)
 			}
 
-			scope.Err(query.Find(value).Error)
+			scope.Err(tx.Find(value).Error)
 		}
 		return scope
 

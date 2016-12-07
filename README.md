@@ -29,7 +29,8 @@
 - regexp.MustCompile is slow inside functions (10 times slower)
 
 # Last merge
-- 01.12.2016 - "Skip order sql when quering with distinct commit" 
+- 05.12.2016 - "Add gorm:association:source for association operations for plugins to extend GORM"
+- Note : what's not included before that merge, it's because I don't think it's good to do so
  
 # Breaking changes
 - DB struct - renamed to DBCon, since that is what it represents.
@@ -41,6 +42,7 @@
 # Changes log (29.10.2016-present)
 
 ## 07.12.2016
+- [x] "Add gorm:association:source for association operations for plugins to extend GORM" from original commit 
 - [x] removed SelectWithArrayInput test
 - [x] changed dbcon signature for Select - it doesn't accept slices of strings anymore
 - [x] Skip order sql when quering with distinct commit

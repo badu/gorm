@@ -673,7 +673,8 @@ func (con *DBCon) AddForeignKey(field string, dest string, onDelete string, onUp
 // Association start `Association Mode` to handler relations things easier in that mode
 func (con *DBCon) Association(column string) *Association {
 	var err error
-	scope := con.NewScope(con.search.Value)
+	//ASSOCIATION_SOURCE_SETTING for plugins to extend gorm (original commit of 05.12.2016)
+	scope := con.set(ASSOCIATION_SOURCE_SETTING, con.search.Value).NewScope(con.search.Value)
 	primaryField := scope.PK()
 	if primaryField == nil {
 		err = errors.New("SCOPE : primary field is NIL")
