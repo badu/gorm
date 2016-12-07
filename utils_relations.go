@@ -3,6 +3,7 @@ package gorm
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 )
 
@@ -366,4 +367,246 @@ func collectFKsAndAFKs(field *StructField,
 		}
 	}
 	return foreignKeys, associationForeignKeys
+}
+
+// handleRelationPreload to preload has one, has many and belongs to associations
+func handleRelationPreload(scope *Scope, field *StructField, conditions []interface{}) {
+	var (
+		indirectScopeValue = IndirectValue(scope.Value)
+
+		dialect     = scope.con.parent.dialect
+		query       = ""
+		primaryKeys [][]interface{}
+
+		ForeignDBNames               = field.GetSliceSetting(FOREIGN_DB_NAMES)
+		ForeignFieldNames            = field.GetSliceSetting(FOREIGN_FIELD_NAMES)
+		AssociationForeignFieldNames = field.GetSliceSetting(ASSOCIATION_FOREIGN_FIELD_NAMES)
+		AssociationForeignDBNames    = field.GetSliceSetting(ASSOCIATION_FOREIGN_DB_NAMES)
+		FieldNames                   StrSlice
+		DBNames                      StrSlice
+	)
+
+	// get relations's primary keys
+	if field.RelKind() == BELONGS_TO {
+		FieldNames = ForeignFieldNames
+	} else {
+		FieldNames = AssociationForeignFieldNames
+	}
+
+	primaryKeys = getColumnAsArray(FieldNames, scope.Value)
+	if len(primaryKeys) == 0 {
+		return
+	}
+
+	// preload conditions
+	preloadDB, preloadConditions := generatePreloadDBWithConditions(newCon(scope.con), conditions)
+
+	values := toQueryValues(primaryKeys)
+
+	// find relations
+	if field.RelKind() == BELONGS_TO {
+		DBNames = AssociationForeignDBNames
+	} else {
+		DBNames = ForeignDBNames
+	}
+
+	query = fmt.Sprintf(
+		"%v IN (%v)",
+		toQueryCondition(DBNames, dialect),
+		toQueryMarks(primaryKeys))
+
+	if field.HasSetting(POLYMORPHIC_TYPE) {
+		query += fmt.Sprintf(" AND %v = ?", Quote(field.GetStrSetting(POLYMORPHIC_DBNAME), dialect))
+		values = append(values, field.GetStrSetting(POLYMORPHIC_VALUE))
+	}
+
+	results, resultsValue := field.makeSlice()
+	scope.Err(preloadDB.Where(query, values...).Find(results, preloadConditions...).Error)
+	// assign find results
+
+	switch field.RelKind() {
+	case HAS_ONE:
+		switch indirectScopeValue.Kind() {
+		case reflect.Slice:
+			for j := 0; j < indirectScopeValue.Len(); j++ {
+				for i := 0; i < resultsValue.Len(); i++ {
+					result := resultsValue.Index(i)
+					foreignValues := getValueFromFields(ForeignFieldNames, result)
+					indirectValue := FieldValue(indirectScopeValue, j)
+					if equalAsString(
+						getValueFromFields(
+							AssociationForeignFieldNames,
+							indirectValue,
+						),
+						foreignValues,
+					) {
+						indirectValue.FieldByName(field.StructName).Set(result)
+						break
+					}
+				}
+			}
+		default:
+			for i := 0; i < resultsValue.Len(); i++ {
+				result := resultsValue.Index(i)
+				scope.Err(field.Set(result))
+			}
+		}
+	case HAS_MANY:
+		switch indirectScopeValue.Kind() {
+		case reflect.Slice:
+			preloadMap := make(map[string][]reflect.Value)
+			for i := 0; i < resultsValue.Len(); i++ {
+				result := resultsValue.Index(i)
+				foreignValues := getValueFromFields(ForeignFieldNames, result)
+				preloadMap[toString(foreignValues)] = append(preloadMap[toString(foreignValues)], result)
+			}
+
+			for j := 0; j < indirectScopeValue.Len(); j++ {
+				reflectValue := FieldValue(indirectScopeValue, j)
+				objectRealValue := getValueFromFields(AssociationForeignFieldNames, reflectValue)
+				f := reflectValue.FieldByName(field.StructName)
+				if results, ok := preloadMap[toString(objectRealValue)]; ok {
+					f.Set(reflect.Append(f, results...))
+				} else {
+					f.Set(reflect.MakeSlice(f.Type(), 0, 0))
+				}
+			}
+		default:
+			scope.Err(field.Set(resultsValue))
+
+		}
+	case BELONGS_TO:
+		for i := 0; i < resultsValue.Len(); i++ {
+			result := resultsValue.Index(i)
+			if indirectScopeValue.Kind() == reflect.Slice {
+				value := getValueFromFields(AssociationForeignFieldNames, result)
+				for j := 0; j < indirectScopeValue.Len(); j++ {
+					reflectValue := FieldValue(indirectScopeValue, j)
+					if equalAsString(
+						getValueFromFields(
+							ForeignFieldNames,
+							reflectValue,
+						),
+						value,
+					) {
+						reflectValue.FieldByName(field.StructName).Set(result)
+					}
+				}
+			} else {
+				scope.Err(field.Set(result))
+			}
+		}
+	}
+
+}
+
+// handleManyToManyPreload used to preload many to many associations
+func handleManyToManyPreload(scope *Scope, field *StructField, conditions []interface{}) {
+	var (
+		fieldType, isPtr   = field.Type, field.IsPointer()
+		foreignKeyValue    interface{}
+		foreignKeyType     = reflect.ValueOf(&foreignKeyValue).Type()
+		linkHash           = map[string][]reflect.Value{}
+		indirectScopeValue = IndirectValue(scope.Value)
+		fieldsSourceMap    = map[string][]reflect.Value{}
+		foreignFieldNames  = StrSlice{}
+		sourceKeys         = []string{}
+
+		ForeignFieldNames = field.GetSliceSetting(FOREIGN_FIELD_NAMES)
+		joinTableHandler  = field.JoinHandler()
+	)
+
+	for _, key := range joinTableHandler.SourceForeignKeys() {
+		sourceKeys = append(sourceKeys, key.DBName)
+	}
+
+	// preload conditions
+	preloadDB, preloadConditions := generatePreloadDBWithConditions(newCon(scope.con), conditions)
+
+	// generate query with join table
+	newScope := scope.NewScope(reflect.New(fieldType).Interface())
+
+	preloadDB = preloadDB.Table(newScope.TableName()).Model(newScope.Value).Select("*")
+	preloadDB = joinTableHandler.JoinWith(joinTableHandler, preloadDB, scope.Value)
+
+	// preload inline conditions
+	if len(preloadConditions) > 0 {
+		preloadDB = preloadDB.Where(preloadConditions[0], preloadConditions[1:]...)
+	}
+
+	rows, err := preloadDB.Rows()
+
+	if scope.Err(err) != nil {
+		return
+	}
+	defer rows.Close()
+
+	columns, _ := rows.Columns()
+	for rows.Next() {
+		var (
+			elem   = reflect.New(fieldType).Elem()
+			fields = scope.NewScope(elem.Addr().Interface()).Fields()
+		)
+
+		// register foreign keys in join tables
+		var joinTableFields StructFields
+		for _, sourceKey := range sourceKeys {
+			joinTableFields.add(
+				&StructField{
+					DBName: sourceKey,
+					Value:  reflect.New(foreignKeyType).Elem(),
+					flags:  0 | (1 << IS_NORMAL),
+				})
+		}
+
+		scope.scan(rows, columns, append(fields, joinTableFields...))
+
+		var foreignKeys = make([]interface{}, len(sourceKeys))
+		// generate hashed forkey keys in join table
+		for idx, joinTableField := range joinTableFields {
+			if !joinTableField.Value.IsNil() {
+				foreignKeys[idx] = joinTableField.Value.Elem().Interface()
+			}
+		}
+		hashedSourceKeys := toString(foreignKeys)
+
+		if isPtr {
+			linkHash[hashedSourceKeys] = append(linkHash[hashedSourceKeys], elem.Addr())
+		} else {
+			linkHash[hashedSourceKeys] = append(linkHash[hashedSourceKeys], elem)
+		}
+	}
+
+	// assign find results
+
+	for _, dbName := range ForeignFieldNames {
+		if field, ok := scope.FieldByName(dbName); ok {
+			foreignFieldNames.add(field.StructName)
+		}
+	}
+
+	switch indirectScopeValue.Kind() {
+	case reflect.Slice:
+		for j := 0; j < indirectScopeValue.Len(); j++ {
+			reflectValue := FieldValue(indirectScopeValue, j)
+			key := toString(getValueFromFields(foreignFieldNames, reflectValue))
+			fieldsSourceMap[key] = append(fieldsSourceMap[key], reflectValue.FieldByName(field.StructName))
+		}
+	default:
+		if indirectScopeValue.IsValid() {
+			key := toString(getValueFromFields(foreignFieldNames, indirectScopeValue))
+			fieldsSourceMap[key] = append(fieldsSourceMap[key], indirectScopeValue.FieldByName(field.StructName))
+		}
+	}
+
+	for source, link := range linkHash {
+		for i, field := range fieldsSourceMap[source] {
+			//If not 0 this means Value is a pointer and we already added preloaded models to it
+			if fieldsSourceMap[source][i].Len() != 0 {
+				continue
+			}
+			field.Set(reflect.Append(fieldsSourceMap[source][i], link...))
+		}
+
+	}
 }

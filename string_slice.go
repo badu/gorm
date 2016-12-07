@@ -1,5 +1,7 @@
 package gorm
 
+import "strings"
+
 //============================================
 // Slice of strings for better reading
 //============================================
@@ -29,6 +31,6 @@ func (s *StrSlice) insertAt(index int, name string) {
 	*s = append((*s)[:index], append([]string{name}, (*s)[index:]...)...)
 }
 
-func (s StrSlice) slice() []string {
-	return s
+func (s StrSlice) asString() string {
+	return strings.Join(s, ",")
 }

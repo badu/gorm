@@ -21,8 +21,7 @@
 - [ ] Debug SQL string even when it fails 
 - [ ] Documentation for tests and build examples
 - [ ] Generated SQL let's the SQL engine cast : SELECT * FROM aTable WHERE id = '1' (id being int). I think it's a bad practice and it should be fixed
-- [ ] Integrate "Skip order sql when quering with distinct" commit of original
-- [ ] get rid of Scope "fields" so you can remove cloneFieldsToScope
+- [ ] "slockij/block-global-update-delete" commit will be included with lazy, eager feature 
 
 # Comments and thoughts 
 - As a general idea on golang projects : "fail fast" type of logic is the best approach
@@ -30,7 +29,7 @@
 - regexp.MustCompile is slow inside functions (10 times slower)
 
 # Last merge
-- #1242 - "Omit duplicates and zero-value ids in preload queries. Resolves #854 and #1054." 
+- 01.12.2016 - "Skip order sql when quering with distinct commit" 
  
 # Breaking changes
 - DB struct - renamed to DBCon, since that is what it represents.
@@ -41,12 +40,14 @@
 
 # Changes log (29.10.2016-present)
 
-## 06.12.2016
-- [ ] slockij/block-global-update-delete commit
-- [ ] Skip order sql when quering with distinct commit
+## 07.12.2016
+- [x] removed SelectWithArrayInput test
+- [x] changed dbcon signature for Select - it doesn't accept slices of strings anymore
+- [x] Skip order sql when quering with distinct commit
+- [x] Search Select is using only first select clause - now it's overriding existing select clauses 
+- [x] Scope createCallback was adding BLANK_COLS_DEFAULT_SETTING inside a for loop (since it was a map, was not malfunctioning, but was bad logic)
+- [x] BLANK_COLS_DEFAULT_SETTING is now storing a string, not a StrSlice
 - [ ] Add gorm:association:source for association operations for plugins to extend GORM commit
-- [ ] copy missing tests from original
-- [ ] comparative tests in another project
 
 ## 05.12.2016
 - [x] removed getTableOptions from Scope : was used in creation operations, so we don't need it there

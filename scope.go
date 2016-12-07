@@ -498,7 +498,7 @@ func (scope *Scope) count(value interface{}) *Scope {
 			scope.Search.Select("count(*)")
 		}
 	}
-	scope.Search.setCounting()
+	scope.Search.setIsOrderIgnored()
 	scope.Err(scope.row().Scan(value))
 	return scope
 }
@@ -745,7 +745,6 @@ func (scope *Scope) createCallback() *Scope {
 				isNotPKOrBlank := !field.IsPrimaryKey() || !field.IsBlank()
 				if isBlankWithDefaultValue {
 					blankColumnsWithDefaultValue.add(Quote(field.DBName, dialect))
-					scope.InstanceSet(BLANK_COLS_DEFAULT_SETTING, blankColumnsWithDefaultValue)
 				} else if isNotPKOrBlank {
 					columns.add(Quote(field.DBName, dialect))
 					placeholders.add(scope.Search.addToVars(field.Value.Interface(), dialect))
@@ -762,7 +761,10 @@ func (scope *Scope) createCallback() *Scope {
 					}
 				}
 			}
+		}
 
+		if blankColumnsWithDefaultValue.len() > 0 {
+			scope.InstanceSet(BLANK_COLS_DEFAULT_SETTING, blankColumnsWithDefaultValue.asString())
 		}
 
 		if str, ok := scope.Get(INSERT_OPT_SETTING); ok {
@@ -821,11 +823,11 @@ func (scope *Scope) createCallback() *Scope {
 // forceReloadAfterCreateCallback will reload columns that having default value, and set it back to current object
 func (scope *Scope) forceReloadAfterCreateCallback() *Scope {
 	if blankColumnsWithDefaultValue, ok := scope.InstanceGet(BLANK_COLS_DEFAULT_SETTING); ok {
-		sSlice, yes := blankColumnsWithDefaultValue.(StrSlice)
+		selects, yes := blankColumnsWithDefaultValue.(string)
 		if !yes {
-			fmt.Errorf("ERROR in forceReloadAfterCreateCallback : blankColumnsWithDefaultValue IS NOT StrSlice!\n")
+			fmt.Errorf("ERROR in forceReloadAfterCreateCallback : blankColumnsWithDefaultValue IS NOT string!\n")
 		}
-		db := newCon(scope.con).Table(scope.TableName()).Select(sSlice.slice())
+		db := newCon(scope.con).Table(scope.TableName()).Select(selects)
 		for _, field := range scope.Fields() {
 			if field.IsPrimaryKey() && !field.IsBlank() {
 				db = db.Where(fmt.Sprintf("%v = ?", field.DBName), field.Value.Interface())

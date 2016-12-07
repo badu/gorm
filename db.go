@@ -103,7 +103,7 @@ func (con *DBCon) Order(value interface{}, reorder ...bool) *DBCon {
 // Select specify fields that you want to retrieve from database when querying, by default, will select all fields;
 // When creating/updating, specify fields that you want to save to database
 // Note : no scope
-func (con *DBCon) Select(query interface{}, args ...interface{}) *DBCon {
+func (con *DBCon) Select(query string, args ...interface{}) *DBCon {
 	clone := con.clone()
 	clone.search.Select(query, args...)
 	return clone

@@ -335,6 +335,8 @@ var (
 	regExpFKName = regexp.MustCompile("(_*[^a-zA-Z]+_*|_+)")
 	//used in Quote to replace all periods with quote-period-quote
 	regExpPeriod = regexp.MustCompile("\\.")
+	//checks for DISTINCT presence in SQL expression
+	distinctSQLRegexp = regexp.MustCompile(`(?i)distinct[^a-z]+[a-z]+`)
 
 	//positiveIntegerMatcher = regexp.MustCompile("/^\\d+$/")
 	//negativeIntegerMatcher= regexp.MustCompile("/^-\\d+$/")

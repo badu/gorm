@@ -660,14 +660,3 @@ func SelectWithVariables(t *testing.T) {
 
 	rows.Close()
 }
-
-func SelectWithArrayInput(t *testing.T) {
-	TestDB.Save(&User{Name: "jinzhu", Age: 42})
-
-	var user User
-	TestDB.Select([]string{"name", "age"}).Where("age = 42 AND name = 'jinzhu'").First(&user)
-
-	if user.Name != "jinzhu" || user.Age != 42 {
-		t.Errorf("Should have selected both age and name")
-	}
-}
