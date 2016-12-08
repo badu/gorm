@@ -403,10 +403,11 @@ func (s *Search) checkFieldOmitted(field *StructField) bool {
 	return false
 }
 
-//TODO : @Badu - maybe it's best to split this into two function - one for sqlPair and one for value (to remove recursion)
 // addToVars add value as sql's vars, used to prevent SQL injection
 func (s *Search) addToVars(value interface{}, dialect Dialect) string {
 	if pair, ok := value.(*SqlPair); ok {
+		//TODO : @Badu - maybe it's best to split this into two function - one for sqlPair and one for value (to remove recursion)
+		//fmt.Printf("CALL with pair : %v\n", fullFileWithLineNum())
 		exp := pair.strExpr()
 		for _, arg := range pair.args {
 			exp = strings.Replace(exp, "?", s.addToVars(arg, dialect), 1)
@@ -419,66 +420,78 @@ func (s *Search) addToVars(value interface{}, dialect Dialect) string {
 
 func (s *Search) whereSQL(scope *Scope) string {
 	var (
-		str                                            string
-		dialect                                        = scope.con.parent.dialect
-		quotedTableName                                = QuotedTableName(scope)
-		primaryConditions, andConditions, orConditions []string
+		SQL, orSQL, andSQL, primarySQL string
+		dialect                        = scope.con.parent.dialect
+		quotedTableName                = QuotedTableName(scope)
 	)
 
 	if !s.isUnscoped() && scope.GetModelStruct().HasColumn("deleted_at") {
-		aStr := fmt.Sprintf("%v.deleted_at IS NULL", quotedTableName)
-		primaryConditions = append(primaryConditions, aStr)
+
+		if primarySQL != "" {
+			primarySQL += " AND "
+		}
+		primarySQL += fmt.Sprintf("%v.deleted_at IS NULL", quotedTableName)
 	}
 
 	if !scope.PrimaryKeyZero() {
 		for _, field := range scope.PKs() {
-			aStr := fmt.Sprintf(
+			if primarySQL != "" {
+				primarySQL += " AND "
+			}
+			primarySQL += fmt.Sprintf(
 				"%v.%v = %v",
 				quotedTableName,
 				Quote(field.DBName, dialect),
 				s.addToVars(field.Value.Interface(), dialect),
 			)
-			primaryConditions = append(primaryConditions, aStr)
+
 		}
 	}
 
 	for _, pair := range s.Conditions[Where_query] {
 		if aStr := s.buildWhereCondition(pair, scope); aStr != "" {
-			andConditions = append(andConditions, aStr)
-		}
-	}
-
-	for _, pair := range s.Conditions[or_query] {
-		if aStr := s.buildWhereCondition(pair, scope); aStr != "" {
-			orConditions = append(orConditions, aStr)
+			if andSQL != "" {
+				andSQL += " AND "
+			}
+			andSQL += aStr
 		}
 	}
 
 	for _, pair := range s.Conditions[not_query] {
 		if aStr := s.buildNotCondition(pair, scope); aStr != "" {
-			andConditions = append(andConditions, aStr)
+			if andSQL != "" {
+				andSQL += " AND "
+			}
+			andSQL += aStr
 		}
 	}
 
-	orSQL := strings.Join(orConditions, " OR ")
-	combinedSQL := strings.Join(andConditions, " AND ")
-	if combinedSQL != "" {
+	for _, pair := range s.Conditions[or_query] {
+		if aStr := s.buildWhereCondition(pair, scope); aStr != "" {
+			if orSQL != "" {
+				orSQL += " OR "
+			}
+			orSQL += aStr
+		}
+	}
+
+	if andSQL != "" {
 		if orSQL != "" {
-			combinedSQL = combinedSQL + " OR " + orSQL
+			andSQL = andSQL + " OR " + orSQL
 		}
 	} else {
-		combinedSQL = orSQL
+		andSQL = orSQL
 	}
 
-	if len(primaryConditions) > 0 {
-		str = "WHERE " + strings.Join(primaryConditions, " AND ")
-		if combinedSQL != "" {
-			str = str + " AND (" + combinedSQL + ")"
+	if primarySQL != "" {
+		SQL = "WHERE " + primarySQL
+		if andSQL != "" {
+			SQL = SQL + " AND (" + andSQL + ")"
 		}
-	} else if combinedSQL != "" {
-		str = "WHERE " + combinedSQL
+	} else if andSQL != "" {
+		SQL = "WHERE " + andSQL
 	}
-	return str
+	return SQL
 }
 
 func (s *Search) buildWhereCondition(fromPair SqlPair, scope *Scope) string {
@@ -712,68 +725,77 @@ func (s *Search) buildNotCondition(fromPair SqlPair, scope *Scope) string {
 
 // CombinedConditionSql return combined condition sql
 func (s *Search) combinedConditionSql(scope *Scope) string {
-	var (
-		dialect        = scope.con.parent.dialect
-		joinConditions []string
-		orders         []string
-		andConditions  []string
-	)
-
 	//Attention : if we don't build joinSql first, joins will fail (it's mixing up the where clauses of the joins)
 	//-= creating Joins =-
-
+	SQL := ""
 	for _, pair := range s.Conditions[joins_query] {
 		if aStr := s.buildWhereCondition(pair, scope); aStr != "" {
-			joinConditions = append(joinConditions, strings.TrimSuffix(strings.TrimPrefix(aStr, "("), ")"))
+			if SQL != "" {
+				SQL += " "
+			}
+			SQL += strings.TrimSuffix(strings.TrimPrefix(aStr, "("), ")")
 		}
 	}
-
-	joinsSql := strings.Join(joinConditions, " ") + " "
+	if SQL != "" {
+		SQL += " "
+	}
 	//-= end creating Joins =-
 
-	whereSql := s.whereSQL(scope)
+	//-= creating Where =-
 	if s.IsRaw() {
-		whereSql = strings.TrimSuffix(strings.TrimPrefix(whereSql, "WHERE ("), ")")
+		SQL += strings.TrimSuffix(strings.TrimPrefix(s.whereSQL(scope), "WHERE ("), ")")
+	} else {
+		SQL += s.whereSQL(scope)
 	}
+	//-= end creating Where =-
 
 	//-= creating Group =-
-	groupSQL := ""
 	if s.hasGroup() {
-		groupSQL = " GROUP BY " + s.Conditions[group_query][0].expression.(string)
+		SQL += " GROUP BY " + s.Conditions[group_query][0].expression.(string)
 	}
 	//-= end creating Group =-
 
 	//-= creating Having =-
-	havingSQL := ""
 	if s.hasHaving() {
-
+		combinedSQL := ""
 		for _, pair := range s.Conditions[having_query] {
 			if aStr := s.buildWhereCondition(pair, scope); aStr != "" {
-				andConditions = append(andConditions, aStr)
+				if combinedSQL != "" {
+					combinedSQL += " AND "
+				}
+				combinedSQL += aStr
 			}
 		}
-		combinedSQL := strings.Join(andConditions, " AND ")
-		if len(combinedSQL) > 0 {
-			havingSQL = " HAVING " + combinedSQL
+		if combinedSQL != "" {
+			SQL += " HAVING " + combinedSQL
 		}
 	}
 	//-= end creating Having =-
 
 	//-= creating Order =-
-	orderSQL := ""
 	if s.hasOrder() && !s.isOrderIgnored() {
+		dialect := scope.con.parent.dialect
+		orderSQL := ""
 		for _, orderPair := range s.Conditions[Order_query] {
 			if str, ok := orderPair.args[0].(string); ok {
-				orders = append(orders, QuoteIfPossible(str, dialect))
+				if orderSQL != "" {
+					orderSQL += ","
+				}
+				orderSQL += QuoteIfPossible(str, dialect)
 			} else if pair, ok := orderPair.args[0].(*SqlPair); ok {
 				exp := pair.strExpr()
 				for _, arg := range pair.args {
 					exp = strings.Replace(exp, "?", s.addToVars(arg, dialect), 1)
 				}
-				orders = append(orders, exp)
+				if orderSQL != "" {
+					orderSQL += ","
+				}
+				orderSQL += exp
 			}
 		}
-		orderSQL = " ORDER BY " + strings.Join(orders, ",")
+		if orderSQL != "" {
+			SQL += " ORDER BY " + orderSQL
+		}
 	}
 	//-= end creating Order =-
 
@@ -789,17 +811,14 @@ func (s *Search) combinedConditionSql(scope *Scope) string {
 			offsetValue = s.Conditions[offset_query][0].args[0].(int)
 
 		}
-		limitAndOffsetSQL := dialect.LimitAndOffsetSQL(limitValue, offsetValue)
-		return joinsSql + whereSql + groupSQL + havingSQL + orderSQL + limitAndOffsetSQL
+		limitAndOffsetSQL := scope.con.parent.dialect.LimitAndOffsetSQL(limitValue, offsetValue)
+		return SQL + limitAndOffsetSQL
 	}
-	return joinsSql + whereSql + groupSQL + havingSQL + orderSQL
+	return SQL
 
 }
 
 func (s *Search) prepareQuerySQL(scope *Scope) {
-	var (
-		tempMarks []string
-	)
 	if s.IsRaw() {
 		scope.Raw(s.combinedConditionSql(scope))
 	} else {
@@ -821,16 +840,17 @@ func (s *Search) prepareQuerySQL(scope *Scope) {
 					switch reflect.ValueOf(arg).Kind() {
 					case reflect.Slice:
 						values := reflect.ValueOf(arg)
-
+						marks := ""
 						for i := 0; i < values.Len(); i++ {
-							tempMarks = append(tempMarks,
-								s.addToVars(
-									values.Index(i).Interface(),
-									scope.con.parent.dialect,
-								),
+							if marks != "" {
+								marks += ","
+							}
+							marks += s.addToVars(
+								values.Index(i).Interface(),
+								scope.con.parent.dialect,
 							)
 						}
-						selectSQL = strings.Replace(selectSQL, "?", strings.Join(tempMarks, ","), 1)
+						selectSQL = strings.Replace(selectSQL, "?", marks, 1)
 					default:
 						if valuer, ok := interface{}(arg).(driver.Valuer); ok {
 							arg, _ = valuer.Value()

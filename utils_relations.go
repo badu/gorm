@@ -513,15 +513,9 @@ func handleManyToManyPreload(scope *Scope, field *StructField, conditions []inte
 		indirectScopeValue = IndirectValue(scope.Value)
 		fieldsSourceMap    = map[string][]reflect.Value{}
 		foreignFieldNames  = StrSlice{}
-		sourceKeys         = []string{}
-
-		ForeignFieldNames = field.GetSliceSetting(FOREIGN_FIELD_NAMES)
-		joinTableHandler  = field.JoinHandler()
+		ForeignFieldNames  = field.GetSliceSetting(FOREIGN_FIELD_NAMES)
+		joinTableHandler   = field.JoinHandler()
 	)
-
-	for _, key := range joinTableHandler.SourceForeignKeys() {
-		sourceKeys = append(sourceKeys, key.DBName)
-	}
 
 	// preload conditions
 	preloadDB, preloadConditions := generatePreloadDBWithConditions(newCon(scope.con), conditions)
@@ -553,18 +547,18 @@ func handleManyToManyPreload(scope *Scope, field *StructField, conditions []inte
 
 		// register foreign keys in join tables
 		var joinTableFields StructFields
-		for _, sourceKey := range sourceKeys {
+		for _, sourceKey := range joinTableHandler.SourceForeignKeys() {
 			joinTableFields.add(
 				&StructField{
-					DBName: sourceKey,
+					DBName: sourceKey.DBName,
 					Value:  reflect.New(foreignKeyType).Elem(),
-					flags:  0 | (1 << IS_NORMAL),
+					flags:  0 | (1 << IS_NORMAL), //added as normal field
 				})
 		}
 
 		scope.scan(rows, columns, append(fields, joinTableFields...))
 
-		var foreignKeys = make([]interface{}, len(sourceKeys))
+		var foreignKeys = make([]interface{}, joinTableFields.len())
 		// generate hashed forkey keys in join table
 		for idx, joinTableField := range joinTableFields {
 			if !joinTableField.Value.IsNil() {
@@ -581,7 +575,6 @@ func handleManyToManyPreload(scope *Scope, field *StructField, conditions []inte
 	}
 
 	// assign find results
-
 	for _, dbName := range ForeignFieldNames {
 		if field, ok := scope.FieldByName(dbName); ok {
 			foreignFieldNames.add(field.StructName)

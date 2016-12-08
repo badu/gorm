@@ -98,20 +98,18 @@ func toQueryCondition(columns StrSlice, dialect Dialect) string {
 //using inline advantage
 func toQueryMarks(primaryValues [][]interface{}) string {
 	results := ""
-
 	for _, primaryValue := range primaryValues {
-		var marks []string
+		marks := ""
 		for range primaryValue {
-			marks = append(marks, "?")
+			if marks != "" {
+				marks += ","
+			}
+			marks += "?"
 		}
 		if results != "" {
 			results += ","
 		}
-		if len(marks) > 1 {
-			results += fmt.Sprintf("(%v)", strings.Join(marks, ","))
-		} else {
-			results += strings.Join(marks, "")
-		}
+		results += marks
 	}
 	return results
 }
