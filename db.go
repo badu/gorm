@@ -10,11 +10,11 @@ import (
 )
 
 func (con *DBCon) set(settintType uint64, value interface{}) *DBCon {
-	return con.clone().instanceSet(settintType, value)
+	return con.clone().localSet(settintType, value)
 }
 
 // InstantSet instant set setting, will affect current db
-func (con *DBCon) instanceSet(settintType uint64, value interface{}) *DBCon {
+func (con *DBCon) localSet(settintType uint64, value interface{}) *DBCon {
 	con.settings[settintType] = value
 	return con
 }
@@ -29,7 +29,7 @@ func (con *DBCon) Set(name string, value interface{}) *DBCon {
 	clone := con.clone()
 	settingType, ok := gormSettingsMap[name]
 	if ok {
-		clone.instanceSet(settingType, value)
+		clone.localSet(settingType, value)
 	} else {
 		clone.AddError(fmt.Errorf("Setting %q not declared. Can't set!", name))
 	}
@@ -275,7 +275,11 @@ func (con *DBCon) First(out interface{}, where ...interface{}) *DBCon {
 	if len(where) > 0 {
 		newScope.Search.Wheres(where...)
 	}
-	return newScope.PostQuery().callCallbacks(con.parent.callbacks.queries).con
+	newScope = newScope.postQuery()
+	if con.parent.callbacks.queries.len() > 0 {
+		newScope.callCallbacks(con.parent.callbacks.queries)
+	}
+	return newScope.con
 }
 
 // Last find last record that match given conditions, order by primary key
@@ -286,7 +290,11 @@ func (con *DBCon) Last(out interface{}, where ...interface{}) *DBCon {
 	if len(where) > 0 {
 		newScope.Search.Wheres(where...)
 	}
-	return newScope.PostQuery().callCallbacks(con.parent.callbacks.queries).con
+	newScope = newScope.postQuery()
+	if con.parent.callbacks.queries.len() > 0 {
+		newScope.callCallbacks(con.parent.callbacks.queries)
+	}
+	return newScope.con
 }
 
 // Find find records that match given conditions
@@ -295,12 +303,21 @@ func (con *DBCon) Find(out interface{}, where ...interface{}) *DBCon {
 	if len(where) > 0 {
 		newScope.Search.Wheres(where...)
 	}
-	return newScope.PostQuery().callCallbacks(con.parent.callbacks.queries).con
+	newScope = newScope.postQuery()
+	if con.parent.callbacks.queries.len() > 0 {
+		newScope.callCallbacks(con.parent.callbacks.queries)
+	}
+	return newScope.con
 }
 
 // Scan scan value to a struct
 func (con *DBCon) Scan(dest interface{}) *DBCon {
-	return con.NewScope(con.search.Value).Set(QUERY_DEST_SETTING, dest).PostQuery().callCallbacks(con.parent.callbacks.queries).con
+	newScope := con.NewScope(con.search.Value)
+	newScope = newScope.Set(QUERY_DEST_SETTING, dest).postQuery()
+	if con.parent.callbacks.queries.len() > 0 {
+		newScope.callCallbacks(con.parent.callbacks.queries)
+	}
+	return newScope.con
 }
 
 // Row return `*sql.Row` with given conditions
@@ -373,25 +390,36 @@ func (con *DBCon) FirstOrCreate(out interface{}, where ...interface{}) *DBCon {
 		}
 		newScope := conClone.NewScope(out)
 		newScope.Search.Wheres(where...).initialize(newScope)
-		return newScope.PostCreate().callCallbacks(conClone.parent.callbacks.creates).con
+		newScope = newScope.postCreate()
+		if conClone.parent.callbacks.creates.len() > 0 {
+			newScope.callCallbacks(conClone.parent.callbacks.creates)
+		}
+		return newScope.con
 	} else if conClone.search.hasAssign() {
 		scope := conClone.NewScope(out)
 		args := scope.Search.getFirst(assign_attrs)
 		if args != nil {
-			scope.InstanceSet(UPDATE_INTERF_SETTING, args.args)
+			scope.attrs = args.args
+			//scope.InstanceSet(UPDATE_INTERF_SETTING, args.args)
 		}
-		return scope.PostUpdate().callCallbacks(conClone.parent.callbacks.updates).con
+		scope = scope.postUpdate()
+		if conClone.parent.callbacks.updates.len() > 0 {
+			scope.callCallbacks(conClone.parent.callbacks.updates)
+		}
+		return scope.con
 	}
 	return conClone
 }
 
 // Updates update attributes with callbacks
 func (con *DBCon) Updates(values interface{}, ignoreProtectedAttrs ...bool) *DBCon {
-	return con.NewScope(con.search.Value).
-		Set(IGNORE_PROTEC_SETTING, len(ignoreProtectedAttrs) > 0).
-		InstanceSet(UPDATE_INTERF_SETTING, values).
-		PostUpdate().
-		callCallbacks(con.parent.callbacks.updates).con
+	newScope := con.NewScope(con.search.Value)
+	newScope.attrs = values
+	newScope = newScope.Set(IGNORE_PROTEC_SETTING, len(ignoreProtectedAttrs) > 0).postUpdate()
+	if con.parent.callbacks.updates.len() > 0 {
+		newScope.callCallbacks(con.parent.callbacks.updates)
+	}
+	return newScope.con
 }
 
 // Update update attributes with callbacks
@@ -402,12 +430,13 @@ func (con *DBCon) Update(attrs ...interface{}) *DBCon {
 
 // UpdateColumns update attributes without callbacks
 func (con *DBCon) UpdateColumns(values interface{}) *DBCon {
-	return con.NewScope(con.search.Value).
-		Set(UPDATE_COLUMN_SETTING, true).
-		Set(SAVE_ASSOC_SETTING, false).
-		InstanceSet(UPDATE_INTERF_SETTING, values).
-		PostUpdate().
-		callCallbacks(con.parent.callbacks.updates).con
+	newScope := con.NewScope(con.search.Value)
+	newScope.attrs = values
+	newScope = newScope.Set(UPDATE_COLUMN_SETTING, true).Set(SAVE_ASSOC_SETTING, false).postUpdate()
+	if con.parent.callbacks.updates.len() > 0 {
+		newScope.callCallbacks(con.parent.callbacks.updates)
+	}
+	return newScope.con
 }
 
 // UpdateColumn update attributes without callbacks
@@ -420,25 +449,40 @@ func (con *DBCon) UpdateColumn(attrs ...interface{}) *DBCon {
 func (con *DBCon) Save(value interface{}) *DBCon {
 	scope := con.NewScope(value)
 	if !scope.PrimaryKeyZero() {
-		conn := scope.PostUpdate().callCallbacks(con.parent.callbacks.updates).con
-		if conn.Error == nil && conn.RowsAffected == 0 {
+		scope = scope.postUpdate()
+		if con.parent.callbacks.updates.len() > 0 {
+			scope.callCallbacks(con.parent.callbacks.updates)
+		}
+		if scope.con.Error == nil && scope.con.RowsAffected == 0 {
 			return newCon(con).FirstOrCreate(value)
 		}
-		return conn
+		return scope.con
 	}
-	return scope.PostCreate().callCallbacks(con.parent.callbacks.creates).con
+	scope = scope.postCreate()
+	if con.parent.callbacks.creates.len() > 0 {
+		scope.callCallbacks(con.parent.callbacks.creates)
+	}
+	return scope.con
 }
 
 // Create insert the value into database
 func (con *DBCon) Create(value interface{}) *DBCon {
-	return con.NewScope(value).PostCreate().callCallbacks(con.parent.callbacks.creates).con
+	scope := con.NewScope(value).postCreate()
+	if con.parent.callbacks.creates.len() > 0 {
+		scope.callCallbacks(con.parent.callbacks.creates)
+	}
+	return scope.con
 }
 
 // Delete delete value match given conditions, if the value has primary key, then will including the primary key as condition
 func (con *DBCon) Delete(value interface{}, where ...interface{}) *DBCon {
 	scope := con.NewScope(value)
 	scope.Search.Wheres(where...)
-	return scope.PostDelete().callCallbacks(con.parent.callbacks.deletes).con
+	scope = scope.postDelete()
+	if con.parent.callbacks.deletes.len() > 0 {
+		scope.callCallbacks(con.parent.callbacks.deletes)
+	}
+	return scope.con
 }
 
 // Exec execute raw sql

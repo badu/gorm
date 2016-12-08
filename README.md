@@ -46,6 +46,9 @@
 - [x] removed BLANK_COLS_DEFAULT_SETTING : Scope's beforeCreateCallback returns also a string, forceReloadAfterCreateCallback accepts that string
 - [x] string concat instead of string slices where possible (cheaper)
 - [x] DBCon SetLogMode(mode int) and LOG_OFF, LOG_VERBOSE, LOG_DEBUG constants
+- [x] removed UPDATE_ATTRS_SETTING : instead, Scope has now updateMaps map[string]interface{} which holds that data
+- [x] got rid of InstanceSet and InstanceGet from Scope, instanceID (uint64) property was removed
+- [x] callCallbacks gets called only we have registered functions, so we won't call function for nothing
 
 ## 07.12.2016
 - [x] "Add gorm:association:source for association operations for plugins to extend GORM" from original commit 

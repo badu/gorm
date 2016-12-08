@@ -31,9 +31,9 @@ const (
 	UPDATE_OPT_SETTING    uint64 = 9
 	UPDATE_INTERF_SETTING uint64 = 10
 	IGNORE_PROTEC_SETTING uint64 = 11
-	UPDATE_ATTRS_SETTING  uint64 = 12
+
 	//TODO : @Badu - maybe it's better to keep this info in Association struct
-	ASSOCIATION_SOURCE_SETTING uint64 = 13
+	ASSOCIATION_SOURCE_SETTING uint64 = 12
 
 	LOG_OFF     int = 1
 	LOG_VERBOSE int = 2
@@ -81,12 +81,16 @@ type (
 
 	// Scope contain current operation's information when you perform any operation on the database
 	Scope struct {
-		con        *DBCon
-		Search     *Search
-		instanceID uint64
-		fields     *StructFields //cached version of cloned struct fields
-		Value      interface{}
+		con    *DBCon
+		Search *Search
+		fields *StructFields //cached version of cloned struct fields
+		Value  interface{}
 		//TODO : @Badu - add Type of Value here to avoid "so much reflection" effect
+
+		//added to get rid of UPDATE_ATTRS_SETTING - since it's accessible only in that instance
+		updateMaps map[string]interface{}
+		//added to get rid of UPDATE_INTERF_SETTING - since it's accessible only in that instance
+		attrs interface{}
 	}
 
 	sqlConditionType uint16
@@ -324,7 +328,6 @@ var (
 		"gorm:save_associations":      SAVE_ASSOC_SETTING,
 		"gorm:update_interface":       UPDATE_INTERF_SETTING,
 		"gorm:ignore_protected_attrs": IGNORE_PROTEC_SETTING,
-		"gorm:update_attrs":           UPDATE_ATTRS_SETTING,
 		"gorm:association:source":     ASSOCIATION_SOURCE_SETTING,
 	}
 	// Attention : using "unprepared" regexp.MustCompile is really slow : ten times slower

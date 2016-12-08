@@ -7,7 +7,6 @@ import (
 	"reflect"
 	"strings"
 	"time"
-	"unsafe"
 )
 
 // New create a new Scope without search information
@@ -18,13 +17,9 @@ func (scope *Scope) NewScope(value interface{}) *Scope {
 		Value:  value}
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// Setter-Getters
-////////////////////////////////////////////////////////////////////////////////
-
 // Set set value by name
 func (scope *Scope) Set(settingType uint64, value interface{}) *Scope {
-	scope.con.instanceSet(settingType, value)
+	scope.con.localSet(settingType, value)
 	return scope
 }
 
@@ -33,29 +28,6 @@ func (scope *Scope) Get(settingType uint64) (interface{}, bool) {
 	return scope.con.get(settingType)
 }
 
-// InstanceSet set instance setting for current operation,
-// but not for operations in callbacks,
-// like saving associations callback
-func (scope *Scope) InstanceSet(settingType uint64, value interface{}) *Scope {
-	if scope.instanceID <= 0 {
-		//gets the pointer of self and convert it to uint64 - it's unique enough, since no two scopes can share same address
-		scope.instanceID = *(*uint64)(unsafe.Pointer(&scope))
-	}
-	return scope.Set(scope.instanceID+settingType, value)
-}
-
-// InstanceGet get instance setting from current operation
-func (scope *Scope) InstanceGet(settingType uint64) (interface{}, bool) {
-	if scope.instanceID <= 0 {
-		//gets the pointer of self and convert it to uint64 - it's unique enough, since no two scopes can share same address
-		scope.instanceID = *(*uint64)(unsafe.Pointer(&scope))
-	}
-	return scope.Get(scope.instanceID + settingType)
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Scope DB
-////////////////////////////////////////////////////////////////////////////////
 // Err add error to Scope
 func (scope *Scope) Err(err error) error {
 	if err != nil {
@@ -187,16 +159,11 @@ func (scope *Scope) FieldByName(name string) (*StructField, bool) {
 
 // SetColumn to set the column's value, column could be field or field's name/dbname
 func (scope *Scope) SetColumn(column interface{}, value interface{}) error {
-	var (
-		updateAttrs = map[string]interface{}{}
-	)
-	if attrs, ok := scope.InstanceGet(UPDATE_ATTRS_SETTING); ok {
-		updateAttrs = attrs.(map[string]interface{})
-		defer scope.InstanceSet(UPDATE_ATTRS_SETTING, updateAttrs)
-	}
 	switch colType := column.(type) {
 	case *StructField:
-		updateAttrs[colType.DBName] = value
+		if scope.updateMaps != nil {
+			scope.updateMaps[colType.DBName] = value
+		}
 		return colType.Set(value)
 	case string:
 		//looks like Scope.FieldByName
@@ -206,7 +173,9 @@ func (scope *Scope) SetColumn(column interface{}, value interface{}) error {
 		)
 		for _, field := range scope.Fields() {
 			if field.DBName == value {
-				updateAttrs[field.DBName] = value
+				if scope.updateMaps != nil {
+					scope.updateMaps[field.DBName] = value
+				}
 				return field.Set(value)
 			}
 			if (field.DBName == dbName) || (field.StructName == colType && mostMatchedField == nil) {
@@ -215,7 +184,9 @@ func (scope *Scope) SetColumn(column interface{}, value interface{}) error {
 		}
 
 		if mostMatchedField != nil {
-			updateAttrs[mostMatchedField.DBName] = value
+			if scope.updateMaps != nil {
+				scope.updateMaps[mostMatchedField.DBName] = value
+			}
 			return mostMatchedField.Set(value)
 		}
 	}
@@ -306,8 +277,12 @@ func (scope *Scope) CallMethod(methodName string) {
 	}
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// Private Methods For *gorm.Scope
+////////////////////////////////////////////////////////////////////////////////
+
 //calls methods after creation
-func (scope *Scope) PostCreate() *Scope {
+func (scope *Scope) postCreate() *Scope {
 	result, txStarted := scope.Begin()
 	var blankColumnsWithDefaultValue string
 	result, blankColumnsWithDefaultValue = result.beforeCreateCallback().
@@ -322,7 +297,7 @@ func (scope *Scope) PostCreate() *Scope {
 }
 
 //calls methods after deletion
-func (scope *Scope) PostDelete() *Scope {
+func (scope *Scope) postDelete() *Scope {
 	result, txStarted := scope.Begin()
 	return result.beforeDeleteCallback().
 		deleteCallback().
@@ -331,7 +306,7 @@ func (scope *Scope) PostDelete() *Scope {
 }
 
 //calls methods after query
-func (scope *Scope) PostQuery() *Scope {
+func (scope *Scope) postQuery() *Scope {
 	return scope.
 		queryCallback().
 		preloadCallback().
@@ -339,10 +314,11 @@ func (scope *Scope) PostQuery() *Scope {
 }
 
 //calls methods after update
-func (scope *Scope) PostUpdate() *Scope {
-	if attrs, ok := scope.InstanceGet(UPDATE_INTERF_SETTING); ok {
-		if updateMaps, hasUpdate := updatedAttrsWithValues(scope, attrs); hasUpdate {
-			scope.InstanceSet(UPDATE_ATTRS_SETTING, updateMaps)
+func (scope *Scope) postUpdate() *Scope {
+	if scope.attrs != nil {
+		updateMaps, hasUpdate := updatedAttrsWithValues(scope, scope.attrs)
+		if hasUpdate {
+			scope.updateMaps = updateMaps
 		} else {
 			//we stop chain calls
 			return scope
@@ -358,10 +334,6 @@ func (scope *Scope) PostUpdate() *Scope {
 		afterUpdateCallback().
 		CommitOrRollback(txStarted)
 }
-
-////////////////////////////////////////////////////////////////////////////////
-// Private Methods For *gorm.Scope
-////////////////////////////////////////////////////////////////////////////////
 
 func (scope *Scope) callMethod(methodName string, reflectValue reflect.Value) {
 	// Only get address from non-pointer
@@ -444,7 +416,9 @@ func (scope *Scope) row() *sql.Row {
 	if scope.con.logMode == LOG_VERBOSE {
 		defer scope.trace(NowFunc())
 	}
-	scope.callCallbacks(scope.con.parent.callbacks.rowQueries)
+	if scope.con.parent.callbacks.rowQueries.len() > 0 {
+		scope.callCallbacks(scope.con.parent.callbacks.rowQueries)
+	}
 	scope.Search.prepareQuerySQL(scope)
 	return scope.Search.QueryRow(scope)
 }
@@ -454,7 +428,9 @@ func (scope *Scope) rows() (*sql.Rows, error) {
 	if scope.con.logMode == LOG_VERBOSE {
 		defer scope.trace(NowFunc())
 	}
-	scope.callCallbacks(scope.con.parent.callbacks.rowQueries)
+	if scope.con.parent.callbacks.rowQueries.len() > 0 {
+		scope.callCallbacks(scope.con.parent.callbacks.rowQueries)
+	}
 	scope.Search.prepareQuerySQL(scope)
 	return scope.Search.Query(scope)
 }
@@ -639,7 +615,7 @@ func (scope *Scope) callCallbacks(funcs ScopedFuncs) *Scope {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// after create functions
+// internal callbacks functions
 ////////////////////////////////////////////////////////////////////////////////
 //[create step 1] [delete step 1] [update step 1]
 // Begin start a transaction
@@ -1112,9 +1088,8 @@ func (scope *Scope) updateCallback() *Scope {
 		extraOption  string
 	)
 	if !scope.HasError() {
-
-		if updateAttrs, ok := scope.InstanceGet(UPDATE_ATTRS_SETTING); ok {
-			for column, value := range updateAttrs.(map[string]interface{}) {
+		if scope.updateMaps != nil {
+			for column, value := range scope.updateMaps {
 				sqls = append(sqls,
 					fmt.Sprintf(
 						"%v = %v",
