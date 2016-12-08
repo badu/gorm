@@ -21,17 +21,23 @@ func equalAsString(a interface{}, b interface{}) bool {
 }
 
 //TODO : @Badu - I really don't like this, being too generic, like we have no idea what we are comparing
-func toString(str interface{}) string {
-	if values, ok := str.([]interface{}); ok {
-		var results []string
-		for _, value := range values {
-			results = append(results, toString(value))
+func toString(input interface{}) string {
+	switch value := input.(type) {
+	case []interface{}:
+		var results string
+		for _, value := range value {
+			if results != "" {
+				results += "_"
+			}
+			results += toString(value)
 		}
-		return strings.Join(results, "_")
-	} else if strBytes, ok := str.([]byte); ok {
-		return string(strBytes)
-	} else if reflectValue := reflect.Indirect(reflect.ValueOf(str)); reflectValue.IsValid() {
-		return fmt.Sprintf("%v", reflectValue.Interface())
+		return results
+	case []byte:
+		return string(value)
+	default:
+		if reflectValue := reflect.Indirect(reflect.ValueOf(input)); reflectValue.IsValid() {
+			return fmt.Sprintf("%v", reflectValue.Interface())
+		}
 	}
 	return ""
 }
@@ -75,34 +81,39 @@ func QuotedTableName(scope *Scope) string {
 
 //using inline advantage
 func toQueryCondition(columns StrSlice, dialect Dialect) string {
-	var newColumns []string
+	newColumns := ""
 	for _, column := range columns {
-		newColumns = append(newColumns, Quote(column, dialect))
+		if newColumns != "" {
+			newColumns += ","
+		}
+		newColumns += Quote(column, dialect)
 	}
 
 	if len(columns) > 1 {
-		return fmt.Sprintf("(%v)", strings.Join(newColumns, ","))
+		return fmt.Sprintf("(%v)", newColumns)
 	}
-	return strings.Join(newColumns, ",")
+	return newColumns
 }
 
 //using inline advantage
 func toQueryMarks(primaryValues [][]interface{}) string {
-	var results []string
+	results := ""
 
 	for _, primaryValue := range primaryValues {
 		var marks []string
 		for range primaryValue {
 			marks = append(marks, "?")
 		}
-
+		if results != "" {
+			results += ","
+		}
 		if len(marks) > 1 {
-			results = append(results, fmt.Sprintf("(%v)", strings.Join(marks, ",")))
+			results += fmt.Sprintf("(%v)", strings.Join(marks, ","))
 		} else {
-			results = append(results, strings.Join(marks, ""))
+			results += strings.Join(marks, "")
 		}
 	}
-	return strings.Join(results, ",")
+	return results
 }
 
 //using inline advantage
@@ -283,12 +294,15 @@ func updatedAttrsWithValues(scope *Scope, value interface{}) (map[string]interfa
 	if IndirectValue(scope.Value).Kind() != reflect.Struct {
 		return convertInterfaceToMap(value, false), true
 	}
-
-	results := map[string]interface{}{}
-	hasUpdate := false
-
+	var (
+		results   = map[string]interface{}{}
+		hasUpdate = false
+	)
 	for key, value := range convertInterfaceToMap(value, true) {
 		field, ok := scope.FieldByName(key)
+		if !ok {
+			fmt.Printf("Field %q NOT found!\n", key)
+		}
 		if ok && scope.Search.changeableField(field) {
 			if _, ok := value.(*SqlPair); ok {
 				hasUpdate = true
@@ -311,13 +325,13 @@ func updatedAttrsWithValues(scope *Scope, value interface{}) (map[string]interfa
 
 //using inline advantage
 // getValueFromFields return given fields's value
-func getValueFromFields(s StrSlice, value reflect.Value) []interface{} {
+func getValueFromFields(fields StrSlice, value reflect.Value) []interface{} {
 	var results []interface{}
 	// If value is a nil pointer, Indirect returns a zero Value!
 	// Therefor we need to check for a zero value,
 	// as FieldByName could panic
 	if indirectValue := reflect.Indirect(value); indirectValue.IsValid() {
-		for _, fieldName := range s {
+		for _, fieldName := range fields {
 			if fieldValue := indirectValue.FieldByName(fieldName); fieldValue.IsValid() {
 				result := fieldValue.Interface()
 				if r, ok := result.(driver.Valuer); ok {
@@ -328,31 +342,6 @@ func getValueFromFields(s StrSlice, value reflect.Value) []interface{} {
 		}
 	}
 	return results
-}
-
-//using inline advantage
-func getSearchMap(jth JoinTableHandler, con *DBCon, sources ...interface{}) map[string]interface{} {
-	values := map[string]interface{}{}
-
-	for _, source := range sources {
-		scope := con.NewScope(source)
-		modelType := scope.GetModelStruct().ModelType
-
-		if jth.Source.ModelType == modelType {
-			for _, foreignKey := range jth.Source.ForeignKeys {
-				if field, ok := scope.FieldByName(foreignKey.AssociationDBName); ok {
-					values[foreignKey.DBName] = field.Value.Interface()
-				}
-			}
-		} else if jth.Destination.ModelType == modelType {
-			for _, foreignKey := range jth.Destination.ForeignKeys {
-				if field, ok := scope.FieldByName(foreignKey.AssociationDBName); ok {
-					values[foreignKey.DBName] = field.Value.Interface()
-				}
-			}
-		}
-	}
-	return values
 }
 
 //using inline advantage
@@ -420,16 +409,28 @@ func isPrintable(s string) bool {
 	return true
 }
 
+func fullFileWithLineNum() string {
+	result := ""
+	for i := 1; i < 15; i++ {
+		_, file, line, ok := runtime.Caller(i)
+		if ok {
+			result += fmt.Sprintf("%v:%v\n", file, line)
+		} else {
+			break
+		}
+
+	}
+	return result
+}
+
 func fileWithLineNum() string {
 	for i := 6; i < 15; i++ {
 		_, file, line, ok := runtime.Caller(i)
-		if ok && regexpTest.MatchString(file) {
-			//matching test files - we print that
-			return fmt.Sprintf("[%d] %v:%v", i, file, line)
-		} else if ok && !regexpSelf.MatchString(file) {
+		if ok && !regexpSelf.MatchString(file) {
 			//otherwise
-			return fmt.Sprintf("[%d] %v:%v", i, file, line)
+			return fmt.Sprintf("%v:%v", file, line)
 		}
+
 	}
 	return ""
 }
@@ -482,12 +483,14 @@ func Open(dialectName string, args ...interface{}) (*DBCon, error) {
 	}
 
 	db = DBCon{
-		dialect:  conDialect,
-		logger:   defaultLogger,
+		dialect:   conDialect,
+		logger:    defaultLogger,
 		callbacks: &Callbacks{},
-		settings: map[uint64]interface{}{},
-		sqli:     dbSQL,
+		settings:  map[uint64]interface{}{},
+		sqli:      dbSQL,
 	}
+	//set no log
+	db.LogMode(false)
 	//TODO : @Badu - don't like that it points itself - maybe what's kept in initial should be gormSetting (use dbcon.get() to get them)
 	db.parent = &db
 

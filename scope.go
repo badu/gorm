@@ -69,11 +69,6 @@ func (scope *Scope) HasError() bool {
 	return scope.con.Error != nil
 }
 
-// Log print log message
-func (scope *Scope) Log(v ...interface{}) {
-	scope.con.log(v...)
-}
-
 func (scope *Scope) Warn(v ...interface{}) {
 	//scope.con.warnLog(v...)
 }
@@ -256,7 +251,7 @@ func (scope *Scope) Exec() *Scope {
 		return scope
 	}
 	//avoid call if we don't need to
-	if scope.con.logMode == 2 {
+	if scope.con.logMode == LOG_VERBOSE {
 		defer scope.trace(NowFunc())
 	}
 	scope.Search.Exec(scope)
@@ -313,26 +308,26 @@ func (scope *Scope) CallMethod(methodName string) {
 
 //calls methods after creation
 func (scope *Scope) PostCreate() *Scope {
-	return scope.
-		Begin().
-		beforeCreateCallback().
+	result, txStarted := scope.Begin()
+	var blankColumnsWithDefaultValue string
+	result, blankColumnsWithDefaultValue = result.beforeCreateCallback().
 		saveBeforeAssociationsCallback().
 		updateTimeStampForCreateCallback().
-		createCallback().
-		forceReloadAfterCreateCallback().
+		createCallback()
+	result.forceReloadAfterCreateCallback(blankColumnsWithDefaultValue).
 		saveAfterAssociationsCallback().
 		afterCreateCallback().
-		CommitOrRollback()
+		CommitOrRollback(txStarted)
+	return result
 }
 
 //calls methods after deletion
 func (scope *Scope) PostDelete() *Scope {
-	return scope.
-		Begin().
-		beforeDeleteCallback().
+	result, txStarted := scope.Begin()
+	return result.beforeDeleteCallback().
 		deleteCallback().
 		afterDeleteCallback().
-		CommitOrRollback()
+		CommitOrRollback(txStarted)
 }
 
 //calls methods after query
@@ -353,15 +348,15 @@ func (scope *Scope) PostUpdate() *Scope {
 			return scope
 		}
 	}
-	return scope.
-		Begin().
+	result, txStarted := scope.Begin()
+	return result.
 		beforeUpdateCallback().
 		saveBeforeAssociationsCallback().
 		updateTimeStampForUpdateCallback().
 		updateCallback().
 		saveAfterAssociationsCallback().
 		afterUpdateCallback().
-		CommitOrRollback()
+		CommitOrRollback(txStarted)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -446,7 +441,7 @@ func (scope *Scope) scan(rows *sql.Rows, columns []string, fields StructFields) 
 
 func (scope *Scope) row() *sql.Row {
 	//avoid call if we don't need to
-	if scope.con.logMode == 2 {
+	if scope.con.logMode == LOG_VERBOSE {
 		defer scope.trace(NowFunc())
 	}
 	scope.callCallbacks(scope.con.parent.callbacks.rowQueries)
@@ -456,7 +451,7 @@ func (scope *Scope) row() *sql.Row {
 
 func (scope *Scope) rows() (*sql.Rows, error) {
 	//avoid call if we don't need to
-	if scope.con.logMode == 2 {
+	if scope.con.logMode == LOG_VERBOSE {
 		defer scope.trace(NowFunc())
 	}
 	scope.callCallbacks(scope.con.parent.callbacks.rowQueries)
@@ -490,7 +485,7 @@ func (scope *Scope) count(value interface{}) *Scope {
 	} else {
 		sqlPair := scope.Search.getFirst(Select_query)
 		if sqlPair == nil {
-			scope.con.toLog("ERROR : search select_query should have exaclty one count")
+			scope.Warn("ERROR : search select_query should have exaclty one count")
 			//error has occured in getting first item in slice
 			return scope
 		}
@@ -648,7 +643,7 @@ func (scope *Scope) callCallbacks(funcs ScopedFuncs) *Scope {
 ////////////////////////////////////////////////////////////////////////////////
 //[create step 1] [delete step 1] [update step 1]
 // Begin start a transaction
-func (scope *Scope) Begin() *Scope {
+func (scope *Scope) Begin() (*Scope, bool) {
 	if db, ok := scope.con.sqli.(sqlDb); ok {
 		//parent db implements Begin() -> call Begin()
 		if tx, err := db.Begin(); err == nil {
@@ -656,10 +651,10 @@ func (scope *Scope) Begin() *Scope {
 			//parent db.db implements Exec(), Prepare(), Query() and QueryRow()
 			//TODO : @Badu - it's paired with commit or rollback - see below
 			scope.con.sqli = interface{}(tx).(sqlInterf)
-			scope.InstanceSet(STARTED_TX_SETTING, true)
+			return scope, true
 		}
 	}
-	return scope
+	return scope, false
 }
 
 //[create step 2]
@@ -718,7 +713,7 @@ func (scope *Scope) updateTimeStampForCreateCallback() *Scope {
 
 //[create step 5]
 // createCallback the callback used to insert data into database
-func (scope *Scope) createCallback() *Scope {
+func (scope *Scope) createCallback() (*Scope, string) {
 	var (
 		columns, placeholders        StrSlice
 		blankColumnsWithDefaultValue StrSlice
@@ -732,7 +727,7 @@ func (scope *Scope) createCallback() *Scope {
 
 	if !scope.HasError() {
 		//avoid call if we don't need to
-		if scope.con.logMode == 2 {
+		if scope.con.logMode == LOG_VERBOSE {
 			defer scope.trace(NowFunc())
 		}
 
@@ -762,10 +757,6 @@ func (scope *Scope) createCallback() *Scope {
 					}
 				}
 			}
-		}
-
-		if blankColumnsWithDefaultValue.len() > 0 {
-			scope.InstanceSet(BLANK_COLS_DEFAULT_SETTING, blankColumnsWithDefaultValue.asString())
 		}
 
 		if str, ok := scope.Get(INSERT_OPT_SETTING); ok {
@@ -817,18 +808,14 @@ func (scope *Scope) createCallback() *Scope {
 			}
 		}
 	}
-	return scope
+	return scope, blankColumnsWithDefaultValue.asString()
 }
 
 //[create step 6]
 // forceReloadAfterCreateCallback will reload columns that having default value, and set it back to current object
-func (scope *Scope) forceReloadAfterCreateCallback() *Scope {
-	if blankColumnsWithDefaultValue, ok := scope.InstanceGet(BLANK_COLS_DEFAULT_SETTING); ok {
-		selects, yes := blankColumnsWithDefaultValue.(string)
-		if !yes {
-			fmt.Errorf("ERROR in forceReloadAfterCreateCallback : blankColumnsWithDefaultValue IS NOT string!\n")
-		}
-		db := newCon(scope.con).Table(scope.TableName()).Select(selects)
+func (scope *Scope) forceReloadAfterCreateCallback(blankColumnsWithDefaultValue string) *Scope {
+	if blankColumnsWithDefaultValue != "" {
+		db := newCon(scope.con).Table(scope.TableName()).Select(blankColumnsWithDefaultValue)
 		for _, field := range scope.Fields() {
 			if field.IsPrimaryKey() && !field.IsBlank() {
 				db = db.Where(fmt.Sprintf("%v = ?", field.DBName), field.Value.Interface())
@@ -926,8 +913,8 @@ func (scope *Scope) afterCreateCallback() *Scope {
 
 //[create step 9] [delete step 5] [update step 8]
 // CommitOrRollback commit current transaction if no error happened, otherwise will rollback it
-func (scope *Scope) CommitOrRollback() *Scope {
-	if _, ok := scope.InstanceGet(STARTED_TX_SETTING); ok {
+func (scope *Scope) CommitOrRollback(txStarted bool) *Scope {
+	if txStarted {
 		if db, ok := scope.con.sqli.(sqlTx); ok {
 			if scope.HasError() {
 				//orm.db implements Commit() and Rollback() -> call Rollback()
@@ -994,7 +981,7 @@ func (scope *Scope) afterDeleteCallback() *Scope {
 // queryCallback used to query data from database
 func (scope *Scope) queryCallback() *Scope {
 	//avoid call if we don't need to
-	if scope.con.logMode == 2 {
+	if scope.con.logMode == LOG_VERBOSE {
 		defer scope.trace(NowFunc())
 	}
 	var (

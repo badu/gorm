@@ -27,7 +27,6 @@ type (
 var (
 	//regexpSelf = regexp.MustCompile(`badu/gorm/.*.go`)
 	regexpSelf   = regexp.MustCompile(`/gorm/.*.go`)
-	regexpTest   = regexp.MustCompile(`/gorm/tests/.*.go`)
 	regExpLogger = regexp.MustCompile(`(\$\d+)|\?`)
 )
 

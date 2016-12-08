@@ -9,28 +9,35 @@ import (
 func createJoinTable(scope *Scope, field *StructField) {
 	if field.HasSetting(JOIN_TABLE_HANDLER) {
 		var (
-			ForeignDBNames               = field.GetSliceSetting(FOREIGN_DB_NAMES)
-			ForeignFieldNames            = field.GetSliceSetting(FOREIGN_FIELD_NAMES)
-			AssociationForeignFieldNames = field.GetSliceSetting(ASSOCIATION_FOREIGN_FIELD_NAMES)
-			AssociationForeignDBNames    = field.GetSliceSetting(ASSOCIATION_FOREIGN_DB_NAMES)
-			joinTableHandler             = field.JoinHandler()
+			dialect          = scope.con.parent.dialect
+			joinTableHandler = field.JoinHandler()
+			joinTable        = joinTableHandler.Table(scope.con)
 		)
-		joinTable := joinTableHandler.Table(scope.con)
-		//because we're using it in a for, we're getting it once
-		dialect := scope.con.parent.dialect
 
 		if !dialect.HasTable(joinTable) {
-			toScope := &Scope{Value: field.Interface()}
+			var (
+				ForeignDBNames               = field.GetSliceSetting(FOREIGN_DB_NAMES)
+				ForeignFieldNames            = field.GetSliceSetting(FOREIGN_FIELD_NAMES)
+				AssociationForeignFieldNames = field.GetSliceSetting(ASSOCIATION_FOREIGN_FIELD_NAMES)
+				AssociationForeignDBNames    = field.GetSliceSetting(ASSOCIATION_FOREIGN_DB_NAMES)
+				toScope                      = &Scope{Value: field.Interface()}
+				sqlTypes, primaryKeys        string
+			)
 
-			var sqlTypes, primaryKeys []string
 			for idx, fieldName := range ForeignFieldNames {
 				if field, ok := scope.FieldByName(fieldName); ok {
 					clonedField := field.clone()
 					clonedField.UnsetIsPrimaryKey()
 					//TODO : @Badu - document that you cannot use IS_JOINTABLE_FOREIGNKEY in conjunction with AUTO_INCREMENT
 					clonedField.UnsetIsAutoIncrement()
-					sqlTypes = append(sqlTypes, Quote(ForeignDBNames[idx], dialect)+" "+dialect.DataTypeOf(clonedField))
-					primaryKeys = append(primaryKeys, Quote(ForeignDBNames[idx], dialect))
+					if sqlTypes != "" {
+						sqlTypes += ","
+					}
+					sqlTypes += Quote(ForeignDBNames[idx], dialect) + " " + dialect.DataTypeOf(clonedField)
+					if primaryKeys != "" {
+						primaryKeys += ","
+					}
+					primaryKeys += Quote(ForeignDBNames[idx], dialect)
 				}
 			}
 
@@ -40,12 +47,19 @@ func createJoinTable(scope *Scope, field *StructField) {
 					clonedField.UnsetIsPrimaryKey()
 					//TODO : @Badu - document that you cannot use IS_JOINTABLE_FOREIGNKEY in conjunction with AUTO_INCREMENT
 					clonedField.UnsetIsAutoIncrement()
-					sqlTypes = append(sqlTypes, Quote(AssociationForeignDBNames[idx], dialect)+" "+dialect.DataTypeOf(clonedField))
-					primaryKeys = append(primaryKeys, Quote(AssociationForeignDBNames[idx], dialect))
+					if sqlTypes != "" {
+						sqlTypes += ","
+					}
+					sqlTypes += Quote(AssociationForeignDBNames[idx], dialect) + " " + dialect.DataTypeOf(clonedField)
+					if primaryKeys != "" {
+						primaryKeys += ","
+					}
+					primaryKeys += Quote(AssociationForeignDBNames[idx], dialect)
 				}
 			}
-			//TODO : @Badu - for now, TABLE_OPT_SETTING is nowhere set - maybe it's a leftover
+
 			// getTableOptions return the table options string or an empty string if the table options does not exist
+			// It's settable by end user
 			tableOptions, ok := scope.Get(TABLE_OPT_SETTING)
 			if !ok {
 				tableOptions = ""
@@ -57,8 +71,8 @@ func createJoinTable(scope *Scope, field *StructField) {
 				fmt.Sprintf(
 					"CREATE TABLE %v (%v, PRIMARY KEY (%v)) %s",
 					Quote(joinTable, dialect),
-					strings.Join(sqlTypes, ","),
-					strings.Join(primaryKeys, ","),
+					sqlTypes,
+					primaryKeys,
 					tableOptions,
 				),
 			).Error)
@@ -70,8 +84,8 @@ func createJoinTable(scope *Scope, field *StructField) {
 //used in db.CreateTable and autoMigrate
 func createTable(scope *Scope) {
 	var (
-		tags                   []string
-		primaryKeys            []string
+		tags                   string
+		primaryKeys            string
 		primaryKeyInColumnType = false
 		primaryKeyStr          string
 		//because we're using it in a for, we're getting it once
@@ -84,27 +98,32 @@ func createTable(scope *Scope) {
 			// Check if the primary key constraint was specified as
 			// part of the column type. If so, we can only support
 			// one column as the primary key.
-			//TODO : @Badu - boiler plate string
 			if strings.Contains(strings.ToLower(sqlTag), "primary key") {
 				primaryKeyInColumnType = true
 			}
-			tags = append(tags, Quote(field.DBName, dialect)+" "+sqlTag)
+			if tags != "" {
+				tags += ","
+			}
+			tags += Quote(field.DBName, dialect) + " " + sqlTag
 		}
 
 		if field.IsPrimaryKey() {
-			primaryKeys = append(primaryKeys, Quote(field.DBName, dialect))
+			if primaryKeys != "" {
+				primaryKeys += ","
+			}
+			primaryKeys += Quote(field.DBName, dialect)
 		}
 		if field.HasRelations() {
 			createJoinTable(scope, field)
 		}
 	}
 
-	if len(primaryKeys) > 0 && !primaryKeyInColumnType {
-		primaryKeyStr = fmt.Sprintf(", PRIMARY KEY (%v)", strings.Join(primaryKeys, ","))
+	if primaryKeys != "" && !primaryKeyInColumnType {
+		primaryKeyStr = ", PRIMARY KEY (" + primaryKeys + ")"
 	}
 
-	//TODO : @Badu - for now, TABLE_OPT_SETTING is nowhere set - maybe it's a leftover
 	// getTableOptions return the table options string or an empty string if the table options does not exist
+	// It's settable by end user
 	tableOptions, ok := scope.Get(TABLE_OPT_SETTING)
 	if !ok {
 		tableOptions = ""
@@ -116,7 +135,7 @@ func createTable(scope *Scope) {
 		fmt.Sprintf(
 			"CREATE TABLE %v (%v %v) %s",
 			QuotedTableName(scope),
-			strings.Join(tags, ","),
+			tags,
 			primaryKeyStr,
 			tableOptions,
 		),
@@ -128,7 +147,7 @@ func createTable(scope *Scope) {
 //used in db.AddIndex and db.AddUniqueIndex and autoIndex
 func addIndex(scope *Scope, unique bool, indexName string, column ...string) {
 	var (
-		columns []string
+		columns string
 		dialect = scope.con.parent.dialect
 	)
 
@@ -137,7 +156,10 @@ func addIndex(scope *Scope, unique bool, indexName string, column ...string) {
 	}
 
 	for _, name := range column {
-		columns = append(columns, QuoteIfPossible(name, dialect))
+		if columns != "" {
+			columns += ","
+		}
+		columns += QuoteIfPossible(name, dialect)
 	}
 
 	sqlCreate := "CREATE INDEX"
@@ -151,7 +173,7 @@ func addIndex(scope *Scope, unique bool, indexName string, column ...string) {
 			sqlCreate,
 			indexName,
 			QuotedTableName(scope),
-			strings.Join(columns, ", "),
+			columns,
 			scope.Search.whereSQL(scope),
 		),
 	).Exec()
@@ -160,15 +182,17 @@ func addIndex(scope *Scope, unique bool, indexName string, column ...string) {
 //used in db.AutoMigrate
 func autoMigrate(scope *Scope) {
 	var (
-		tableName       = scope.TableName()
-		quotedTableName = QuotedTableName(scope)
-		//because we're using it in a for, we're getting it once
+		tableName = scope.TableName()
 		dialect = scope.con.parent.dialect
 	)
 
 	if !dialect.HasTable(tableName) {
 		createTable(scope)
 	} else {
+
+		var (
+			quotedTableName = QuotedTableName(scope)
+		)
 
 		for _, field := range scope.GetModelStruct().StructFields() {
 			if !dialect.HasColumn(tableName, field.DBName) {

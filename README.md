@@ -41,6 +41,12 @@
 
 # Changes log (29.10.2016-present)
 
+## 08.12.2016
+- [x] removed STARTED_TX_SETTING : Scope's Begin returns also a bool, CommitOrRollback accepts a bool param
+- [x] removed BLANK_COLS_DEFAULT_SETTING : Scope's beforeCreateCallback returns also a string, forceReloadAfterCreateCallback accepts that string
+- [x] string concat instead of string slices where possible (cheaper)
+- [x] DBCon SetLogMode(mode int) and LOG_OFF, LOG_VERBOSE, LOG_DEBUG constants
+
 ## 07.12.2016
 - [x] "Add gorm:association:source for association operations for plugins to extend GORM" from original commit 
 - [x] removed SelectWithArrayInput test

@@ -230,11 +230,15 @@ func (con *DBCon) SetLogger(log logger) {
 // LogMode set log mode, `true` for detailed logs, `false` for no log, default, will only print error logs
 func (con *DBCon) LogMode(enable bool) *DBCon {
 	if enable {
-		con.logMode = 2
+		con.logMode = LOG_VERBOSE
 	} else {
-		con.logMode = 1
+		con.logMode = LOG_OFF
 	}
 	return con
+}
+
+func (con *DBCon) SetLogMode(mode int) {
+	con.logMode = mode
 }
 
 // SingularTable use singular table by default
@@ -724,12 +728,14 @@ func (con *DBCon) SetJoinTableHandler(source interface{}, column string, handler
 func (con *DBCon) AddError(err error) error {
 	if err != nil {
 		if err != ErrRecordNotFound {
-			if con.logMode == 0 {
-				go con.toLog(fileWithLineNum(), err)
-			} else {
+			switch con.logMode {
+			case LOG_VERBOSE:
 				con.log(err)
+			case LOG_OFF:
+				go con.toLog(fileWithLineNum(), err)
+			case LOG_DEBUG:
+				fmt.Printf("ERROR : %v\n%s\n", err, fullFileWithLineNum())
 			}
-			//fmt.Printf("ERROR ( %s ) : %v", fileWithLineNum(), err)
 			gormErrors := GormErrors(con.GetErrors())
 			gormErrors = gormErrors.Add(err)
 			if len(gormErrors.GetErrors()) > 1 {
@@ -793,13 +799,13 @@ func (con *DBCon) warnLog(v ...interface{}) {
 }
 
 func (con *DBCon) log(v ...interface{}) {
-	if con != nil && con.logMode == 2 {
+	if con != nil {
 		con.toLog(append([]interface{}{"log", fileWithLineNum()}, v...)...)
 	}
 }
 
 func (con *DBCon) slog(sql string, t time.Time, vars ...interface{}) {
-	if con.logMode == 2 {
+	if con.logMode == LOG_VERBOSE {
 		con.toLog("sql", fileWithLineNum(), NowFunc().Sub(t), sql, vars)
 	}
 }

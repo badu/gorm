@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"strings"
 )
 
 //implementation of JoinTableHandlerInterface
@@ -64,26 +63,44 @@ func (jth JoinTableHandler) Table(db *DBCon) string {
 //implementation of JoinTableHandlerInterface
 // Add create relationship in join table for source and destination
 func (jth JoinTableHandler) Add(handler JoinTableHandlerInterface, con *DBCon, source interface{}, destination interface{}) error {
-	scope := con.NewScope("")
-	searchMap := getSearchMap(jth, con, source, destination)
+	var (
+		dialect                            = con.parent.dialect
+		searchMap                          = map[string]interface{}{}
+		assignColumns, binVars, conditions string
+		values                             []interface{}
+	)
 
-	var assignColumns, binVars, conditions []string
-	var values []interface{}
-	//because we're using it in a for, we're getting it once
-	dialect := scope.con.parent.dialect
+	for _, src := range []interface{}{source, destination} {
+		scp := con.NewScope(src)
+		if jth.Source.ModelType == scp.GetModelStruct().ModelType {
+			for _, foreignKey := range jth.Source.ForeignKeys {
+				if field, ok := scp.FieldByName(foreignKey.AssociationDBName); ok {
+					searchMap[foreignKey.DBName] = field.Value.Interface()
+				}
+			}
+		} else if jth.Destination.ModelType == scp.GetModelStruct().ModelType {
+			for _, foreignKey := range jth.Destination.ForeignKeys {
+				if field, ok := scp.FieldByName(foreignKey.AssociationDBName); ok {
+					searchMap[foreignKey.DBName] = field.Value.Interface()
+				}
+			}
+		}
+	}
+
 	for key, value := range searchMap {
-		assignColumns = append(
-			assignColumns,
-			Quote(key, dialect),
-		)
-		binVars = append(binVars, `?`)
-		conditions = append(
-			conditions,
-			fmt.Sprintf(
-				"%v = ?",
-				Quote(key, dialect),
-			),
-		)
+		if assignColumns != "" {
+			assignColumns += ","
+		}
+		assignColumns += Quote(key, dialect)
+		if binVars == "" {
+			binVars = "?"
+		} else {
+			binVars += ",?"
+		}
+		if conditions != "" {
+			conditions += " AND "
+		}
+		conditions += fmt.Sprintf("%v = ?", Quote(key, dialect))
 		values = append(values, value)
 	}
 
@@ -91,17 +108,16 @@ func (jth JoinTableHandler) Add(handler JoinTableHandlerInterface, con *DBCon, s
 		values = append(values, value)
 	}
 
-	quotedTable := Quote(handler.Table(con), dialect)
 	sql := fmt.Sprintf(
 		"INSERT INTO %v (%v) SELECT %v %v WHERE NOT EXISTS (SELECT * FROM %v WHERE %v)",
-		quotedTable,
-		strings.Join(assignColumns, ","),
-		strings.Join(binVars, ","),
-		con.parent.dialect.SelectFromDummyTable(),
-		quotedTable,
-		strings.Join(conditions, " AND "),
+		Quote(handler.Table(con), dialect),
+		assignColumns,
+		binVars,
+		dialect.SelectFromDummyTable(),
+		Quote(handler.Table(con), dialect),
+		conditions,
 	)
-
+	//fmt.Printf("\nSQL : %s\n", sql)
 	return con.Exec(sql, values...).Error
 }
 
@@ -125,8 +141,7 @@ func (jth JoinTableHandler) JoinWith(handler JoinTableHandlerInterface, con *DBC
 		tableName       = handler.Table(con)
 		dialect         = scope.con.parent.dialect
 		quotedTableName = Quote(tableName, dialect)
-		joinConditions  []string
-		values          []interface{}
+		joinConditions  string
 	)
 
 	if jth.Source.ModelType == scope.GetModelStruct().ModelType {
@@ -137,15 +152,16 @@ func (jth JoinTableHandler) JoinWith(handler JoinTableHandlerInterface, con *DBC
 		)
 
 		for _, foreignKey := range jth.Destination.ForeignKeys {
-			joinConditions = append(
-				joinConditions,
-				fmt.Sprintf(
-					"%v.%v = %v.%v",
-					quotedTableName,
-					Quote(foreignKey.DBName, dialect),
-					destinationTableName,
-					Quote(foreignKey.AssociationDBName, dialect),
-				),
+			if joinConditions != "" {
+				joinConditions += " AND "
+			}
+
+			joinConditions += fmt.Sprintf(
+				"%v.%v = %v.%v",
+				quotedTableName,
+				Quote(foreignKey.DBName, dialect),
+				destinationTableName,
+				Quote(foreignKey.AssociationDBName, dialect),
 			)
 		}
 
@@ -174,18 +190,13 @@ func (jth JoinTableHandler) JoinWith(handler JoinTableHandlerInterface, con *DBC
 				toQueryMarks(foreignFieldValues),
 			)
 
-			keys := getColumnAsArray(foreignFieldNames, scope.Value)
-			values = append(values, toQueryValues(keys))
 		} else {
 			condString = fmt.Sprint("1 <> 1")
 		}
 
 		return con.Joins(
-			fmt.Sprintf("INNER JOIN %v ON %v",
-				quotedTableName,
-				strings.Join(joinConditions, " AND "))).
-			Where(
-				condString,
+			fmt.Sprintf("INNER JOIN %v ON %v", quotedTableName, joinConditions)).
+			Where(  condString,
 				toQueryValues(foreignFieldValues)...,
 			)
 	}

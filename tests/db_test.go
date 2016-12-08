@@ -80,7 +80,7 @@ func OpenTestConnection(t *testing.T) {
 			t.Fatalf("ERROR : %v", TestDBErr)
 		}
 	}
-
+	TestDB.SetLogMode(gorm.LOG_DEBUG)
 	TestDB.DB().SetMaxIdleConns(10)
 }
 

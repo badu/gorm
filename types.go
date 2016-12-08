@@ -20,22 +20,24 @@ const (
 	ASCENDENT  string = "ASC"
 	DESCENDENT string = "DESC"
 
-	UPDATE_COLUMN_SETTING      uint64 = 1
-	INSERT_OPT_SETTING         uint64 = 2
-	DELETE_OPT_SETTING         uint64 = 3
-	ORDER_BY_PK_SETTING        uint64 = 4
-	TABLE_OPT_SETTING          uint64 = 5
-	QUERY_DEST_SETTING         uint64 = 6
-	QUERY_OPT_SETTING          uint64 = 7
-	SAVE_ASSOC_SETTING         uint64 = 8
-	UPDATE_OPT_SETTING         uint64 = 9
-	UPDATE_INTERF_SETTING      uint64 = 10
-	IGNORE_PROTEC_SETTING      uint64 = 11
-	UPDATE_ATTRS_SETTING       uint64 = 12
-	STARTED_TX_SETTING         uint64 = 13
-	BLANK_COLS_DEFAULT_SETTING uint64 = 14
+	UPDATE_COLUMN_SETTING uint64 = 1
+	INSERT_OPT_SETTING    uint64 = 2
+	DELETE_OPT_SETTING    uint64 = 3
+	ORDER_BY_PK_SETTING   uint64 = 4
+	TABLE_OPT_SETTING     uint64 = 5
+	QUERY_DEST_SETTING    uint64 = 6
+	QUERY_OPT_SETTING     uint64 = 7
+	SAVE_ASSOC_SETTING    uint64 = 8
+	UPDATE_OPT_SETTING    uint64 = 9
+	UPDATE_INTERF_SETTING uint64 = 10
+	IGNORE_PROTEC_SETTING uint64 = 11
+	UPDATE_ATTRS_SETTING  uint64 = 12
 	//TODO : @Badu - maybe it's better to keep this info in Association struct
-	ASSOCIATION_SOURCE_SETTING uint64 = 15
+	ASSOCIATION_SOURCE_SETTING uint64 = 13
+
+	LOG_OFF     int = 1
+	LOG_VERBOSE int = 2
+	LOG_DEBUG   int = 3
 )
 
 type (
@@ -311,21 +313,19 @@ var (
 
 	//reverse map to allow external settings
 	gormSettingsMap = map[string]uint64{
-		"gorm:update_column":                    UPDATE_COLUMN_SETTING,
-		"gorm:insert_option":                    INSERT_OPT_SETTING,
-		"gorm:update_option":                    UPDATE_OPT_SETTING,
-		"gorm:delete_option":                    DELETE_OPT_SETTING,
-		"gorm:table_options":                    TABLE_OPT_SETTING,
-		"gorm:query_option":                     QUERY_OPT_SETTING,
-		"gorm:order_by_primary_key":             ORDER_BY_PK_SETTING,
-		"gorm:query_destination":                QUERY_DEST_SETTING,
-		"gorm:save_associations":                SAVE_ASSOC_SETTING,
-		"gorm:update_interface":                 UPDATE_INTERF_SETTING,
-		"gorm:ignore_protected_attrs":           IGNORE_PROTEC_SETTING,
-		"gorm:update_attrs":                     UPDATE_ATTRS_SETTING,
-		"gorm:started_transaction":              STARTED_TX_SETTING,
-		"gorm:blank_columns_with_default_value": BLANK_COLS_DEFAULT_SETTING,
-		"gorm:association:source":               ASSOCIATION_SOURCE_SETTING,
+		"gorm:update_column":          UPDATE_COLUMN_SETTING,
+		"gorm:insert_option":          INSERT_OPT_SETTING,
+		"gorm:update_option":          UPDATE_OPT_SETTING,
+		"gorm:delete_option":          DELETE_OPT_SETTING,
+		"gorm:table_options":          TABLE_OPT_SETTING,
+		"gorm:query_option":           QUERY_OPT_SETTING,
+		"gorm:order_by_primary_key":   ORDER_BY_PK_SETTING,
+		"gorm:query_destination":      QUERY_DEST_SETTING,
+		"gorm:save_associations":      SAVE_ASSOC_SETTING,
+		"gorm:update_interface":       UPDATE_INTERF_SETTING,
+		"gorm:ignore_protected_attrs": IGNORE_PROTEC_SETTING,
+		"gorm:update_attrs":           UPDATE_ATTRS_SETTING,
+		"gorm:association:source":     ASSOCIATION_SOURCE_SETTING,
 	}
 	// Attention : using "unprepared" regexp.MustCompile is really slow : ten times slower
 	// only matches string like `name`, `users.name`
