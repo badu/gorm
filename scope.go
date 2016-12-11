@@ -573,14 +573,15 @@ func (scope *Scope) postQuery() *Scope {
 		queryResults    = IndirectValue(scope.Value)
 		dialect         = scope.con.parent.dialect
 	)
-
+	//TODO : setting will be kept in Search - this block should disappear @See dbcon.First dbCon.Last
 	if orderBy, ok := scope.Get(ORDER_BY_PK_SETTING); ok {
 		if primaryField := scope.PK(); primaryField != nil {
 			scope.Search.Order(
 				fmt.Sprintf(
 					"%v.%v %v",
 					QuotedTableName(scope),
-					Quote(primaryField.DBName, dialect), orderBy),
+					Quote(primaryField.DBName, dialect),
+					orderBy),
 			)
 		}
 	}
@@ -666,10 +667,8 @@ func (scope *Scope) postCreate() *Scope {
 		result.CallMethod(BEFORE_CREATE_METHOD)
 	}
 
-	willSaveAssociations := result.shouldSaveAssociations()
-
 	//save associations
-	if willSaveAssociations {
+	if result.shouldSaveAssociations() {
 		result = result.saveBeforeAssociationsCallback()
 	}
 
@@ -807,7 +806,7 @@ func (scope *Scope) postCreate() *Scope {
 	//END - Was "forceReloadAfterCreateCallback" method
 
 	//save associations
-	if willSaveAssociations {
+	if result.shouldSaveAssociations() {
 		result = result.saveAfterAssociationsCallback()
 	}
 
@@ -847,9 +846,8 @@ func (scope *Scope) postUpdate() *Scope {
 		}
 	}
 
-	willSaveAssociations := result.shouldSaveAssociations()
 	//save associations
-	if willSaveAssociations {
+	if result.shouldSaveAssociations() {
 		result = result.saveBeforeAssociationsCallback()
 	}
 
@@ -894,9 +892,7 @@ func (scope *Scope) postUpdate() *Scope {
 					)
 				} else {
 					if field.HasRelations() && field.RelKind() == BELONGS_TO {
-						var (
-							ForeignDBNames = field.GetSliceSetting(FOREIGN_DB_NAMES)
-						)
+						ForeignDBNames := field.GetSliceSetting(FOREIGN_DB_NAMES)
 						for _, foreignKey := range ForeignDBNames {
 							foreignField, ok := result.FieldByName(foreignKey)
 							if ok && !result.Search.changeableField(foreignField) {
@@ -936,7 +932,7 @@ func (scope *Scope) postUpdate() *Scope {
 	//END Was "updateCallback"
 
 	//save associations
-	if willSaveAssociations {
+	if result.shouldSaveAssociations() {
 		result = result.saveAfterAssociationsCallback()
 	}
 

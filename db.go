@@ -271,6 +271,7 @@ func (con *DBCon) Scopes(funcs ...DBConFunc) *DBCon {
 func (con *DBCon) First(out interface{}, where ...interface{}) *DBCon {
 	newScope := con.NewScope(out)
 	newScope.Search.Limit(1)
+	//TODO : below settings can be kept in Search
 	newScope.Set(ORDER_BY_PK_SETTING, ASCENDENT)
 	if len(where) > 0 {
 		newScope.Search.Wheres(where...)
@@ -286,6 +287,7 @@ func (con *DBCon) First(out interface{}, where ...interface{}) *DBCon {
 func (con *DBCon) Last(out interface{}, where ...interface{}) *DBCon {
 	newScope := con.NewScope(out)
 	newScope.Search.Limit(1)
+	//TODO : below settings can be kept in Search
 	newScope.Set(ORDER_BY_PK_SETTING, DESCENDENT)
 	if len(where) > 0 {
 		newScope.Search.Wheres(where...)

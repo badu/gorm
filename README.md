@@ -39,12 +39,10 @@
 - [ ] Debug SQL string even when it fails 
 - [ ] Documentation for tests and build examples
 - [ ] Generated SQL let's the SQL engine cast : SELECT * FROM aTable WHERE id = '1' (id being int). I think it's a bad practice and it should be fixed
-- [ ] "slockij/block-global-update-delete" commit will be included with lazy, eager feature 
 
 ## 11.12.2016
 - [x] CallMethod - extract string constants
 - [x] reduced Scope callbacks
-- [x] Scope's shouldSaveAssociations is called in post create and post update methods : read once
 - [x] more string concat instead of string slices
 
 ## 08.12.2016

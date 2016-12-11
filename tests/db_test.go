@@ -50,9 +50,7 @@ func OpenTestConnection(t *testing.T) {
 			osDBAddress = fmt.Sprintf("tcp(%v)", osDBAddress)
 		}
 		TestDB, TestDBErr = gorm.Open("mysql", fmt.Sprintf("root:@%v/gorm?charset=utf8&parseTime=True", osDBAddress))
-		if TestDBErr == nil {
-			//t.Log("Using MySQL")
-		} else {
+		if TestDBErr != nil {
 			t.Fatalf("ERROR : %v", TestDBErr)
 		}
 	case "postgres":
@@ -60,36 +58,30 @@ func OpenTestConnection(t *testing.T) {
 			osDBAddress = fmt.Sprintf("host=%v ", osDBAddress)
 		}
 		TestDB, TestDBErr = gorm.Open("postgres", fmt.Sprintf("%vuser=gorm password=gorm DB.name=gorm sslmode=disable", osDBAddress))
-		if TestDBErr == nil {
-			//t.Log("Using Postgres")
-		} else {
+		if TestDBErr != nil {
 			t.Fatalf("ERROR : %v", TestDBErr)
 		}
 	case "foundation":
 		TestDB, TestDBErr = gorm.Open("foundation", "dbname=gorm port=15432 sslmode=disable")
-		if TestDBErr == nil {
-			//t.Log("Using Foundation")
-		} else {
+		if TestDBErr != nil {
 			t.Fatalf("ERROR : %v", TestDBErr)
 		}
 	default:
 		TestDB, TestDBErr = gorm.Open("sqlite3", "test.db?cache=shared&mode=memory")
-		if TestDBErr == nil {
-			//t.Log("Using SQLite 3")
-		} else {
+		if TestDBErr != nil {
 			t.Fatalf("ERROR : %v", TestDBErr)
 		}
 	}
 	//TODO : @Badu - uncomment below if you want full traces
 	//TestDB.SetLogMode(gorm.LOG_DEBUG)
-
+	//TestDB.LogMode(true)
 	TestDB.DB().SetMaxIdleConns(10)
 }
 
 func RunMigration(t *testing.T) {
 	//t.Log("Running migration...")
 	if err := TestDB.DropTableIfExists(&User{}).Error; err != nil {
-		fmt.Printf("Got error when try to delete table users, %+v\n", err)
+		t.Fatalf("Got error when try to delete table users, %+v\n", err)
 	}
 
 	for _, table := range []string{"animals", "user_languages"} {
@@ -125,27 +117,32 @@ func RunMigration(t *testing.T) {
 		TestDB.DropTable(value)
 	}
 	if err := TestDB.AutoMigrate(values...).Error; err != nil {
-		panic(fmt.Sprintf("No error should happen when create table, but got %+v", err))
+		t.Fatalf("No error should happen when create table, but got %+v", err)
 	}
 	//t.Log("Migration done.")
 }
+func (m *Measure) Go() {
+	var memStats runtime.MemStats
+	runtime.ReadMemStats(&memStats)
+	m.startAllocs = memStats.Mallocs
+	m.startBytes = memStats.TotalAlloc
+	m.start = time.Now()
+}
+
+func (m *Measure) Stop() {
+	var memStats runtime.MemStats
+	runtime.ReadMemStats(&memStats)
+	m.duration = uint64(time.Now().Sub(m.start).Nanoseconds())
+	m.netAllocs += memStats.Mallocs - m.startAllocs
+	m.netBytes += memStats.TotalAlloc - m.startBytes
+}
 
 func measureAndRun(t *testing.T, name string, f func(t *testing.T)) bool {
-	runtime.ReadMemStats(&memStats)
-	measurement := &Measure{
-		startAllocs: memStats.Mallocs,
-		startBytes:  memStats.TotalAlloc,
-		name:        name,
-	}
+	measurement := &Measure{name: name}
 
-	measurement.start = time.Now()
+	measurement.Go()
 	result := t.Run(name, f)
-	measurement.duration = uint64(time.Now().Sub(measurement.start).Nanoseconds())
-
-	runtime.ReadMemStats(&memStats)
-
-	measurement.netAllocs += memStats.Mallocs - measurement.startAllocs
-	measurement.netBytes += memStats.TotalAlloc - measurement.startBytes
+	measurement.Stop()
 
 	measuresData = append(measuresData, measurement)
 
@@ -335,7 +332,6 @@ type (
 )
 
 var (
-	memStats     runtime.MemStats
 	measuresData MeasureData = make(MeasureData, 0, 0)
 )
 
@@ -406,14 +402,14 @@ func DurationToString(u uint64) string {
 		w, u = fmtFrac(buf[:w], u, 9)
 
 		// u is now integer seconds
-		w = fmtInt(buf[:w], u%60)
+		w = fmtInt(buf[:w], u % 60)
 		u /= 60
 
 		// u is now integer minutes
 		if u > 0 {
 			w--
 			buf[w] = 'm'
-			w = fmtInt(buf[:w], u%60)
+			w = fmtInt(buf[:w], u % 60)
 			u /= 60
 
 			// u is now integer hours
@@ -465,7 +461,7 @@ func fmtInt(buf []byte, v uint64) int {
 	} else {
 		for v > 0 {
 			w--
-			buf[w] = byte(v%10) + '0'
+			buf[w] = byte(v % 10) + '0'
 			v /= 10
 		}
 	}
