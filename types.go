@@ -20,24 +20,36 @@ const (
 	ASCENDENT  string = "ASC"
 	DESCENDENT string = "DESC"
 
-	UPDATE_COLUMN_SETTING uint64 = 1
-	INSERT_OPT_SETTING    uint64 = 2
-	DELETE_OPT_SETTING    uint64 = 3
-	ORDER_BY_PK_SETTING   uint64 = 4
-	TABLE_OPT_SETTING     uint64 = 5
-	QUERY_DEST_SETTING    uint64 = 6
-	QUERY_OPT_SETTING     uint64 = 7
-	SAVE_ASSOC_SETTING    uint64 = 8
-	UPDATE_OPT_SETTING    uint64 = 9
-	UPDATE_INTERF_SETTING uint64 = 10
-	IGNORE_PROTEC_SETTING uint64 = 11
-
-	//TODO : @Badu - maybe it's better to keep this info in Association struct
-	ASSOCIATION_SOURCE_SETTING uint64 = 12
+	UPDATE_COLUMN_SETTING      uint64 = 1
+	INSERT_OPT_SETTING         uint64 = 2
+	DELETE_OPT_SETTING         uint64 = 3
+	ORDER_BY_PK_SETTING        uint64 = 4
+	TABLE_OPT_SETTING          uint64 = 5
+	QUERY_DEST_SETTING         uint64 = 6
+	QUERY_OPT_SETTING          uint64 = 7
+	SAVE_ASSOC_SETTING         uint64 = 8
+	UPDATE_OPT_SETTING         uint64 = 9
+	UPDATE_INTERF_SETTING      uint64 = 10
+	IGNORE_PROTEC_SETTING      uint64 = 11
+	ASSOCIATION_SOURCE_SETTING uint64 = 12 //TODO : @Badu - maybe it's better to keep this info in Association struct
 
 	LOG_OFF     int = 1
 	LOG_VERBOSE int = 2
 	LOG_DEBUG   int = 3
+
+	AFTER_CREATE_METHOD  string = "AfterCreate"
+	AFTER_SAVE_METHOD    string = "AfterSave"
+	AFTER_DELETE_METHOD  string = "AfterDelete"
+	AFTER_FIND_METHOD    string = "AfterFind"
+	AFTER_UPDATE_METHOD  string = "AfterUpdate"
+	BEFORE_CREATE_METHOD string = "BeforeCreate"
+	BEFORE_SAVE_METHOD   string = "BeforeSave"
+	BEFORE_DELETE_METHOD string = "BeforeDelete"
+	BEFORE_UPDATE_METHOD string = "BeforeUpdate"
+
+	CREATED_AT_FIELD_NAME string = "CreatedAt"
+	UPDATED_AT_FIELD_NAME string = "UpdatedAt"
+	DELETED_AT_FIELD_NAME string = "DeletedAt"
 )
 
 type (

@@ -17,12 +17,6 @@
 
 * GORM Guides [jinzhu.github.com/gorm](http://jinzhu.github.io/gorm)
 
-# Todo
-- [ ] Debug SQL string even when it fails 
-- [ ] Documentation for tests and build examples
-- [ ] Generated SQL let's the SQL engine cast : SELECT * FROM aTable WHERE id = '1' (id being int). I think it's a bad practice and it should be fixed
-- [ ] "slockij/block-global-update-delete" commit will be included with lazy, eager feature 
-
 # Comments and thoughts 
 - As a general idea on golang projects : "fail fast" type of logic is the best approach
 - When a function is called everytime, best idea is to allow golang to inline it
@@ -40,6 +34,18 @@
 - Removed MSSQL support - out of my concerns with this project
 
 # Changes log (29.10.2016-present)
+
+# Todo
+- [ ] Debug SQL string even when it fails 
+- [ ] Documentation for tests and build examples
+- [ ] Generated SQL let's the SQL engine cast : SELECT * FROM aTable WHERE id = '1' (id being int). I think it's a bad practice and it should be fixed
+- [ ] "slockij/block-global-update-delete" commit will be included with lazy, eager feature 
+
+## 11.12.2016
+- [x] CallMethod - extract string constants
+- [x] reduced Scope callbacks
+- [x] Scope's shouldSaveAssociations is called in post create and post update methods : read once
+- [x] more string concat instead of string slices
 
 ## 08.12.2016
 - [x] removed STARTED_TX_SETTING : Scope's Begin returns also a bool, CommitOrRollback accepts a bool param

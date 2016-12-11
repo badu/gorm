@@ -267,73 +267,19 @@ func (scope *Scope) CallMethod(methodName string) {
 	if scope.Value == nil {
 		return
 	}
-
-	if indirectScopeValue := IndirectValue(scope.Value); indirectScopeValue.Kind() == reflect.Slice {
-		for i := 0; i < indirectScopeValue.Len(); i++ {
-			scope.callMethod(methodName, indirectScopeValue.Index(i))
+	reflectValue := IndirectValue(scope.Value)
+	if reflectValue.Kind() == reflect.Slice {
+		for i := 0; i < reflectValue.Len(); i++ {
+			scope.callMethod(methodName, reflectValue.Index(i))
 		}
 	} else {
-		scope.callMethod(methodName, indirectScopeValue)
+		scope.callMethod(methodName, reflectValue)
 	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // Private Methods For *gorm.Scope
 ////////////////////////////////////////////////////////////////////////////////
-
-//calls methods after creation
-func (scope *Scope) postCreate() *Scope {
-	result, txStarted := scope.Begin()
-	var blankColumnsWithDefaultValue string
-	result, blankColumnsWithDefaultValue = result.beforeCreateCallback().
-		saveBeforeAssociationsCallback().
-		updateTimeStampForCreateCallback().
-		createCallback()
-	result.forceReloadAfterCreateCallback(blankColumnsWithDefaultValue).
-		saveAfterAssociationsCallback().
-		afterCreateCallback().
-		CommitOrRollback(txStarted)
-	return result
-}
-
-//calls methods after deletion
-func (scope *Scope) postDelete() *Scope {
-	result, txStarted := scope.Begin()
-	return result.beforeDeleteCallback().
-		deleteCallback().
-		afterDeleteCallback().
-		CommitOrRollback(txStarted)
-}
-
-//calls methods after query
-func (scope *Scope) postQuery() *Scope {
-	return scope.
-		queryCallback().
-		preloadCallback().
-		afterQueryCallback()
-}
-
-//calls methods after update
-func (scope *Scope) postUpdate() *Scope {
-	if scope.attrs != nil {
-		updateMaps, hasUpdate := updatedAttrsWithValues(scope, scope.attrs)
-		if hasUpdate {
-			scope.updateMaps = updateMaps
-		} else {
-			//we stop chain calls
-			return scope
-		}
-	}
-	result, txStarted := scope.Begin()
-	return result.
-		beforeUpdateCallback().
-		saveBeforeAssociationsCallback().
-		updateTimeStampForUpdateCallback().
-		updateCallback().
-		saveAfterAssociationsCallback().
-		afterUpdateCallback().
-		CommitOrRollback(txStarted)
-}
 
 func (scope *Scope) callMethod(methodName string, reflectValue reflect.Value) {
 	// Only get address from non-pointer
@@ -586,7 +532,7 @@ func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
 	return scope
 }
 
-func (scope *Scope) saveFieldAsAssociation(field *StructField) bool {
+func (scope *Scope) willSaveFieldAssociations(field *StructField) bool {
 	if field.IsBlank() || field.IsIgnored() || !scope.Search.changeableField(field) {
 		return false
 	}
@@ -614,6 +560,443 @@ func (scope *Scope) callCallbacks(funcs ScopedFuncs) *Scope {
 	return scope
 }
 
+//calls methods after query
+func (scope *Scope) postQuery() *Scope {
+	//Was "queryCallback"
+	//avoid call if we don't need to
+	if scope.con.logMode == LOG_VERBOSE {
+		defer scope.trace(NowFunc())
+	}
+	var (
+		isSlice, isPtr  bool
+		queryResultType reflect.Type
+		queryResults    = IndirectValue(scope.Value)
+		dialect         = scope.con.parent.dialect
+	)
+
+	if orderBy, ok := scope.Get(ORDER_BY_PK_SETTING); ok {
+		if primaryField := scope.PK(); primaryField != nil {
+			scope.Search.Order(
+				fmt.Sprintf(
+					"%v.%v %v",
+					QuotedTableName(scope),
+					Quote(primaryField.DBName, dialect), orderBy),
+			)
+		}
+	}
+
+	if value, ok := scope.Get(QUERY_DEST_SETTING); ok {
+		queryResults = reflect.Indirect(reflect.ValueOf(value))
+	}
+	switch queryResults.Kind() {
+	case reflect.Slice:
+		isSlice = true
+		queryResultType = queryResults.Type().Elem()
+		queryResults.Set(reflect.MakeSlice(queryResults.Type(), 0, 0))
+
+		if queryResultType.Kind() == reflect.Ptr {
+			isPtr = true
+			queryResultType = queryResultType.Elem()
+		}
+	case reflect.Struct:
+	default:
+		scope.Err(errors.New("SCOPE : unsupported destination, should be slice or struct"))
+		return scope
+	}
+
+	scope.Search.prepareQuerySQL(scope)
+
+	if !scope.HasError() {
+		scope.con.RowsAffected = 0
+		if str, ok := scope.Get(QUERY_OPT_SETTING); ok {
+			scope.Search.SQL += addExtraSpaceIfExist(fmt.Sprint(str))
+		}
+
+		if rows, err := scope.Search.Query(scope); scope.Err(err) == nil {
+			defer rows.Close()
+
+			columns, _ := rows.Columns()
+			for rows.Next() {
+				scope.con.RowsAffected++
+
+				elem := queryResults
+				if isSlice {
+					elem = reflect.New(queryResultType).Elem()
+				}
+
+				scope.scan(rows, columns, scope.NewScope(elem.Addr().Interface()).Fields())
+
+				if isSlice {
+					if isPtr {
+						queryResults.Set(reflect.Append(queryResults, elem.Addr()))
+					} else {
+						queryResults.Set(reflect.Append(queryResults, elem))
+					}
+				}
+			}
+
+			if scope.con.RowsAffected == 0 && !isSlice {
+				scope.Err(ErrRecordNotFound)
+			}
+		}
+	}
+	//END Was "queryCallback"
+
+	if scope.Search.hasPreload() && !scope.HasError() {
+		scope.Search.doPreload(scope)
+	}
+
+	if !scope.HasError() {
+		scope.CallMethod(AFTER_FIND_METHOD)
+	}
+
+	return scope
+}
+
+//calls methods after creation
+func (scope *Scope) postCreate() *Scope {
+	//begin transaction
+	result, txStarted := scope.Begin()
+
+	//call callbacks
+	if !result.HasError() {
+		result.CallMethod(BEFORE_SAVE_METHOD)
+	}
+	if !result.HasError() {
+		result.CallMethod(BEFORE_CREATE_METHOD)
+	}
+
+	willSaveAssociations := result.shouldSaveAssociations()
+
+	//save associations
+	if willSaveAssociations {
+		result = result.saveBeforeAssociationsCallback()
+	}
+
+	//set time fields accordingly
+	if !result.HasError() {
+		now := NowFunc()
+		result.SetColumn(CREATED_AT_FIELD_NAME, now)
+		result.SetColumn(UPDATED_AT_FIELD_NAME, now)
+	}
+
+	var blankColumnsWithDefaultValue string
+
+	//Was "createCallback" method
+	if !result.HasError() {
+		var (
+			//columns, placeholders        StrSlice
+			//because we're using it in a for, we're getting it once
+			dialect                            = result.con.parent.dialect
+			returningColumn                    = "*"
+			quotedTableName                    = QuotedTableName(result)
+			primaryField                       = result.PK()
+			extraOption, columns, placeholders string
+		)
+
+		//avoid call if we don't need to
+		if result.con.logMode == LOG_VERBOSE {
+			defer result.trace(NowFunc())
+		}
+
+		for _, field := range result.Fields() {
+			if !result.Search.changeableField(field) {
+				continue
+			}
+
+			if field.IsNormal() {
+				isBlankWithDefaultValue := field.IsBlank() && field.HasDefaultValue()
+				isNotPKOrBlank := !field.IsPrimaryKey() || !field.IsBlank()
+				if isBlankWithDefaultValue {
+					if blankColumnsWithDefaultValue != "" {
+						blankColumnsWithDefaultValue += ","
+					}
+					blankColumnsWithDefaultValue += Quote(field.DBName, dialect)
+				} else if isNotPKOrBlank {
+					if columns != "" {
+						columns += ","
+					}
+					columns += Quote(field.DBName, dialect)
+					if placeholders != "" {
+						placeholders += ","
+					}
+					placeholders += result.Search.addToVars(field.Value.Interface(), dialect)
+				}
+			} else {
+				if field.HasRelations() && field.RelKind() == BELONGS_TO {
+					ForeignDBNames := field.GetSliceSetting(FOREIGN_DB_NAMES)
+					for _, foreignKey := range ForeignDBNames {
+						foreignField, ok := result.FieldByName(foreignKey)
+						if ok && !result.Search.changeableField(foreignField) {
+							if columns != "" {
+								columns += ","
+							}
+							columns += Quote(foreignField.DBName, dialect)
+							if placeholders != "" {
+								placeholders += ","
+							}
+							placeholders += result.Search.addToVars(foreignField.Value.Interface(), dialect)
+						}
+					}
+				}
+			}
+		}
+
+		if str, ok := result.Get(INSERT_OPT_SETTING); ok {
+			extraOption = fmt.Sprint(str)
+		}
+
+		if primaryField != nil {
+			returningColumn = Quote(primaryField.DBName, dialect)
+		}
+
+		lastInsertIDReturningSuffix := dialect.LastInsertIDReturningSuffix(quotedTableName, returningColumn)
+
+		if columns == "" {
+			result.Raw(fmt.Sprintf(
+				"INSERT INTO %v DEFAULT VALUES%v%v",
+				quotedTableName,
+				addExtraSpaceIfExist(extraOption),
+				addExtraSpaceIfExist(lastInsertIDReturningSuffix),
+			))
+		} else {
+			result.Raw(fmt.Sprintf(
+				"INSERT INTO %v (%v) VALUES (%v)%v%v",
+				QuotedTableName(result),
+				columns,
+				placeholders,
+				addExtraSpaceIfExist(extraOption),
+				addExtraSpaceIfExist(lastInsertIDReturningSuffix),
+			))
+		}
+
+		// execute create sql
+		if lastInsertIDReturningSuffix == "" || primaryField == nil {
+			if execResult, err := result.Search.Exec(result); result.Err(err) == nil {
+				// set rows affected count
+				//result.con.RowsAffected, _ = execResult.RowsAffected()
+
+				// set primary value to primary field
+				if primaryField != nil && primaryField.IsBlank() {
+					if primaryValue, err := execResult.LastInsertId(); result.Err(err) == nil {
+						result.Err(primaryField.Set(primaryValue))
+					}
+				}
+			}
+		} else {
+			if err := result.Search.QueryRow(result).
+				Scan(primaryField.Value.Addr().Interface()); result.Err(err) == nil {
+				primaryField.UnsetIsBlank()
+				result.con.RowsAffected = 1
+			}
+		}
+	}
+	//END - Was "createCallback" method
+
+	//Was "forceReloadAfterCreateCallback" method
+	if blankColumnsWithDefaultValue != "" {
+		db := newCon(result.con).Table(result.TableName()).Select(blankColumnsWithDefaultValue)
+		for _, field := range result.Fields() {
+			if field.IsPrimaryKey() && !field.IsBlank() {
+				db = db.Where(fmt.Sprintf("%v = ?", field.DBName), field.Value.Interface())
+			}
+		}
+
+		db.Scan(result.Value)
+	}
+	//END - Was "forceReloadAfterCreateCallback" method
+
+	//save associations
+	if willSaveAssociations {
+		result = result.saveAfterAssociationsCallback()
+	}
+
+	//call callbacks again
+	if !result.HasError() {
+		result.CallMethod(AFTER_CREATE_METHOD)
+	}
+	if !result.HasError() {
+		result.CallMethod(AFTER_SAVE_METHOD)
+	}
+
+	//attempt to commit in the end
+	return result.CommitOrRollback(txStarted)
+}
+
+//calls methods after update
+func (scope *Scope) postUpdate() *Scope {
+	if scope.attrs != nil {
+		updateMaps, hasUpdate := updatedAttrsWithValues(scope, scope.attrs)
+		if hasUpdate {
+			scope.updateMaps = updateMaps
+		} else {
+			//we stop chain calls
+			return scope
+		}
+	}
+
+	//begin transaction
+	result, txStarted := scope.Begin()
+
+	if _, ok := result.Get(UPDATE_COLUMN_SETTING); !ok {
+		if !result.HasError() {
+			result.CallMethod(BEFORE_SAVE_METHOD)
+		}
+		if !result.HasError() {
+			result.CallMethod(BEFORE_UPDATE_METHOD)
+		}
+	}
+
+	willSaveAssociations := result.shouldSaveAssociations()
+	//save associations
+	if willSaveAssociations {
+		result = result.saveBeforeAssociationsCallback()
+	}
+
+	//update the updated at column
+	if _, ok := result.Get(UPDATE_COLUMN_SETTING); !ok {
+		result.SetColumn(UPDATED_AT_FIELD_NAME, NowFunc())
+	}
+
+	//Was "updateCallback"
+	if !result.HasError() {
+		var (
+			//because we're using it in a for, we're getting it once
+			scopeDialect     = result.con.parent.dialect
+			extraOption, sql string
+		)
+
+		if result.updateMaps != nil {
+			for column, value := range result.updateMaps {
+				if sql != "" {
+					sql += ", "
+				}
+				sql += fmt.Sprintf(
+					"%v = %v",
+					Quote(column, scopeDialect),
+					result.Search.addToVars(value, scopeDialect),
+				)
+
+			}
+		} else {
+			for _, field := range result.Fields() {
+				if !result.Search.changeableField(field) {
+					continue
+				}
+				if !field.IsPrimaryKey() && field.IsNormal() {
+					if sql != "" {
+						sql += ", "
+					}
+					sql += fmt.Sprintf(
+						"%v = %v",
+						Quote(field.DBName, scopeDialect),
+						result.Search.addToVars(field.Value.Interface(), scopeDialect),
+					)
+				} else {
+					if field.HasRelations() && field.RelKind() == BELONGS_TO {
+						var (
+							ForeignDBNames = field.GetSliceSetting(FOREIGN_DB_NAMES)
+						)
+						for _, foreignKey := range ForeignDBNames {
+							foreignField, ok := result.FieldByName(foreignKey)
+							if ok && !result.Search.changeableField(foreignField) {
+								if sql != "" {
+									sql += ", "
+								}
+								sql += fmt.Sprintf(
+									"%v = %v",
+									Quote(foreignField.DBName, scopeDialect),
+									result.Search.addToVars(
+										foreignField.Value.Interface(),
+										scopeDialect,
+									),
+								)
+							}
+						}
+					}
+				}
+
+			}
+		}
+
+		if str, ok := result.Get(UPDATE_OPT_SETTING); ok {
+			extraOption = fmt.Sprint(str)
+		}
+
+		if sql != "" {
+			result.Raw(fmt.Sprintf(
+				"UPDATE %v SET %v%v%v",
+				QuotedTableName(result),
+				sql,
+				addExtraSpaceIfExist(result.Search.combinedConditionSql(result)),
+				addExtraSpaceIfExist(extraOption),
+			)).Exec()
+		}
+	}
+	//END Was "updateCallback"
+
+	//save associations
+	if willSaveAssociations {
+		result = result.saveAfterAssociationsCallback()
+	}
+
+	if _, ok := result.Get(UPDATE_COLUMN_SETTING); !ok {
+		if !result.HasError() {
+			result.CallMethod(AFTER_UPDATE_METHOD)
+		}
+		if !result.HasError() {
+			result.CallMethod(AFTER_SAVE_METHOD)
+		}
+	}
+
+	return result.CommitOrRollback(txStarted)
+}
+
+//calls methods after deletion
+func (scope *Scope) postDelete() *Scope {
+	//begin transaction
+	result, txStarted := scope.Begin()
+
+	//call callbacks
+	if !result.HasError() {
+		result.CallMethod(BEFORE_DELETE_METHOD)
+	}
+
+	//Was "deleteCallback"
+	if !result.HasError() {
+		var extraOption string
+		if str, ok := result.Get(DELETE_OPT_SETTING); ok {
+			extraOption = fmt.Sprint(str)
+		}
+
+		if !result.Search.isUnscoped() && result.GetModelStruct().HasColumn(DELETED_AT_FIELD_NAME) {
+			result.Raw(fmt.Sprintf(
+				"UPDATE %v SET deleted_at=%v%v%v",
+				QuotedTableName(result),
+				result.Search.addToVars(NowFunc(), result.con.parent.dialect),
+				addExtraSpaceIfExist(result.Search.combinedConditionSql(result)),
+				addExtraSpaceIfExist(extraOption),
+			)).Exec()
+		} else {
+			result.Raw(fmt.Sprintf(
+				"DELETE FROM %v%v%v",
+				QuotedTableName(result),
+				addExtraSpaceIfExist(result.Search.combinedConditionSql(result)),
+				addExtraSpaceIfExist(extraOption),
+			)).Exec()
+		}
+	}
+	//END - Was "deleteCallback"
+
+	//call callbacks
+	if !result.HasError() {
+		result.CallMethod(AFTER_DELETE_METHOD)
+	}
+
+	//attempt to commit
+	return result.CommitOrRollback(txStarted)
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // internal callbacks functions
 ////////////////////////////////////////////////////////////////////////////////
@@ -633,29 +1016,14 @@ func (scope *Scope) Begin() (*Scope, bool) {
 	return scope, false
 }
 
-//[create step 2]
-// beforeCreateCallback will invoke `BeforeSave`, `BeforeCreate` method before creating
-func (scope *Scope) beforeCreateCallback() *Scope {
-	if !scope.HasError() {
-		scope.CallMethod("BeforeSave")
-	}
-	if !scope.HasError() {
-		scope.CallMethod("BeforeCreate")
-	}
-	return scope
-}
-
 //[create step 3] [update step 3]
 func (scope *Scope) saveBeforeAssociationsCallback() *Scope {
-	if !scope.shouldSaveAssociations() {
-		return scope
-	}
 	for _, field := range scope.Fields() {
-
 		if field.IsBlank() || field.IsIgnored() || !scope.Search.changeableField(field) {
 			continue
 		}
-		if scope.saveFieldAsAssociation(field) && field.RelKind() == BELONGS_TO {
+
+		if scope.willSaveFieldAssociations(field) && field.RelKind() == BELONGS_TO {
 			fieldValue := field.Value.Addr().Interface()
 			scope.Err(newCon(scope.con).Save(fieldValue).Error)
 			var (
@@ -676,145 +1044,15 @@ func (scope *Scope) saveBeforeAssociationsCallback() *Scope {
 	return scope
 }
 
-//[create step 4]
-// updateTimeStampForCreateCallback will set `CreatedAt`, `UpdatedAt` when creating
-func (scope *Scope) updateTimeStampForCreateCallback() *Scope {
-	if !scope.HasError() {
-		now := NowFunc()
-		scope.SetColumn("CreatedAt", now)
-		scope.SetColumn("UpdatedAt", now)
-	}
-	return scope
-}
-
-//[create step 5]
-// createCallback the callback used to insert data into database
-func (scope *Scope) createCallback() (*Scope, string) {
-	var (
-		columns, placeholders        StrSlice
-		blankColumnsWithDefaultValue StrSlice
-		//because we're using it in a for, we're getting it once
-		dialect         = scope.con.parent.dialect
-		returningColumn = "*"
-		quotedTableName = QuotedTableName(scope)
-		primaryField    = scope.PK()
-		extraOption     string
-	)
-
-	if !scope.HasError() {
-		//avoid call if we don't need to
-		if scope.con.logMode == LOG_VERBOSE {
-			defer scope.trace(NowFunc())
-		}
-
-		for _, field := range scope.Fields() {
-			if !scope.Search.changeableField(field) {
-				continue
-			}
-
-			if field.IsNormal() {
-				isBlankWithDefaultValue := field.IsBlank() && field.HasDefaultValue()
-				isNotPKOrBlank := !field.IsPrimaryKey() || !field.IsBlank()
-				if isBlankWithDefaultValue {
-					blankColumnsWithDefaultValue.add(Quote(field.DBName, dialect))
-				} else if isNotPKOrBlank {
-					columns.add(Quote(field.DBName, dialect))
-					placeholders.add(scope.Search.addToVars(field.Value.Interface(), dialect))
-				}
-			} else {
-				if field.HasRelations() && field.RelKind() == BELONGS_TO {
-					ForeignDBNames := field.GetSliceSetting(FOREIGN_DB_NAMES)
-					for _, foreignKey := range ForeignDBNames {
-						foreignField, ok := scope.FieldByName(foreignKey)
-						if ok && !scope.Search.changeableField(foreignField) {
-							columns.add(Quote(foreignField.DBName, dialect))
-							placeholders.add(scope.Search.addToVars(foreignField.Value.Interface(), dialect))
-						}
-					}
-				}
-			}
-		}
-
-		if str, ok := scope.Get(INSERT_OPT_SETTING); ok {
-			extraOption = fmt.Sprint(str)
-		}
-
-		if primaryField != nil {
-			returningColumn = Quote(primaryField.DBName, dialect)
-		}
-
-		lastInsertIDReturningSuffix := dialect.LastInsertIDReturningSuffix(quotedTableName, returningColumn)
-
-		if len(columns) == 0 {
-			scope.Raw(fmt.Sprintf(
-				"INSERT INTO %v DEFAULT VALUES%v%v",
-				quotedTableName,
-				addExtraSpaceIfExist(extraOption),
-				addExtraSpaceIfExist(lastInsertIDReturningSuffix),
-			))
-		} else {
-			scope.Raw(fmt.Sprintf(
-				"INSERT INTO %v (%v) VALUES (%v)%v%v",
-				QuotedTableName(scope),
-				strings.Join(columns, ","),
-				strings.Join(placeholders, ","),
-				addExtraSpaceIfExist(extraOption),
-				addExtraSpaceIfExist(lastInsertIDReturningSuffix),
-			))
-		}
-
-		// execute create sql
-		if lastInsertIDReturningSuffix == "" || primaryField == nil {
-			if result, err := scope.Search.Exec(scope); scope.Err(err) == nil {
-				// set rows affected count
-				//scope.con.RowsAffected, _ = result.RowsAffected()
-
-				// set primary value to primary field
-				if primaryField != nil && primaryField.IsBlank() {
-					if primaryValue, err := result.LastInsertId(); scope.Err(err) == nil {
-						scope.Err(primaryField.Set(primaryValue))
-					}
-				}
-			}
-		} else {
-			if err := scope.Search.QueryRow(scope).
-				Scan(primaryField.Value.Addr().Interface()); scope.Err(err) == nil {
-				primaryField.UnsetIsBlank()
-				scope.con.RowsAffected = 1
-			}
-		}
-	}
-	return scope, blankColumnsWithDefaultValue.asString()
-}
-
-//[create step 6]
-// forceReloadAfterCreateCallback will reload columns that having default value, and set it back to current object
-func (scope *Scope) forceReloadAfterCreateCallback(blankColumnsWithDefaultValue string) *Scope {
-	if blankColumnsWithDefaultValue != "" {
-		db := newCon(scope.con).Table(scope.TableName()).Select(blankColumnsWithDefaultValue)
-		for _, field := range scope.Fields() {
-			if field.IsPrimaryKey() && !field.IsBlank() {
-				db = db.Where(fmt.Sprintf("%v = ?", field.DBName), field.Value.Interface())
-			}
-		}
-
-		db.Scan(scope.Value)
-	}
-	return scope
-}
-
 //[create step 7] [update step 6]
 func (scope *Scope) saveAfterAssociationsCallback() *Scope {
-	if !scope.shouldSaveAssociations() {
-		return scope
-	}
 	for _, field := range scope.Fields() {
 		if field.IsBlank() || field.IsIgnored() || !scope.Search.changeableField(field) {
 			continue
 		}
 
 		//Attention : relationship.Kind <= HAS_ONE means except BELONGS_TO
-		if scope.saveFieldAsAssociation(field) && field.RelKind() <= HAS_ONE {
+		if scope.willSaveFieldAssociations(field) && field.RelKind() <= HAS_ONE {
 			value := field.Value
 			ForeignFieldNames := field.GetSliceSetting(FOREIGN_FIELD_NAMES)
 			AssociationForeignDBNames := field.GetSliceSetting(ASSOCIATION_FOREIGN_DB_NAMES)
@@ -875,18 +1113,6 @@ func (scope *Scope) saveAfterAssociationsCallback() *Scope {
 	return scope
 }
 
-//[create step 8]
-// afterCreateCallback will invoke `AfterCreate`, `AfterSave` method after creating
-func (scope *Scope) afterCreateCallback() *Scope {
-	if !scope.HasError() {
-		scope.CallMethod("AfterCreate")
-	}
-	if !scope.HasError() {
-		scope.CallMethod("AfterSave")
-	}
-	return scope
-}
-
 //[create step 9] [delete step 5] [update step 8]
 // CommitOrRollback commit current transaction if no error happened, otherwise will rollback it
 func (scope *Scope) CommitOrRollback(txStarted bool) *Scope {
@@ -901,268 +1127,6 @@ func (scope *Scope) CommitOrRollback(txStarted bool) *Scope {
 			}
 			//TODO : @Badu - it's paired with begin - see above
 			scope.con.sqli = scope.con.parent.sqli
-		}
-	}
-	return scope
-}
-
-//[delete step 2]
-// beforeDeleteCallback will invoke `BeforeDelete` method before deleting
-func (scope *Scope) beforeDeleteCallback() *Scope {
-	if !scope.HasError() {
-		scope.CallMethod("BeforeDelete")
-	}
-	return scope
-}
-
-//[delete step 3]
-// deleteCallback used to delete data from database or set deleted_at to current time (when using with soft delete)
-func (scope *Scope) deleteCallback() *Scope {
-	if !scope.HasError() {
-		var extraOption string
-		if str, ok := scope.Get(DELETE_OPT_SETTING); ok {
-			extraOption = fmt.Sprint(str)
-		}
-
-		if !scope.Search.isUnscoped() && scope.GetModelStruct().HasColumn("DeletedAt") {
-			scope.Raw(fmt.Sprintf(
-				"UPDATE %v SET deleted_at=%v%v%v",
-				QuotedTableName(scope),
-				scope.Search.addToVars(NowFunc(), scope.con.parent.dialect),
-				addExtraSpaceIfExist(scope.Search.combinedConditionSql(scope)),
-				addExtraSpaceIfExist(extraOption),
-			)).Exec()
-		} else {
-			scope.Raw(fmt.Sprintf(
-				"DELETE FROM %v%v%v",
-				QuotedTableName(scope),
-				addExtraSpaceIfExist(scope.Search.combinedConditionSql(scope)),
-				addExtraSpaceIfExist(extraOption),
-			)).Exec()
-		}
-	}
-	return scope
-}
-
-//[delete step 4]
-// afterDeleteCallback will invoke `AfterDelete` method after deleting
-func (scope *Scope) afterDeleteCallback() *Scope {
-	if !scope.HasError() {
-		scope.CallMethod("AfterDelete")
-	}
-	return scope
-}
-
-// [query step 1]
-// queryCallback used to query data from database
-func (scope *Scope) queryCallback() *Scope {
-	//avoid call if we don't need to
-	if scope.con.logMode == LOG_VERBOSE {
-		defer scope.trace(NowFunc())
-	}
-	var (
-		isSlice, isPtr bool
-		resultType     reflect.Type
-		results        = IndirectValue(scope.Value)
-		dialect        = scope.con.parent.dialect
-	)
-
-	if orderBy, ok := scope.Get(ORDER_BY_PK_SETTING); ok {
-		if primaryField := scope.PK(); primaryField != nil {
-			scope.Search.Order(
-				fmt.Sprintf(
-					"%v.%v %v",
-					QuotedTableName(scope),
-					Quote(primaryField.DBName, dialect), orderBy),
-			)
-		}
-	}
-
-	if value, ok := scope.Get(QUERY_DEST_SETTING); ok {
-		results = reflect.Indirect(reflect.ValueOf(value))
-	}
-	switch results.Kind() {
-	case reflect.Slice:
-		isSlice = true
-		resultType = results.Type().Elem()
-		results.Set(reflect.MakeSlice(results.Type(), 0, 0))
-
-		if resultType.Kind() == reflect.Ptr {
-			isPtr = true
-			resultType = resultType.Elem()
-		}
-	case reflect.Struct:
-	default:
-		scope.Err(errors.New("SCOPE : unsupported destination, should be slice or struct"))
-		return scope
-	}
-
-	scope.Search.prepareQuerySQL(scope)
-
-	if !scope.HasError() {
-		scope.con.RowsAffected = 0
-		if str, ok := scope.Get(QUERY_OPT_SETTING); ok {
-			scope.Search.SQL += addExtraSpaceIfExist(fmt.Sprint(str))
-		}
-
-		if rows, err := scope.Search.Query(scope); scope.Err(err) == nil {
-			defer rows.Close()
-
-			columns, _ := rows.Columns()
-			for rows.Next() {
-				scope.con.RowsAffected++
-
-				elem := results
-				if isSlice {
-					elem = reflect.New(resultType).Elem()
-				}
-
-				scope.scan(rows, columns, scope.NewScope(elem.Addr().Interface()).Fields())
-
-				if isSlice {
-					if isPtr {
-						results.Set(reflect.Append(results, elem.Addr()))
-					} else {
-						results.Set(reflect.Append(results, elem))
-					}
-				}
-			}
-
-			if scope.con.RowsAffected == 0 && !isSlice {
-				scope.Err(ErrRecordNotFound)
-			}
-		}
-	}
-	return scope
-}
-
-// [query step 2]
-// preloadCallback used to preload associations
-func (scope *Scope) preloadCallback() *Scope {
-	if !scope.Search.hasPreload() || scope.HasError() {
-		return scope
-	}
-	scope.Search.doPreload(scope)
-	return scope
-}
-
-// [query step 3]
-// afterQueryCallback will invoke `AfterFind` method after querying
-func (scope *Scope) afterQueryCallback() *Scope {
-	if !scope.HasError() {
-		scope.CallMethod("AfterFind")
-	}
-	return scope
-}
-
-// [update step 2]
-// beforeUpdateCallback will invoke `BeforeSave`, `BeforeUpdate` method before updating
-func (scope *Scope) beforeUpdateCallback() *Scope {
-	if _, ok := scope.Get(UPDATE_COLUMN_SETTING); !ok {
-		if !scope.HasError() {
-			scope.CallMethod("BeforeSave")
-		}
-		if !scope.HasError() {
-			scope.CallMethod("BeforeUpdate")
-		}
-	}
-	return scope
-}
-
-// [update step 4]
-// updateTimeStampForUpdateCallback will set `UpdatedAt` when updating
-func (scope *Scope) updateTimeStampForUpdateCallback() *Scope {
-	if _, ok := scope.Get(UPDATE_COLUMN_SETTING); !ok {
-		scope.SetColumn("UpdatedAt", NowFunc())
-	}
-	return scope
-}
-
-// [update step 5]
-// updateCallback the callback used to update data to database
-func (scope *Scope) updateCallback() *Scope {
-	var (
-		sqls []string
-		//because we're using it in a for, we're getting it once
-		scopeDialect = scope.con.parent.dialect
-		extraOption  string
-	)
-	if !scope.HasError() {
-		if scope.updateMaps != nil {
-			for column, value := range scope.updateMaps {
-				sqls = append(sqls,
-					fmt.Sprintf(
-						"%v = %v",
-						Quote(column, scopeDialect),
-						scope.Search.addToVars(value, scopeDialect),
-					),
-				)
-			}
-		} else {
-			for _, field := range scope.Fields() {
-				if !scope.Search.changeableField(field) {
-					continue
-				}
-				if !field.IsPrimaryKey() && field.IsNormal() {
-					sqls = append(sqls,
-						fmt.Sprintf(
-							"%v = %v",
-							Quote(field.DBName, scopeDialect),
-							scope.Search.addToVars(field.Value.Interface(), scopeDialect),
-						),
-					)
-				} else {
-					if field.HasRelations() && field.RelKind() == BELONGS_TO {
-						var (
-							ForeignDBNames = field.GetSliceSetting(FOREIGN_DB_NAMES)
-						)
-						for _, foreignKey := range ForeignDBNames {
-							foreignField, ok := scope.FieldByName(foreignKey)
-							if ok && !scope.Search.changeableField(foreignField) {
-								sqls = append(sqls,
-									fmt.Sprintf(
-										"%v = %v",
-										Quote(foreignField.DBName, scopeDialect),
-										scope.Search.addToVars(
-											foreignField.Value.Interface(),
-											scopeDialect,
-										),
-									),
-								)
-							}
-						}
-					}
-				}
-
-			}
-		}
-
-		if str, ok := scope.Get(UPDATE_OPT_SETTING); ok {
-			extraOption = fmt.Sprint(str)
-		}
-
-		if len(sqls) > 0 {
-			scope.Raw(fmt.Sprintf(
-				"UPDATE %v SET %v%v%v",
-				QuotedTableName(scope),
-				strings.Join(sqls, ", "),
-				addExtraSpaceIfExist(scope.Search.combinedConditionSql(scope)),
-				addExtraSpaceIfExist(extraOption),
-			)).Exec()
-		}
-	}
-	return scope
-}
-
-// [update step 7]
-// afterUpdateCallback will invoke `AfterUpdate`, `AfterSave` method after updating
-func (scope *Scope) afterUpdateCallback() *Scope {
-	if _, ok := scope.Get(UPDATE_COLUMN_SETTING); !ok {
-		if !scope.HasError() {
-			scope.CallMethod("AfterUpdate")
-		}
-		if !scope.HasError() {
-			scope.CallMethod("AfterSave")
 		}
 	}
 	return scope
