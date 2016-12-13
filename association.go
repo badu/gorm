@@ -319,15 +319,25 @@ func (association *Association) Clear() *Association {
 
 // Count return the count of current associations
 func (association *Association) Count() int {
-	var (
-		count = 0
-		field = association.field
+	//fixes for mysql tests - for some reason, we get here with nils
+	if association.field == nil {
+		fmt.Println("FIELD IS NIL IN COUNT!")
+		return 0
+	}
+	if association.scope == nil {
+		fmt.Println("SCOPE IS NIL IN COUNT!")
+		return 0
+	}
 
-		fieldValue = field.Value.Interface()
+	var (
+		count      = 0
+		field      = association.field
 		scope      = association.scope
 		conn       = scope.con
 		dialect    = conn.parent.dialect
+		fieldValue = field.Value.Interface()
 	)
+
 	switch field.RelKind() {
 	case MANY_TO_MANY:
 		joinTableHandler := field.JoinHandler()

@@ -561,7 +561,7 @@ func (scope *Scope) callCallbacks(funcs ScopedFuncs) *Scope {
 }
 
 //calls methods after query
-func (scope *Scope) postQuery() *Scope {
+func (scope *Scope) postQuery(dest interface{}) *Scope {
 	//Was "queryCallback"
 	//avoid call if we don't need to
 	if scope.con.logMode == LOG_VERBOSE {
@@ -571,23 +571,10 @@ func (scope *Scope) postQuery() *Scope {
 		isSlice, isPtr  bool
 		queryResultType reflect.Type
 		queryResults    = IndirectValue(scope.Value)
-		dialect         = scope.con.parent.dialect
 	)
-	//TODO : setting will be kept in Search - this block should disappear @See dbcon.First dbCon.Last
-	if orderBy, ok := scope.Get(ORDER_BY_PK_SETTING); ok {
-		if primaryField := scope.PK(); primaryField != nil {
-			scope.Search.Order(
-				fmt.Sprintf(
-					"%v.%v %v",
-					QuotedTableName(scope),
-					Quote(primaryField.DBName, dialect),
-					orderBy),
-			)
-		}
-	}
 
-	if value, ok := scope.Get(QUERY_DEST_SETTING); ok {
-		queryResults = reflect.Indirect(reflect.ValueOf(value))
+	if dest != nil {
+		queryResults = reflect.Indirect(reflect.ValueOf(dest))
 	}
 	switch queryResults.Kind() {
 	case reflect.Slice:

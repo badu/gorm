@@ -13,48 +13,48 @@ func Create(t *testing.T) {
 	user := User{Name: "CreateUser", Age: 18, Birthday: &now, UserNum: Num(111), PasswordHash: []byte{'f', 'a', 'k', '4'}, Latitude: float}
 
 	if !TestDB.NewRecord(user) || !TestDB.NewRecord(&user) {
-		t.Error("User should be new record before create")
+		t.Error("[Create] User should be new record before create")
 	}
 
 	if count := TestDB.Save(&user).RowsAffected; count != 1 {
-		t.Error("There should be one record be affected when create record")
+		t.Error("[Create] There should be one record be affected when create record")
 	}
 
 	if TestDB.NewRecord(user) || TestDB.NewRecord(&user) {
-		t.Error("User should not new record after save")
+		t.Error("[Create] User should not new record after save")
 	}
 
 	var newUser User
 	TestDB.First(&newUser, user.Id)
 
 	if !reflect.DeepEqual(newUser.PasswordHash, []byte{'f', 'a', 'k', '4'}) {
-		t.Errorf("User's PasswordHash should be saved ([]byte)")
+		t.Errorf("[Create] User's PasswordHash should be saved ([]byte), but is %v", newUser.PasswordHash)
 	}
 
 	if newUser.Age != 18 {
-		t.Errorf("User's Age should be saved (int)")
+		t.Errorf("[Create] User's Age should be saved (int)")
 	}
 
 	if newUser.UserNum != Num(111) {
-		t.Errorf("User's UserNum should be saved (custom type)")
+		t.Errorf("[Create] User's UserNum should be saved (custom type)")
 	}
 
 	if newUser.Latitude != float {
-		t.Errorf("Float64 should not be changed after save")
+		t.Errorf("[Create] Float64 should not be changed after save")
 	}
 
 	if user.CreatedAt.IsZero() {
-		t.Errorf("Should have created_at after create")
+		t.Errorf("[Create] Should have created_at after create")
 	}
 
 	if newUser.CreatedAt.IsZero() {
-		t.Errorf("Should have created_at after create")
+		t.Errorf("[Create] Should have created_at after create")
 	}
 
 	TestDB.Model(user).Update("name", "create_user_new_name")
 	TestDB.First(&user, user.Id)
 	if user.CreatedAt.Format(time.RFC3339Nano) != newUser.CreatedAt.Format(time.RFC3339Nano) {
-		t.Errorf("CreatedAt should not be changed after update")
+		t.Errorf("[Create] CreatedAt should not be changed after update")
 	}
 }
 
@@ -74,10 +74,6 @@ func CreateWithAutoIncrement(t *testing.T) {
 }
 
 func CreateWithNoGORMPrimayKey(t *testing.T) {
-	if dialect := os.Getenv("GORM_DIALECT"); dialect == "mssql" {
-		t.Skip("Skipping this because MSSQL will return identity only if the table has an Id column")
-	}
-
 	jt := JoinTable{From: 1, To: 2}
 	err := TestDB.Create(&jt).Error
 	if err != nil {

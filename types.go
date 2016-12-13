@@ -23,15 +23,11 @@ const (
 	UPDATE_COLUMN_SETTING      uint64 = 1
 	INSERT_OPT_SETTING         uint64 = 2
 	DELETE_OPT_SETTING         uint64 = 3
-	ORDER_BY_PK_SETTING        uint64 = 4
-	TABLE_OPT_SETTING          uint64 = 5
-	QUERY_DEST_SETTING         uint64 = 6
-	QUERY_OPT_SETTING          uint64 = 7
-	SAVE_ASSOC_SETTING         uint64 = 8
-	UPDATE_OPT_SETTING         uint64 = 9
-	UPDATE_INTERF_SETTING      uint64 = 10
-	IGNORE_PROTEC_SETTING      uint64 = 11
-	ASSOCIATION_SOURCE_SETTING uint64 = 12 //TODO : @Badu - maybe it's better to keep this info in Association struct
+	TABLE_OPT_SETTING          uint64 = 4
+	QUERY_OPT_SETTING          uint64 = 5 // usually, this contains "FOR UPDATE". See QueryOption test
+	SAVE_ASSOC_SETTING         uint64 = 6
+	UPDATE_OPT_SETTING         uint64 = 7
+	ASSOCIATION_SOURCE_SETTING uint64 = 8 //TODO : @Badu - maybe it's better to keep this info in Association struct
 
 	LOG_OFF     int = 1
 	LOG_VERBOSE int = 2
@@ -335,11 +331,7 @@ var (
 		"gorm:delete_option":          DELETE_OPT_SETTING,
 		"gorm:table_options":          TABLE_OPT_SETTING,
 		"gorm:query_option":           QUERY_OPT_SETTING,
-		"gorm:order_by_primary_key":   ORDER_BY_PK_SETTING,
-		"gorm:query_destination":      QUERY_DEST_SETTING,
 		"gorm:save_associations":      SAVE_ASSOC_SETTING,
-		"gorm:update_interface":       UPDATE_INTERF_SETTING,
-		"gorm:ignore_protected_attrs": IGNORE_PROTEC_SETTING,
 		"gorm:association:source":     ASSOCIATION_SOURCE_SETTING,
 	}
 	// Attention : using "unprepared" regexp.MustCompile is really slow : ten times slower

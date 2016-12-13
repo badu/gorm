@@ -385,7 +385,7 @@ func (field *StructField) ParseFieldStructForDialect() (reflect.Value, string, i
 		additionalType = ""
 		sqlType        = ""
 	)
-
+	fmt.Printf("ParseFieldStructForDialect : %s : %v = %v \n", field.DBName,field.Type, fieldValue)
 	//TODO : @Badu - we have the scanner field info in StructField
 	// Get scanner's real value
 	fieldValue = getScannerValue(fieldValue)

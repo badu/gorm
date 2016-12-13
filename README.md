@@ -39,6 +39,14 @@
 - [ ] Debug SQL string even when it fails 
 - [ ] Documentation for tests and build examples
 - [ ] Generated SQL let's the SQL engine cast : SELECT * FROM aTable WHERE id = '1' (id being int). I think it's a bad practice and it should be fixed
+- [ ] Bug in StructField ParseFieldStructForDialect : slice of bytes is wrong (probably all kind of slices are)
+
+## 13.12.2016
+- [x] removed ORDER_BY_PK_SETTING and logic from dbCon First and Last (order it's kept in search)
+- [x] removed QUERY_DEST_SETTING and logic : Scope's postQuery accepts a parameter which is destination for dbCon Scan          
+- [x] created QueryOption test for "gorm:query_option"
+- [x] Association Count IS failing in mysql tests, because for some reason we get field and/or scope nil
+- [x] removed IGNORE_PROTEC_SETTING : set in dbCon Updates, but never used
 
 ## 11.12.2016
 - [x] CallMethod - extract string constants

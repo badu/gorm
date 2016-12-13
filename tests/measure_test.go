@@ -1,126 +1,14 @@
 package tests
 
 import (
-	"encoding/json"
-	"fmt"
-	"github.com/jinzhu/now"
-	"gorm"
 	_ "gorm/dialects/mysql"
 	_ "gorm/dialects/sqlite"
-	"os"
 	"runtime"
 	"sort"
 	"testing"
 	"time"
 )
 
-func toJSONString(v interface{}) []byte {
-	r, _ := json.MarshalIndent(v, "", "  ")
-	return r
-}
-
-func parseTime(str string) *time.Time {
-	t := now.MustParse(str)
-	return &t
-}
-
-func DialectHasTzSupport() bool {
-	// NB: FoundationDB do not support time zones.
-	if dialect := os.Getenv("GORM_DIALECT"); dialect == "foundation" {
-		return false
-	}
-	return true
-}
-
-func OpenTestConnection(t *testing.T) {
-	//t.Logf("Opening connection...")
-	osDialect := os.Getenv("GORM_DIALECT")
-	osDBAddress := os.Getenv("GORM_DBADDRESS")
-
-	//osDialect = "mysql"
-
-	switch osDialect {
-	case "mysql":
-		//osDBAddress = "127.0.0.1:3306"
-
-		// CREATE USER 'gorm'@'localhost' IDENTIFIED BY 'gorm';
-		// CREATE DATABASE gorm;
-		// GRANT ALL ON * TO 'gorm'@'localhost';
-		if osDBAddress != "" {
-			osDBAddress = fmt.Sprintf("tcp(%v)", osDBAddress)
-		}
-		TestDB, TestDBErr = gorm.Open("mysql", fmt.Sprintf("root:@%v/gorm?charset=utf8&parseTime=True", osDBAddress))
-		if TestDBErr != nil {
-			t.Fatalf("ERROR : %v", TestDBErr)
-		}
-	case "postgres":
-		if osDBAddress != "" {
-			osDBAddress = fmt.Sprintf("host=%v ", osDBAddress)
-		}
-		TestDB, TestDBErr = gorm.Open("postgres", fmt.Sprintf("%vuser=gorm password=gorm DB.name=gorm sslmode=disable", osDBAddress))
-		if TestDBErr != nil {
-			t.Fatalf("ERROR : %v", TestDBErr)
-		}
-	case "foundation":
-		TestDB, TestDBErr = gorm.Open("foundation", "dbname=gorm port=15432 sslmode=disable")
-		if TestDBErr != nil {
-			t.Fatalf("ERROR : %v", TestDBErr)
-		}
-	default:
-		TestDB, TestDBErr = gorm.Open("sqlite3", "test.db?cache=shared&mode=memory")
-		if TestDBErr != nil {
-			t.Fatalf("ERROR : %v", TestDBErr)
-		}
-	}
-	//TODO : @Badu - uncomment below if you want full traces
-	//TestDB.SetLogMode(gorm.LOG_DEBUG)
-	//TestDB.LogMode(true)
-	TestDB.DB().SetMaxIdleConns(10)
-}
-
-func RunMigration(t *testing.T) {
-	//t.Log("Running migration...")
-	if err := TestDB.DropTableIfExists(&User{}).Error; err != nil {
-		t.Fatalf("Got error when try to delete table users, %+v\n", err)
-	}
-
-	for _, table := range []string{"animals", "user_languages"} {
-		TestDB.Exec(fmt.Sprintf("drop table %v;", table))
-	}
-
-	values := []interface{}{
-		&Short{},
-		&ReallyLongThingThatReferencesShort{},
-		&ReallyLongTableNameToTestMySQLNameLengthLimit{},
-		&NotSoLongTableName{},
-		&Product{},
-		&Email{},
-		&Address{},
-		&CreditCard{},
-		&Company{},
-		&Role{},
-		&Language{},
-		&HNPost{},
-		&EngadgetPost{},
-		&Animal{}, &User{},
-		&JoinTable{},
-		&Post{},
-		&Category{},
-		&Comment{},
-		&Cat{},
-		&Dog{},
-		&Hamster{},
-		&Toy{},
-		&ElementWithIgnoredField{},
-	}
-	for _, value := range values {
-		TestDB.DropTable(value)
-	}
-	if err := TestDB.AutoMigrate(values...).Error; err != nil {
-		t.Fatalf("No error should happen when create table, but got %+v", err)
-	}
-	//t.Log("Migration done.")
-}
 func (m *Measure) Go() {
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
@@ -149,7 +37,7 @@ func measureAndRun(t *testing.T, name string, f func(t *testing.T)) bool {
 	return result
 }
 
-func TestEverything(t *testing.T) {
+func TempTestEverything(t *testing.T) {
 	measureAndRun(t, "0) Open connection", OpenTestConnection)
 	if TestDBErr != nil {
 		t.Fatalf("No error should happen when connecting to test database, but got err=%+v", TestDBErr)
@@ -297,6 +185,7 @@ func TestEverything(t *testing.T) {
 	measureAndRun(t, "144) TestToDBNameGenerateFriendlyName", ToDBNameGenerateFriendlyName)
 	measureAndRun(t, "145) TestRegisterCallback", RegisterCallback)
 	measureAndRun(t, "146) FEATURE : TestSkipSaveAssociation", SkipSaveAssociation)
+	measureAndRun(t, "147) QueryOption", QueryOption)
 
 	totals := &Measure{
 		netAllocs: 0,
@@ -350,18 +239,6 @@ func (ts MeasureData) Less(i, j int) bool {
 	return ts[i].netAllocs < ts[j].netAllocs
 }
 
-func TempTestAuto(t *testing.T) {
-	measureAndRun(t, "0) Open connection", OpenTestConnection)
-	if TestDBErr != nil {
-		t.Fatalf("No error should happen when connecting to test database, but got err=%+v", TestDBErr)
-	}
-	measureAndRun(t, "1) RunMigration", RunMigration)
-
-	for _, value := range gorm.ModelStructsMap.M() {
-		t.Logf("%v", value)
-	}
-}
-
 //Copied from time.Duration
 func DurationToString(u uint64) string {
 	// Largest time is 2540400h10m10.000000000s
@@ -402,14 +279,14 @@ func DurationToString(u uint64) string {
 		w, u = fmtFrac(buf[:w], u, 9)
 
 		// u is now integer seconds
-		w = fmtInt(buf[:w], u % 60)
+		w = fmtInt(buf[:w], u%60)
 		u /= 60
 
 		// u is now integer minutes
 		if u > 0 {
 			w--
 			buf[w] = 'm'
-			w = fmtInt(buf[:w], u % 60)
+			w = fmtInt(buf[:w], u%60)
 			u /= 60
 
 			// u is now integer hours
@@ -461,7 +338,7 @@ func fmtInt(buf []byte, v uint64) int {
 	} else {
 		for v > 0 {
 			w--
-			buf[w] = byte(v % 10) + '0'
+			buf[w] = byte(v%10) + '0'
 			v /= 10
 		}
 	}

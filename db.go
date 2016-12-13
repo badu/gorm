@@ -268,15 +268,24 @@ func (con *DBCon) Scopes(funcs ...DBConFunc) *DBCon {
 }
 
 // First find first record that match given conditions, order by primary key
-func (con *DBCon) First(out interface{}, where ...interface{}) *DBCon {
-	newScope := con.NewScope(out)
+func (con *DBCon) First(entity interface{}, where ...interface{}) *DBCon {
+	newScope := con.NewScope(entity)
 	newScope.Search.Limit(1)
-	//TODO : below settings can be kept in Search
-	newScope.Set(ORDER_BY_PK_SETTING, ASCENDENT)
+
+	if primaryField := newScope.PK(); primaryField != nil {
+		newScope.Search.Order(
+			fmt.Sprintf(
+				"%v.%v %v",
+				QuotedTableName(newScope),
+				Quote(primaryField.DBName, con.parent.dialect),
+				ASCENDENT),
+		)
+	}
+
 	if len(where) > 0 {
 		newScope.Search.Wheres(where...)
 	}
-	newScope = newScope.postQuery()
+	newScope = newScope.postQuery(nil)
 	if con.parent.callbacks.queries.len() > 0 {
 		newScope.callCallbacks(con.parent.callbacks.queries)
 	}
@@ -284,15 +293,24 @@ func (con *DBCon) First(out interface{}, where ...interface{}) *DBCon {
 }
 
 // Last find last record that match given conditions, order by primary key
-func (con *DBCon) Last(out interface{}, where ...interface{}) *DBCon {
-	newScope := con.NewScope(out)
+func (con *DBCon) Last(entity interface{}, where ...interface{}) *DBCon {
+	newScope := con.NewScope(entity)
 	newScope.Search.Limit(1)
-	//TODO : below settings can be kept in Search
-	newScope.Set(ORDER_BY_PK_SETTING, DESCENDENT)
+
+	if primaryField := newScope.PK(); primaryField != nil {
+		newScope.Search.Order(
+			fmt.Sprintf(
+				"%v.%v %v",
+				QuotedTableName(newScope),
+				Quote(primaryField.DBName, con.parent.dialect),
+				DESCENDENT),
+		)
+	}
+
 	if len(where) > 0 {
 		newScope.Search.Wheres(where...)
 	}
-	newScope = newScope.postQuery()
+	newScope = newScope.postQuery(nil)
 	if con.parent.callbacks.queries.len() > 0 {
 		newScope.callCallbacks(con.parent.callbacks.queries)
 	}
@@ -305,7 +323,7 @@ func (con *DBCon) Find(out interface{}, where ...interface{}) *DBCon {
 	if len(where) > 0 {
 		newScope.Search.Wheres(where...)
 	}
-	newScope = newScope.postQuery()
+	newScope = newScope.postQuery(nil)
 	if con.parent.callbacks.queries.len() > 0 {
 		newScope.callCallbacks(con.parent.callbacks.queries)
 	}
@@ -315,7 +333,7 @@ func (con *DBCon) Find(out interface{}, where ...interface{}) *DBCon {
 // Scan scan value to a struct
 func (con *DBCon) Scan(dest interface{}) *DBCon {
 	newScope := con.NewScope(con.search.Value)
-	newScope = newScope.Set(QUERY_DEST_SETTING, dest).postQuery()
+	newScope = newScope.postQuery(dest)
 	if con.parent.callbacks.queries.len() > 0 {
 		newScope.callCallbacks(con.parent.callbacks.queries)
 	}
@@ -417,7 +435,7 @@ func (con *DBCon) FirstOrCreate(out interface{}, where ...interface{}) *DBCon {
 func (con *DBCon) Updates(values interface{}, ignoreProtectedAttrs ...bool) *DBCon {
 	newScope := con.NewScope(con.search.Value)
 	newScope.attrs = values
-	newScope = newScope.Set(IGNORE_PROTEC_SETTING, len(ignoreProtectedAttrs) > 0).postUpdate()
+	newScope = newScope.postUpdate()
 	if con.parent.callbacks.updates.len() > 0 {
 		newScope.callCallbacks(con.parent.callbacks.updates)
 	}
