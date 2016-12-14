@@ -39,7 +39,13 @@
 - [ ] Debug SQL string even when it fails 
 - [ ] Documentation for tests and build examples
 - [ ] Generated SQL let's the SQL engine cast : SELECT * FROM aTable WHERE id = '1' (id being int). I think it's a bad practice and it should be fixed
-- [ ] Bug in StructField ParseFieldStructForDialect : slice of bytes is wrong (probably all kind of slices are)
+- [ ] Fix for calling AutoMigrate with JoinTableHandlerInterface
+
+## 14.12.2016
+- [x] Bug fix in StructField ParseFieldStructForDialect : slice of bytes is wrong (probably all kind of slices are)
+- [x] Fix for ManyToManyWithMultiPrimaryKeys test : toQueryMarks optimisation in utils was breaking it
+- [x] Cleanup in StructField after using COLUMN tag setting 
+- [x] GetHandlerStruct of JoinTableHandler and interface - for debugging
 
 ## 13.12.2016
 - [x] removed ORDER_BY_PK_SETTING and logic from dbCon First and Last (order it's kept in search)

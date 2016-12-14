@@ -222,7 +222,7 @@ func (scope *Scope) Exec() *Scope {
 		return scope
 	}
 	//avoid call if we don't need to
-	if scope.con.logMode == LOG_VERBOSE {
+	if scope.con.logMode == LOG_VERBOSE || scope.con.logMode == LOG_DEBUG {
 		defer scope.trace(NowFunc())
 	}
 	scope.Search.Exec(scope)
@@ -359,7 +359,7 @@ func (scope *Scope) scan(rows *sql.Rows, columns []string, fields StructFields) 
 
 func (scope *Scope) row() *sql.Row {
 	//avoid call if we don't need to
-	if scope.con.logMode == LOG_VERBOSE {
+	if scope.con.logMode == LOG_VERBOSE || scope.con.logMode == LOG_DEBUG {
 		defer scope.trace(NowFunc())
 	}
 	if scope.con.parent.callbacks.rowQueries.len() > 0 {
@@ -371,7 +371,7 @@ func (scope *Scope) row() *sql.Row {
 
 func (scope *Scope) rows() (*sql.Rows, error) {
 	//avoid call if we don't need to
-	if scope.con.logMode == LOG_VERBOSE {
+	if scope.con.logMode == LOG_VERBOSE || scope.con.logMode == LOG_DEBUG {
 		defer scope.trace(NowFunc())
 	}
 	if scope.con.parent.callbacks.rowQueries.len() > 0 {
@@ -564,7 +564,7 @@ func (scope *Scope) callCallbacks(funcs ScopedFuncs) *Scope {
 func (scope *Scope) postQuery(dest interface{}) *Scope {
 	//Was "queryCallback"
 	//avoid call if we don't need to
-	if scope.con.logMode == LOG_VERBOSE {
+	if scope.con.logMode == LOG_VERBOSE || scope.con.logMode == LOG_DEBUG {
 		defer scope.trace(NowFunc())
 	}
 	var (
@@ -681,7 +681,7 @@ func (scope *Scope) postCreate() *Scope {
 		)
 
 		//avoid call if we don't need to
-		if result.con.logMode == LOG_VERBOSE {
+		if result.con.logMode == LOG_VERBOSE || scope.con.logMode == LOG_DEBUG {
 			defer result.trace(NowFunc())
 		}
 

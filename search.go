@@ -154,6 +154,8 @@ func (s *Search) initialize(scope *Scope) {
 
 func (s *Search) Where(query interface{}, values ...interface{}) *Search {
 	s.addSqlCondition(Where_query, query, values...)
+	//fmt.Printf(fullFileWithLineNum())
+	//fmt.Printf("WHERE %v %#v\n", query, values)
 	s.setFlag(HAS_WHERE)
 	return s
 }

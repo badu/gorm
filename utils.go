@@ -97,6 +97,7 @@ func toQueryCondition(columns StrSlice, dialect Dialect) string {
 
 //using inline advantage
 func toQueryMarks(primaryValues [][]interface{}) string {
+	/**
 	results := ""
 	for _, primaryValue := range primaryValues {
 		marks := ""
@@ -112,6 +113,23 @@ func toQueryMarks(primaryValues [][]interface{}) string {
 		results += marks
 	}
 	return results
+	**/
+	//Attention : the above optimization breaks ManyToManyWithMultiPrimaryKeys
+	var results []string
+
+	for _, primaryValue := range primaryValues {
+		var marks []string
+		for _, _ = range primaryValue {
+			marks = append(marks, "?")
+		}
+
+		if len(marks) > 1 {
+			results = append(results, fmt.Sprintf("(%v)", strings.Join(marks, ",")))
+		} else {
+			results = append(results, strings.Join(marks, ""))
+		}
+	}
+	return strings.Join(results, ",")
 }
 
 //using inline advantage
@@ -409,7 +427,7 @@ func isPrintable(s string) bool {
 
 func fullFileWithLineNum() string {
 	result := ""
-	for i := 1; i < 15; i++ {
+	for i := 1; i < 12; i++ {
 		_, file, line, ok := runtime.Caller(i)
 		if ok {
 			result += fmt.Sprintf("%v:%v\n", file, line)
@@ -422,10 +440,13 @@ func fullFileWithLineNum() string {
 }
 
 func fileWithLineNum() string {
-	for i := 6; i < 15; i++ {
+	for i := 12; i > 1; i-- {
 		_, file, line, ok := runtime.Caller(i)
-		if ok && !regexpSelf.MatchString(file) {
-			//otherwise
+		//if ok {
+		//	fmt.Println(fmt.Sprintf("%d - %v:%v", i, file, line))
+		//}
+		//!regexpSelf.MatchString(file)
+		if ok && !strings.Contains(file , "testing.go") && !strings.Contains(file, "asm_"){
 			return fmt.Sprintf("%v:%v", file, line)
 		}
 

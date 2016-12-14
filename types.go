@@ -212,15 +212,15 @@ type (
 		AssociationDBName string
 	}
 	// JoinTableSource is a struct that contains model type and foreign keys
-	JoinTableSource struct {
+	JoinTableInfo struct {
 		ModelType   reflect.Type
 		ForeignKeys []JoinTableForeignKey
 	}
 	// JoinTableHandler default join table handler
 	JoinTableHandler struct {
-		TableName   string          `sql:"-"`
-		Source      JoinTableSource `sql:"-"`
-		Destination JoinTableSource `sql:"-"`
+		TableName   string        `sql:"-"`
+		Source      JoinTableInfo `sql:"-"`
+		Destination JoinTableInfo `sql:"-"`
 	}
 
 	//interface used for overriding table name
@@ -265,6 +265,8 @@ type (
 		SourceForeignKeys() []JoinTableForeignKey
 		// DestinationForeignKeys return destination foreign keys
 		DestinationForeignKeys() []JoinTableForeignKey
+		//for debugging purposes
+		GetHandlerStruct() *JoinTableHandler
 	}
 
 	// Dialect interface contains behaviors that differ across SQL database
@@ -325,14 +327,14 @@ var (
 
 	//reverse map to allow external settings
 	gormSettingsMap = map[string]uint64{
-		"gorm:update_column":          UPDATE_COLUMN_SETTING,
-		"gorm:insert_option":          INSERT_OPT_SETTING,
-		"gorm:update_option":          UPDATE_OPT_SETTING,
-		"gorm:delete_option":          DELETE_OPT_SETTING,
-		"gorm:table_options":          TABLE_OPT_SETTING,
-		"gorm:query_option":           QUERY_OPT_SETTING,
-		"gorm:save_associations":      SAVE_ASSOC_SETTING,
-		"gorm:association:source":     ASSOCIATION_SOURCE_SETTING,
+		"gorm:update_column":      UPDATE_COLUMN_SETTING,
+		"gorm:insert_option":      INSERT_OPT_SETTING,
+		"gorm:update_option":      UPDATE_OPT_SETTING,
+		"gorm:delete_option":      DELETE_OPT_SETTING,
+		"gorm:table_options":      TABLE_OPT_SETTING,
+		"gorm:query_option":       QUERY_OPT_SETTING,
+		"gorm:save_associations":  SAVE_ASSOC_SETTING,
+		"gorm:association:source": ASSOCIATION_SOURCE_SETTING,
 	}
 	// Attention : using "unprepared" regexp.MustCompile is really slow : ten times slower
 	// only matches string like `name`, `users.name`

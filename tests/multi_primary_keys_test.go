@@ -7,6 +7,7 @@ import (
 
 func ManyToManyWithMultiPrimaryKeys(t *testing.T) {
 	if dialect := os.Getenv("GORM_DIALECT"); dialect != "" && dialect != "sqlite" {
+
 		TestDB.DropTable(&Blog{}, &Tag{})
 		TestDB.DropTable("blog_tags")
 		TestDB.CreateTable(&Blog{}, &Tag{})
@@ -208,6 +209,7 @@ func ManyToManyWithCustomizedForeignKeys(t *testing.T) {
 
 func ManyToManyWithCustomizedForeignKeys2(t *testing.T) {
 	if dialect := os.Getenv("GORM_DIALECT"); dialect != "" && dialect != "sqlite" {
+		//TestDB.SetLogMode(gorm.LOG_DEBUG)
 		TestDB.DropTable(&Blog{}, &Tag{})
 		TestDB.DropTable("locale_blog_tags")
 		TestDB.CreateTable(&Blog{}, &Tag{})
@@ -220,6 +222,7 @@ func ManyToManyWithCustomizedForeignKeys2(t *testing.T) {
 				{Locale: "ZH", Value: "tag2"},
 			},
 		}
+
 		TestDB.Save(&blog)
 
 		blog2 := Blog{
@@ -348,5 +351,6 @@ func ManyToManyWithCustomizedForeignKeys2(t *testing.T) {
 		if TestDB.Model(&blog2).Association("LocaleTags").Count() != 0 {
 			t.Errorf("EN Blog's tags should be cleared")
 		}
+		//TestDB.SetLogMode(gorm.LOG_VERBOSE)
 	}
 }

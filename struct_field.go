@@ -49,6 +49,8 @@ func NewStructField(fromStruct reflect.StructField) (*StructField, error) {
 	} else {
 		result.DBName = NamesMap.ToDBName(fromStruct.Name)
 	}
+	//finished with it : cleanup
+	result.UnsetTagSetting(COLUMN)
 
 	//keeping the type for later usage
 	result.Type = fromStruct.Type
@@ -380,12 +382,19 @@ func (field *StructField) Set(value interface{}) error {
 func (field *StructField) ParseFieldStructForDialect() (reflect.Value, string, int, string) {
 	var (
 		size       = 0
-		fieldValue = reflect.Indirect(reflect.New(field.Type))
+		fieldValue reflect.Value
 
 		additionalType = ""
 		sqlType        = ""
 	)
-	fmt.Printf("ParseFieldStructForDialect : %s : %v = %v \n", field.DBName,field.Type, fieldValue)
+
+	if !field.IsStruct() && field.IsSlice() {
+		_, fieldValue = field.makeSlice()
+	} else {
+		fieldValue = reflect.Indirect(reflect.New(field.Type))
+	}
+
+	//fmt.Printf("ParseFieldStructForDialect : %s : %v = %v (slice ? %t, struct ? %t)\n", field.DBName,field.Type, fieldValue, field.IsSlice(), field.IsStruct())
 	//TODO : @Badu - we have the scanner field info in StructField
 	// Get scanner's real value
 	fieldValue = getScannerValue(fieldValue)
@@ -478,6 +487,7 @@ func (field *StructField) parseTagSettings(tag reflect.StructTag) error {
 							}
 							storedValue = strSlice
 						}
+						fmt.Printf("Making slice of %s = %v for %q field.\n", cachedReverseTagSettingsMap[uint8Key], storedValue, field.Names[0])
 						field.tagSettings.set(uint8Key, storedValue)
 					} else {
 						errMsg := fmt.Sprintf(key_not_found_err, k, str)

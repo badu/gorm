@@ -156,14 +156,13 @@ func TestAllGorm(t *testing.T) {
 	t.Run("147) QueryOption", QueryOption)
 }
 
-func TestCreate(t *testing.T) {
+func TestFailure(t *testing.T) {
 	t.Run("0) Open connection", OpenTestConnection)
 	if TestDBErr != nil {
 		t.Fatalf("No error should happen when connecting to test database, but got err=%+v", TestDBErr)
 	}
-	t.Run("1) RunMigration", RunMigration)
 
-	t.Run("147) Create", Create)
+	t.Run("74) ManyToManyWithCustomizedForeignKeys2", ManyToManyWithCustomizedForeignKeys2)
 }
 
 func TempTestQueryOption(t *testing.T) {

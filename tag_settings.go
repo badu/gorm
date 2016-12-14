@@ -58,7 +58,7 @@ const (
 
 	//not really tags, but used in cachedReverseTagSettingsMap for Stringer
 	relation_kind             string = "Relation kind"
-	join_table_handler        string = "Join table handler"
+	join_table_handler        string = "Join Table Handler"
 	foreign_field_names       string = "Foreign field names"
 	foreign_db_names          string = "Foreign db names"
 	assoc_foreign_field_names string = "Assoc foreign field names"
@@ -108,16 +108,11 @@ var (
 
 	cachedReverseTagSettingsMap map[uint8]string
 )
-
-//for printing strings instead of uints
-func reverseTagSettingsMap() map[uint8]string {
-	if cachedReverseTagSettingsMap == nil {
-		cachedReverseTagSettingsMap = make(map[uint8]string)
-		for k, v := range tagSettingMap {
-			cachedReverseTagSettingsMap[v] = k
-		}
+func init(){
+	cachedReverseTagSettingsMap = make(map[uint8]string)
+	for k, v := range tagSettingMap {
+		cachedReverseTagSettingsMap[v] = k
 	}
-	return cachedReverseTagSettingsMap
 }
 
 //returns a clone of tag settings (used in cloning StructField)
@@ -164,10 +159,6 @@ func (t *TagSettings) len() int {
 
 //Stringer implementation
 func (t TagSettings) String() string {
-	//never inited
-	if cachedReverseTagSettingsMap == nil {
-		reverseTagSettingsMap()
-	}
 	var collector Collector
 
 	for key, value := range t.Uint8Map {
@@ -180,7 +171,7 @@ func (t TagSettings) String() string {
 			ASSOCIATION_FOREIGN_DB_NAMES:
 			slice, ok := value.(StrSlice)
 			if ok {
-				collector.add("\t\t\t%s=%s\n", cachedReverseTagSettingsMap[key], slice)
+				collector.add("\t\t\t%s=%s (%d elements)\n", cachedReverseTagSettingsMap[key], slice, slice.len())
 			}
 		case RELATION_KIND:
 			kind, ok := value.(uint8)
@@ -188,7 +179,7 @@ func (t TagSettings) String() string {
 				collector.add("\t\t\t%s=%s\n", cachedReverseTagSettingsMap[key], kindNamesMap[kind])
 			}
 		case JOIN_TABLE_HANDLER:
-			collector.add("\t\t\t%s\n", cachedReverseTagSettingsMap[key])
+			collector.add("\t\t\tHAS %s\n", cachedReverseTagSettingsMap[key])
 		default:
 			if value == "" {
 				collector.add("\t\t\t%s\n", cachedReverseTagSettingsMap[key])

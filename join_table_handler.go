@@ -32,7 +32,7 @@ func (jth *JoinTableHandler) Setup(
 		AssociationForeignDBNames    = field.GetSliceSetting(ASSOCIATION_FOREIGN_DB_NAMES)
 	)
 
-	jth.Source = JoinTableSource{ModelType: source}
+	jth.Source = JoinTableInfo{ModelType: source}
 	for idx, dbName := range ForeignFieldNames {
 		jth.Source.ForeignKeys = append(jth.Source.ForeignKeys,
 			JoinTableForeignKey{
@@ -42,7 +42,7 @@ func (jth *JoinTableHandler) Setup(
 		)
 	}
 
-	jth.Destination = JoinTableSource{ModelType: destination}
+	jth.Destination = JoinTableInfo{ModelType: destination}
 	for idx, dbName := range AssociationForeignFieldNames {
 		jth.Destination.ForeignKeys = append(
 			jth.Destination.ForeignKeys,
@@ -196,11 +196,33 @@ func (jth JoinTableHandler) JoinWith(handler JoinTableHandlerInterface, con *DBC
 
 		return con.Joins(
 			fmt.Sprintf("INNER JOIN %v ON %v", quotedTableName, joinConditions)).
-			Where(  condString,
+			Where(condString,
 				toQueryValues(foreignFieldValues)...,
 			)
 	}
 
 	con.Error = errors.New("JOIN : wrong source type for join table handler")
 	return con
+}
+
+//for debugging
+func (jth *JoinTableHandler) GetHandlerStruct() *JoinTableHandler {
+	return jth
+}
+
+//implementation of Stringer
+func (jth JoinTableHandler) String() string {
+	var collector Collector
+	collector.add("---\n")
+	collector.add("\tTable name : %s\n", jth.TableName)
+	collector.add("\t\tDestination model type : %v\n", jth.Destination.ModelType)
+	for _, fk := range jth.Destination.ForeignKeys {
+		collector.add("\t\t\tDestination FK : %s -> %s\n", fk.DBName, fk.AssociationDBName)
+	}
+	collector.add("\t\tSource model type : %v\n", jth.Destination.ModelType)
+	for _, fk := range jth.Destination.ForeignKeys {
+		collector.add("\t\t\tSource FK : %s -> %s\n", fk.DBName, fk.AssociationDBName)
+	}
+	collector.add("---\n")
+	return collector.String()
 }

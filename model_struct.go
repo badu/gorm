@@ -73,10 +73,15 @@ func (modelStruct *ModelStruct) Create(reflectType reflect.Type, scope *Scope) {
 		}
 		modelStruct.defaultTableName = tableName
 	}
-
+	if reflectType.Name() == "JoinTableHandler" {
+		fmt.Printf("!!! ModelStruct JoinTableHandler\n")
+	} else {
+		fmt.Printf("New struct typed %q\n", reflectType.Name())
+	}
 	// Get all fields
 	for i := 0; i < reflectType.NumField(); i++ {
 		if fieldStruct := reflectType.Field(i); ast.IsExported(fieldStruct.Name) {
+
 			field, err := NewStructField(fieldStruct)
 			if err != nil {
 				scope.Err(errors.New(fmt.Sprintf(proc_tag_err, modelStruct.ModelType.Name(), err)))
@@ -105,7 +110,9 @@ func (modelStruct *ModelStruct) Create(reflectType reflect.Type, scope *Scope) {
 					continue
 				}
 			}
-
+			if reflectType.Name() == "JoinTableHandler" {
+				fmt.Printf("[ModelStruct] JoinTableHandler : %s add %q as field of the struct.\n", fieldStruct.Name, field.DBName)
+			}
 			err = modelStruct.fieldsMap.Add(field)
 			if err != nil {
 				scope.Err(errors.New(fmt.Sprintf(add_field_err, modelStruct.ModelType.Name(), err)))

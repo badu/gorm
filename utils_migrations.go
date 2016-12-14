@@ -15,6 +15,7 @@ func createJoinTable(scope *Scope, field *StructField) {
 		)
 
 		if !dialect.HasTable(joinTable) {
+			fmt.Printf("<-- Creating Table %q for:\n%v\n", joinTable, field)
 			var (
 				ForeignDBNames               = field.GetSliceSetting(FOREIGN_DB_NAMES)
 				ForeignFieldNames            = field.GetSliceSetting(FOREIGN_FIELD_NAMES)
@@ -25,6 +26,7 @@ func createJoinTable(scope *Scope, field *StructField) {
 			)
 
 			for idx, fieldName := range ForeignFieldNames {
+				fmt.Printf("%q FK %q\n", fieldName, field.DBName)
 				if field, ok := scope.FieldByName(fieldName); ok {
 					clonedField := field.clone()
 					clonedField.UnsetIsPrimaryKey()
@@ -38,10 +40,13 @@ func createJoinTable(scope *Scope, field *StructField) {
 						primaryKeys += ","
 					}
 					primaryKeys += Quote(ForeignDBNames[idx], dialect)
+				} else {
+					fmt.Printf("Foreign Field %q not found\n", fieldName)
 				}
 			}
 
 			for idx, fieldName := range AssociationForeignFieldNames {
+				fmt.Printf("%q AFK %v\n", fieldName, toScope.Value)
 				if field, ok := toScope.FieldByName(fieldName); ok {
 					clonedField := field.clone()
 					clonedField.UnsetIsPrimaryKey()
@@ -55,6 +60,8 @@ func createJoinTable(scope *Scope, field *StructField) {
 						primaryKeys += ","
 					}
 					primaryKeys += Quote(AssociationForeignDBNames[idx], dialect)
+				} else {
+					fmt.Printf("Association Field %q not found\n", fieldName)
 				}
 			}
 
@@ -67,6 +74,13 @@ func createJoinTable(scope *Scope, field *StructField) {
 				tableOptions = tableOptions.(string)
 			}
 
+			fmt.Println("\n\n--> CreateJoinTable SQL: " + fmt.Sprintf(
+				"CREATE TABLE %v (%v, PRIMARY KEY (%v)) %s",
+				Quote(joinTable, dialect),
+				sqlTypes,
+				primaryKeys,
+				tableOptions,
+			))
 			scope.Err(newCon(scope.con).Exec(
 				fmt.Sprintf(
 					"CREATE TABLE %v (%v, PRIMARY KEY (%v)) %s",
@@ -76,8 +90,20 @@ func createJoinTable(scope *Scope, field *StructField) {
 					tableOptions,
 				),
 			).Error)
+		} else {
+			fmt.Printf("Handler Struct :\n%s\n", joinTableHandler.GetHandlerStruct())
 		}
+
+
+
+		if field.IsSlice() {
+			fmt.Printf("Running automigrate with joinTableHandler : %q ([]%v)\n", joinTable, field.Type)
+		} else {
+			fmt.Printf("Running automigrate with joinTableHandler : %q (%v)\n", joinTable, field.Type)
+		}
+		//TODO : @Badu - FIX ME
 		newCon(scope.con).Table(joinTable).AutoMigrate(joinTableHandler)
+
 	}
 }
 
@@ -183,7 +209,7 @@ func addIndex(scope *Scope, unique bool, indexName string, column ...string) {
 func autoMigrate(scope *Scope) {
 	var (
 		tableName = scope.TableName()
-		dialect = scope.con.parent.dialect
+		dialect   = scope.con.parent.dialect
 	)
 
 	if !dialect.HasTable(tableName) {

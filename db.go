@@ -652,6 +652,10 @@ func (con *DBCon) AutoMigrate(values ...interface{}) *DBCon {
 	conn := con.Unscoped()
 	//TODO : @Badu - find a way to order by relationships, so we can drop foreign keys before migrate
 	for _, value := range values {
+		//check if implements JoinTableHandler to remove bugs
+		if handler, ok := value.(JoinTableHandlerInterface); ok {
+			fmt.Printf("\n\nBad value on automigrate : JoinTableHandlerInterface %q\n\n", handler.Table(con))
+		}
 		scope := conn.NewScope(value)
 		autoMigrate(scope)
 		conn = scope.con
@@ -778,6 +782,8 @@ func (con *DBCon) SetJoinTableHandler(source interface{}, column string, handler
 				//field.Relationship.JoinTableHandler = handler
 				field.SetTagSetting(JOIN_TABLE_HANDLER, handler)
 				if table := handler.Table(con); con.parent.dialect.HasTable(table) {
+					//TODO : @Badu - FIX ME
+					fmt.Printf("DO NOT AUTOMIGRATE PASSING JOIN TABLE HANDLER INTERFACE")
 					con.Table(table).AutoMigrate(handler)
 				}
 			}
@@ -869,7 +875,7 @@ func (con *DBCon) log(v ...interface{}) {
 }
 
 func (con *DBCon) slog(sql string, t time.Time, vars ...interface{}) {
-	if con.logMode == LOG_VERBOSE {
+	if con.logMode == LOG_VERBOSE || con.logMode == LOG_DEBUG {
 		con.toLog("sql", fileWithLineNum(), NowFunc().Sub(t), sql, vars)
 	}
 }
