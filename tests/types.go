@@ -698,7 +698,7 @@ func (p Person) String() string {
 		"id", p.Id,
 		"type", p.Name)
 	if len(p.Addresses) > 0 {
-		optionals += fmt.Sprintf(",%q:%d", "addresses", len(p.Addresses))
+		optionals += fmt.Sprintf("%d %s", len(p.Addresses), "addresses")
 	}
 	return fmt.Sprint(optionals)
 }

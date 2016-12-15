@@ -5,17 +5,20 @@ import (
 )
 
 func DoJoinTable(t *testing.T) {
+
 	TestDB.Exec("drop table person_addresses;")
-	TestDB.AutoMigrate(&Person{})
+	TestDB.AutoMigrate(&Person{},&PersonAddress{})
 	TestDB.SetJoinTableHandler(&Person{}, "Addresses", &PersonAddress{})
 
 	address1 := &Address{Address1: "address 1 of person 1"}
 	address2 := &Address{Address1: "address 2 of person 1"}
-	person := &Person{Name: "person", Addresses: []*Address{address1, address2}}
+	person := &Person{Name: "person which is people because ?", Addresses: []*Address{address1, address2}}
 	TestDB.Save(person)
 	person2 := &Person{}
-	TestDB.Model(person).Where(Person{Id: person.Id}).Related(&person2.Addresses, "Addresses").Find(&person2)
-	//TODO : @Badu - seems to me it fails retrieving with relations as I expect it
+
+	TestDB.Model(Person{}).Related(&person2.Addresses, "Addresses").Where(Person{Id: person.Id}).Find(&person2)
+
+	//t.Logf("%s", person2)
 	TestDB.Model(person).Association("Addresses").Delete(address1)
 
 	if TestDB.Find(&[]PersonAddress{}, "person_id = ?", person.Id).RowsAffected != 1 {

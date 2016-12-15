@@ -480,18 +480,21 @@ func (field *StructField) parseTagSettings(tag reflect.StructTag) error {
 							storedValue, _ = strconv.Atoi(v[1])
 						case association_foreign_key, foreignkey:
 							var strSlice StrSlice
-							if len(v) >= 2 {
-								strSlice = append(strSlice, v[1:]...)
-							} else {
-								strSlice = append(strSlice, k)
+							if len(v) != 2 {
+								errMsg := fmt.Sprintf(missing_field_names_err, k, str)
+								//fmt.Printf("\n\nERROR : %v\n\n", errMsg)
+								return errors.New(errMsg)
 							}
+							keyNames := strings.Split(v[1], ",")
+							strSlice = append(strSlice, keyNames...)
+
 							storedValue = strSlice
+							//fmt.Printf("Making slice of %s = %v (%d pcs , %d pcs) for %q field.\n", cachedReverseTagSettingsMap[uint8Key], storedValue, len(strSlice), len(v), field.Names[0])
 						}
-						fmt.Printf("Making slice of %s = %v for %q field.\n", cachedReverseTagSettingsMap[uint8Key], storedValue, field.Names[0])
 						field.tagSettings.set(uint8Key, storedValue)
 					} else {
 						errMsg := fmt.Sprintf(key_not_found_err, k, str)
-						fmt.Printf("\n\nERROR : %v\n\n", errMsg)
+						//fmt.Printf("\n\nERROR : %v\n\n", errMsg)
 						return errors.New(errMsg)
 					}
 				}

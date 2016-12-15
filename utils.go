@@ -440,13 +440,9 @@ func fullFileWithLineNum() string {
 }
 
 func fileWithLineNum() string {
-	for i := 12; i > 1; i-- {
+	for i := 1; i < 12; i++ {
 		_, file, line, ok := runtime.Caller(i)
-		//if ok {
-		//	fmt.Println(fmt.Sprintf("%d - %v:%v", i, file, line))
-		//}
-		//!regexpSelf.MatchString(file)
-		if ok && !strings.Contains(file , "testing.go") && !strings.Contains(file, "asm_"){
+		if ok && !regexpSelf.MatchString(file) {
 			return fmt.Sprintf("%v:%v", file, line)
 		}
 

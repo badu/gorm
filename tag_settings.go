@@ -6,7 +6,8 @@ import (
 
 const (
 	//error if tag not defined
-	key_not_found_err string = "TagSetting : COULDN'T FIND KEY FOR %q ON %q"
+	key_not_found_err       string = "TagSetting : COULDN'T FIND KEY FOR %q ON %q"
+	missing_field_names_err string = "TagSetting : missing (or two many) field names in foreign or association key"
 
 	//StructField TagSettings constants
 	MANY2MANY_NAME                  uint8 = 1
@@ -108,7 +109,8 @@ var (
 
 	cachedReverseTagSettingsMap map[uint8]string
 )
-func init(){
+
+func init() {
 	cachedReverseTagSettingsMap = make(map[uint8]string)
 	for k, v := range tagSettingMap {
 		cachedReverseTagSettingsMap[v] = k

@@ -3,8 +3,10 @@ package tests
 import (
 	"database/sql"
 	"database/sql/driver"
+	"encoding/json"
 	"fmt"
 	"github.com/erikstmartin/go-testdb"
+	"github.com/jinzhu/now"
 	"gorm"
 	pgdialect "gorm/dialects/postgres"
 	"os"
@@ -12,8 +14,6 @@ import (
 	"strconv"
 	"testing"
 	"time"
-	"encoding/json"
-	"github.com/jinzhu/now"
 )
 
 func toJSONString(v interface{}) []byte {
@@ -39,8 +39,8 @@ func OpenTestConnection(t *testing.T) {
 	osDialect := os.Getenv("GORM_DIALECT")
 	osDBAddress := os.Getenv("GORM_DBADDRESS")
 	//to test with mysql
-	osDialect = "mysql"
-	osDBAddress = "127.0.0.1:3306"
+	//osDialect = "mysql"
+	//osDBAddress = "127.0.0.1:3306"
 
 	switch osDialect {
 	case "mysql":
@@ -121,8 +121,8 @@ func RunMigration(t *testing.T) {
 	for _, value := range values {
 		TestDB.DropTable(value)
 	}
-	if err := TestDB.AutoMigrate(values...).Error; err != nil {
-		t.Fatalf("No error should happen when create table, but got %+v", err)
+	if TestDBErr = TestDB.AutoMigrate(values...).Error; TestDBErr!= nil {
+		t.Errorf("No error should happen when create table, but got %+v", TestDBErr)
 	}
 	//t.Log("Migration done.")
 }
@@ -455,11 +455,13 @@ func Rows(t *testing.T) {
 	user1 := User{Name: "RowsUser1", Age: 1, Birthday: parseTime("2000-1-1")}
 	user2 := User{Name: "RowsUser2", Age: 10, Birthday: parseTime("2010-1-1")}
 	user3 := User{Name: "RowsUser3", Age: 20, Birthday: parseTime("2020-1-1")}
-	TestDB.Save(&user1).Save(&user2).Save(&user3)
-
+	err := TestDB.Save(&user1).Save(&user2).Save(&user3).Error
+	if err != nil {
+		t.Errorf("No error should happen, got %v", err)
+	}
 	rows, err := TestDB.Table("users").Where("name = ? or name = ?", user2.Name, user3.Name).Select("name, age").Rows()
 	if err != nil {
-		t.Errorf("Not error should happen, got %v", err)
+		t.Errorf("No error should happen, got %v", err)
 	}
 
 	count := 0

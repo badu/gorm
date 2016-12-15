@@ -211,7 +211,7 @@ func ManyToManyWithCustomizedForeignKeys2(t *testing.T) {
 	if dialect := os.Getenv("GORM_DIALECT"); dialect != "" && dialect != "sqlite" {
 		//TestDB.SetLogMode(gorm.LOG_DEBUG)
 		TestDB.DropTable(&Blog{}, &Tag{})
-		TestDB.DropTable("locale_blog_tags")
+		TestDB.DropTable("blog_tags", "locale_blog_tags", "shared_blog_tags", "blogs_tags")
 		TestDB.CreateTable(&Blog{}, &Tag{})
 		blog := Blog{
 			Locale:  "ZH",

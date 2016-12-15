@@ -1,8 +1,8 @@
 package tests
 
 import (
-	"testing"
 	"gorm"
+	"testing"
 )
 
 func ToDBNameGenerateFriendlyName(t *testing.T) {

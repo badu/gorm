@@ -11,6 +11,9 @@ func TestAllGorm(t *testing.T) {
 		t.Fatalf("No error should happen when connecting to test database, but got err=%+v", TestDBErr)
 	}
 	t.Run("1) RunMigration", RunMigration)
+	if TestDBErr != nil {
+		t.Fatalf("No error should happen when connecting to test database, but got err=%+v", TestDBErr)
+	}
 	t.Run("2) TestStringPrimaryKey", StringPrimaryKey)
 	t.Run("3) TestSetTable", SetTable)
 	t.Run("4) TestExceptionsWithInvalidSql", ExceptionsWithInvalidSql)
@@ -156,30 +159,12 @@ func TestAllGorm(t *testing.T) {
 	t.Run("147) QueryOption", QueryOption)
 }
 
-func TestFailure(t *testing.T) {
-	t.Run("0) Open connection", OpenTestConnection)
-	if TestDBErr != nil {
-		t.Fatalf("No error should happen when connecting to test database, but got err=%+v", TestDBErr)
-	}
-
-	t.Run("74) ManyToManyWithCustomizedForeignKeys2", ManyToManyWithCustomizedForeignKeys2)
-}
-
-func TempTestQueryOption(t *testing.T) {
-	t.Run("0) Open connection", OpenTestConnection)
-	if TestDBErr != nil {
-		t.Fatalf("No error should happen when connecting to test database, but got err=%+v", TestDBErr)
-	}
-	t.Run("1) RunMigration", RunMigration)
-
-	t.Run("147) QueryOption", QueryOption)
-}
-
 func TempTestListModels(t *testing.T) {
 	t.Run("0) Open connection", OpenTestConnection)
 	if TestDBErr != nil {
 		t.Fatalf("No error should happen when connecting to test database, but got err=%+v", TestDBErr)
 	}
+	//TestDB.SetLogMode(gorm.LOG_DEBUG)
 	t.Run("1) RunMigration", RunMigration)
 
 	for _, value := range gorm.ModelStructsMap.M() {

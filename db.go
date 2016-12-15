@@ -652,10 +652,6 @@ func (con *DBCon) AutoMigrate(values ...interface{}) *DBCon {
 	conn := con.Unscoped()
 	//TODO : @Badu - find a way to order by relationships, so we can drop foreign keys before migrate
 	for _, value := range values {
-		//check if implements JoinTableHandler to remove bugs
-		if handler, ok := value.(JoinTableHandlerInterface); ok {
-			fmt.Printf("\n\nBad value on automigrate : JoinTableHandlerInterface %q\n\n", handler.Table(con))
-		}
 		scope := conn.NewScope(value)
 		autoMigrate(scope)
 		conn = scope.con
@@ -779,13 +775,9 @@ func (con *DBCon) SetJoinTableHandler(source interface{}, column string, handler
 				destination := (&Scope{Value: field.Interface()}).GetModelStruct().ModelType
 				handler.SetTable(field.GetStrSetting(MANY2MANY_NAME))
 				handler.Setup(field, src, destination)
-				//field.Relationship.JoinTableHandler = handler
 				field.SetTagSetting(JOIN_TABLE_HANDLER, handler)
-				if table := handler.Table(con); con.parent.dialect.HasTable(table) {
-					//TODO : @Badu - FIX ME
-					fmt.Printf("DO NOT AUTOMIGRATE PASSING JOIN TABLE HANDLER INTERFACE")
-					con.Table(table).AutoMigrate(handler)
-				}
+				table := handler.Table(con)
+				createJoinTable(con.Table(table).Unscoped().NewScope(field), field)
 			}
 		}
 	}

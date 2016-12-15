@@ -7,104 +7,93 @@ import (
 
 //used in autoMigrate and createTable
 func createJoinTable(scope *Scope, field *StructField) {
-	if field.HasSetting(JOIN_TABLE_HANDLER) {
-		var (
-			dialect          = scope.con.parent.dialect
-			joinTableHandler = field.JoinHandler()
-			joinTable        = joinTableHandler.Table(scope.con)
-		)
-
-		if !dialect.HasTable(joinTable) {
-			fmt.Printf("<-- Creating Table %q for:\n%v\n", joinTable, field)
-			var (
-				ForeignDBNames               = field.GetSliceSetting(FOREIGN_DB_NAMES)
-				ForeignFieldNames            = field.GetSliceSetting(FOREIGN_FIELD_NAMES)
-				AssociationForeignFieldNames = field.GetSliceSetting(ASSOCIATION_FOREIGN_FIELD_NAMES)
-				AssociationForeignDBNames    = field.GetSliceSetting(ASSOCIATION_FOREIGN_DB_NAMES)
-				toScope                      = &Scope{Value: field.Interface()}
-				sqlTypes, primaryKeys        string
-			)
-
-			for idx, fieldName := range ForeignFieldNames {
-				fmt.Printf("%q FK %q\n", fieldName, field.DBName)
-				if field, ok := scope.FieldByName(fieldName); ok {
-					clonedField := field.clone()
-					clonedField.UnsetIsPrimaryKey()
-					//TODO : @Badu - document that you cannot use IS_JOINTABLE_FOREIGNKEY in conjunction with AUTO_INCREMENT
-					clonedField.UnsetIsAutoIncrement()
-					if sqlTypes != "" {
-						sqlTypes += ","
-					}
-					sqlTypes += Quote(ForeignDBNames[idx], dialect) + " " + dialect.DataTypeOf(clonedField)
-					if primaryKeys != "" {
-						primaryKeys += ","
-					}
-					primaryKeys += Quote(ForeignDBNames[idx], dialect)
-				} else {
-					fmt.Printf("Foreign Field %q not found\n", fieldName)
-				}
-			}
-
-			for idx, fieldName := range AssociationForeignFieldNames {
-				fmt.Printf("%q AFK %v\n", fieldName, toScope.Value)
-				if field, ok := toScope.FieldByName(fieldName); ok {
-					clonedField := field.clone()
-					clonedField.UnsetIsPrimaryKey()
-					//TODO : @Badu - document that you cannot use IS_JOINTABLE_FOREIGNKEY in conjunction with AUTO_INCREMENT
-					clonedField.UnsetIsAutoIncrement()
-					if sqlTypes != "" {
-						sqlTypes += ","
-					}
-					sqlTypes += Quote(AssociationForeignDBNames[idx], dialect) + " " + dialect.DataTypeOf(clonedField)
-					if primaryKeys != "" {
-						primaryKeys += ","
-					}
-					primaryKeys += Quote(AssociationForeignDBNames[idx], dialect)
-				} else {
-					fmt.Printf("Association Field %q not found\n", fieldName)
-				}
-			}
-
-			// getTableOptions return the table options string or an empty string if the table options does not exist
-			// It's settable by end user
-			tableOptions, ok := scope.Get(TABLE_OPT_SETTING)
-			if !ok {
-				tableOptions = ""
-			} else {
-				tableOptions = tableOptions.(string)
-			}
-
-			fmt.Println("\n\n--> CreateJoinTable SQL: " + fmt.Sprintf(
-				"CREATE TABLE %v (%v, PRIMARY KEY (%v)) %s",
-				Quote(joinTable, dialect),
-				sqlTypes,
-				primaryKeys,
-				tableOptions,
-			))
-			scope.Err(newCon(scope.con).Exec(
-				fmt.Sprintf(
-					"CREATE TABLE %v (%v, PRIMARY KEY (%v)) %s",
-					Quote(joinTable, dialect),
-					sqlTypes,
-					primaryKeys,
-					tableOptions,
-				),
-			).Error)
-		} else {
-			fmt.Printf("Handler Struct :\n%s\n", joinTableHandler.GetHandlerStruct())
-		}
-
-
-
-		if field.IsSlice() {
-			fmt.Printf("Running automigrate with joinTableHandler : %q ([]%v)\n", joinTable, field.Type)
-		} else {
-			fmt.Printf("Running automigrate with joinTableHandler : %q (%v)\n", joinTable, field.Type)
-		}
-		//TODO : @Badu - FIX ME
-		newCon(scope.con).Table(joinTable).AutoMigrate(joinTableHandler)
-
+	//ignore fields without join table handler
+	if !field.HasSetting(JOIN_TABLE_HANDLER) {
+		return
 	}
+	var (
+		joinHandler           = field.JoinHandler()
+		dialect               = scope.con.parent.dialect
+		handler               = joinHandler.GetHandlerStruct()
+		tableName             = handler.Table(scope.con)
+		sqlTypes, primaryKeys string
+	)
+
+	if !dialect.HasTable(tableName) {
+		// getTableOptions return the table options string or an empty string if the table options does not exist
+		// It's settable by end user
+		tableOptions, ok := scope.Get(TABLE_OPT_SETTING)
+		if !ok {
+			tableOptions = ""
+		} else {
+			tableOptions = tableOptions.(string)
+		}
+		destinationValue := ModelStructsMap.Get(handler.Destination.ModelType)
+		if destinationValue != nil {
+			for _, fk := range handler.Destination.ForeignKeys {
+				if sqlTypes != "" {
+					sqlTypes += ","
+				}
+				if primaryKeys != "" {
+					primaryKeys += ","
+				}
+				theField, ok := destinationValue.FieldByName(fk.AssociationDBName)
+				if ok {
+					//clone the field so we can unset primary key and autoincrement values
+					clone := theField.clone()
+					clone.UnsetIsPrimaryKey()
+					clone.UnsetIsAutoIncrement()
+					sqlTypes += Quote(fk.DBName, dialect) + " " + dialect.DataTypeOf(clone)
+					primaryKeys += Quote(fk.DBName, dialect)
+				} else {
+					errMsg := fmt.Errorf("ERROR : %q doesn't have a field named %q", destinationValue.ModelType.Name(), fk.AssociationDBName)
+					fmt.Println(errMsg)
+					scope.Err(errMsg)
+				}
+			}
+		} else {
+			errMsg := fmt.Errorf("ERROR : Could not find %s in ModelStructsMap", handler.Destination.ModelType.Name())
+			fmt.Println(errMsg)
+			scope.Err(errMsg)
+		}
+		sourceValue := ModelStructsMap.Get(handler.Source.ModelType)
+		if sourceValue != nil {
+			for _, fk := range handler.Source.ForeignKeys {
+				if sqlTypes != "" {
+					sqlTypes += ","
+				}
+				if primaryKeys != "" {
+					primaryKeys += ","
+				}
+				theField, ok := sourceValue.FieldByName(fk.AssociationDBName)
+				if ok {
+					//clone the field so we can unset primary key and autoincrement values
+					clone := theField.clone()
+					clone.UnsetIsPrimaryKey()
+					clone.UnsetIsAutoIncrement()
+					sqlTypes += Quote(fk.DBName, dialect) + " " + dialect.DataTypeOf(clone)
+					primaryKeys += Quote(fk.DBName, dialect)
+				} else {
+					errMsg := fmt.Errorf("ERROR : %q doesn't have a field named %q", sourceValue.ModelType.Name(), fk.AssociationDBName)
+					fmt.Println(errMsg)
+					scope.Err(errMsg)
+				}
+			}
+		} else {
+			errMsg := fmt.Errorf("ERROR : Could not find %s in ModelStructsMap", handler.Source.ModelType.Name())
+			fmt.Println(errMsg)
+			scope.Err(errMsg)
+		}
+		creationSQL := fmt.Sprintf(
+			"CREATE TABLE %v (%v, PRIMARY KEY (%v)) %s",
+			Quote(tableName, dialect),
+			sqlTypes,
+			primaryKeys,
+			tableOptions,
+		)
+		scope.Err(newCon(scope.con).Exec(creationSQL).Error)
+	}
+
 }
 
 //used in db.CreateTable and autoMigrate
@@ -115,7 +104,8 @@ func createTable(scope *Scope) {
 		primaryKeyInColumnType = false
 		primaryKeyStr          string
 		//because we're using it in a for, we're getting it once
-		dialect = scope.con.parent.dialect
+		dialect   = scope.con.parent.dialect
+		tableName = QuotedTableName(scope)
 	)
 
 	for _, field := range scope.GetModelStruct().StructFields() {
@@ -160,7 +150,7 @@ func createTable(scope *Scope) {
 	scope.Raw(
 		fmt.Sprintf(
 			"CREATE TABLE %v (%v %v) %s",
-			QuotedTableName(scope),
+			tableName,
 			tags,
 			primaryKeyStr,
 			tableOptions,
@@ -215,7 +205,6 @@ func autoMigrate(scope *Scope) {
 	if !dialect.HasTable(tableName) {
 		createTable(scope)
 	} else {
-
 		var (
 			quotedTableName = QuotedTableName(scope)
 		)

@@ -128,7 +128,6 @@ func (jth *JoinTableHandler) SetTable(name string) {
 
 //implementation of JoinTableHandlerInterface
 // Delete delete relationship in join table for sources
-// TODO : @Badu - it's a lie : did nothing with sources, because sources was Relationship
 func (jth JoinTableHandler) Delete(handler JoinTableHandlerInterface, con *DBCon) error {
 	return con.Table(handler.Table(con)).Delete("").Error
 }
@@ -213,16 +212,16 @@ func (jth *JoinTableHandler) GetHandlerStruct() *JoinTableHandler {
 //implementation of Stringer
 func (jth JoinTableHandler) String() string {
 	var collector Collector
-	collector.add("---\n")
+
 	collector.add("\tTable name : %s\n", jth.TableName)
 	collector.add("\t\tDestination model type : %v\n", jth.Destination.ModelType)
 	for _, fk := range jth.Destination.ForeignKeys {
 		collector.add("\t\t\tDestination FK : %s -> %s\n", fk.DBName, fk.AssociationDBName)
 	}
-	collector.add("\t\tSource model type : %v\n", jth.Destination.ModelType)
-	for _, fk := range jth.Destination.ForeignKeys {
+	collector.add("\t\tSource model type : %v\n", jth.Source.ModelType)
+	for _, fk := range jth.Source.ForeignKeys {
 		collector.add("\t\t\tSource FK : %s -> %s\n", fk.DBName, fk.AssociationDBName)
 	}
-	collector.add("---\n")
+
 	return collector.String()
 }

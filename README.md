@@ -39,7 +39,17 @@
 - [ ] Debug SQL string even when it fails 
 - [ ] Documentation for tests and build examples
 - [ ] Generated SQL let's the SQL engine cast : SELECT * FROM aTable WHERE id = '1' (id being int). I think it's a bad practice and it should be fixed
-- [ ] Fix for calling AutoMigrate with JoinTableHandlerInterface
+
+## 15.12.2016
+- [x] Bug fix for ManyToManyWithCustomizedForeignKeys2
+- [x] Fix for calling AutoMigrate with JoinTableHandlerInterface
+- [x] refactored createJoinTable in utils_migrations
+- [x] Fix DoJoinTable test : SetJoinTableHandler should be used only if AutoMigrate creates the tables first
+`TestDB.AutoMigrate(&Person{},&PersonAddress{})
+TestDB.SetJoinTableHandler(&Person{}, "Addresses", &PersonAddress{})`
+   instead of 
+`TestDB.AutoMigrate(&Person{})
+TestDB.SetJoinTableHandler(&Person{}, "Addresses", &PersonAddress{})`
 
 ## 14.12.2016
 - [x] Bug fix in StructField ParseFieldStructForDialect : slice of bytes is wrong (probably all kind of slices are)
