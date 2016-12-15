@@ -43,7 +43,7 @@ func (mysql) DataTypeOf(field *StructField) string {
 	// be a KEY column.
 	//TODO : @Badu : document that if it has auto_increment but it's not an index, we ignore auto_increment
 	if field.IsAutoIncrement() {
-		if !field.HasSetting(INDEX) && !field.IsPrimaryKey() {
+		if !field.HasSetting(set_index) && !field.IsPrimaryKey() {
 			field.UnsetIsAutoIncrement()
 		}
 	}
@@ -90,7 +90,7 @@ func (mysql) DataTypeOf(field *StructField) string {
 			}
 		case reflect.Struct:
 			if _, ok := dataValue.Interface().(time.Time); ok {
-				if field.HasSetting(NOT_NULL) {
+				if field.HasSetting(set_not_null) {
 					sqlType = MYSQL_TIMESTAMP
 				} else {
 					sqlType = MYSQL_TIMESTAMP + " NULL"

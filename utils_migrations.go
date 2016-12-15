@@ -8,7 +8,7 @@ import (
 //used in autoMigrate and createTable
 func createJoinTable(scope *Scope, field *StructField) {
 	//ignore fields without join table handler
-	if !field.HasSetting(JOIN_TABLE_HANDLER) {
+	if !field.HasSetting(set_join_table_handler) {
 		return
 	}
 	var (
@@ -237,20 +237,20 @@ func autoIndex(scope *Scope) {
 
 	for _, field := range scope.GetModelStruct().StructFields() {
 
-		if field.HasSetting(INDEX) {
-			names := strings.Split(field.GetStrSetting(INDEX), ",")
+		if field.HasSetting(set_index) {
+			names := strings.Split(field.GetStrSetting(set_index), ",")
 
 			for _, name := range names {
-				if name == index || name == "" {
+				if name == tag_index || name == "" {
 					name = fmt.Sprintf("idx_%v_%v", scope.TableName(), field.DBName)
 				}
 				indexes[name] = append(indexes[name], field.DBName)
 			}
 		}
-		if field.HasSetting(UNIQUE_INDEX) {
-			names := strings.Split(field.GetStrSetting(UNIQUE_INDEX), ",")
+		if field.HasSetting(set_unique_index) {
+			names := strings.Split(field.GetStrSetting(set_unique_index), ",")
 			for _, name := range names {
-				if name == unique_index || name == "" {
+				if name == tag_unique_index || name == "" {
 					name = fmt.Sprintf("uix_%v_%v", scope.TableName(), field.DBName)
 				}
 				uniqueIndexes[name] = append(uniqueIndexes[name], field.DBName)

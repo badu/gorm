@@ -905,9 +905,9 @@ func (s *Search) doPreload(scope *Scope) {
 					}
 
 					switch field.RelKind() {
-					case HAS_ONE, HAS_MANY, BELONGS_TO:
+					case rel_has_one, rel_has_many, rel_belongs_to:
 						handleRelationPreload(currentScope, field, currentPreloadConditions)
-					case MANY_TO_MANY:
+					case rel_many2many:
 						handleManyToManyPreload(currentScope, field, currentPreloadConditions)
 					default:
 						scope.Err(errors.New("SCOPE : unsupported relation"))

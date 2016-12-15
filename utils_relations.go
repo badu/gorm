@@ -19,8 +19,8 @@ const (
 
 func makePoly(field *StructField, toModel *ModelStruct, fromScope *Scope) string {
 	modelName := ""
-	if field.HasSetting(POLYMORPHIC) {
-		polyName := field.GetStrSetting(POLYMORPHIC)
+	if field.HasSetting(set_polymorphic) {
+		polyName := field.GetStrSetting(set_polymorphic)
 		polyFieldName := polyName + poly_type
 		// Dog has many toys, tag polymorphic is Owner, then associationType is Owner
 		// Toy use OwnerID, OwnerType ('dogs') as foreign key
@@ -46,31 +46,31 @@ func makeManyToMany(field *StructField,
 		elemName                            = NamesMap.ToDBName(elemType.Name())
 		modelType                           = fromModel.ModelType
 		modelName                           = NamesMap.ToDBName(modelType.Name())
-		referencedTable                     = field.GetStrSetting(MANY2MANY_NAME) //many to many is set (check is in ModelStruct)
+		referencedTable                     = field.GetStrSetting(set_many2many_name) //many to many is set (check is in ModelStruct)
 	)
 
-	if !field.HasSetting(FOREIGNKEY) {
+	if !field.HasSetting(set_foreignkey) {
 		// if no foreign keys defined with tag, we add the primary keys
 		for _, pk := range fromModel.PKs() {
 			foreignKeys.add(pk.DBName)
 		}
 	} else {
-		if field.HasSetting(FOREIGNKEY) {
-			foreignKeys = field.GetSliceSetting(FOREIGNKEY)
+		if field.HasSetting(set_foreignkey) {
+			foreignKeys = field.GetSliceSetting(set_foreignkey)
 		} else {
 			errMsg := fmt.Sprintf(has_no_foreign_key, "Many2Many")
 			fromScope.Warn(errMsg)
 		}
 	}
 
-	if !field.HasSetting(ASSOCIATIONFOREIGNKEY) {
+	if !field.HasSetting(set_associationforeignkey) {
 		// if no association foreign keys defined with tag, we add the primary keys
 		for _, pk := range toScope.PKs() {
 			associationForeignKeys.add(pk.DBName)
 		}
 	} else {
-		if field.HasSetting(ASSOCIATIONFOREIGNKEY) {
-			associationForeignKeys = field.GetSliceSetting(ASSOCIATIONFOREIGNKEY)
+		if field.HasSetting(set_associationforeignkey) {
+			associationForeignKeys = field.GetSliceSetting(set_associationforeignkey)
 		} else {
 			errMsg := fmt.Sprintf(has_no_association_key, "Many2Many")
 			fromScope.Warn(errMsg)
@@ -108,20 +108,20 @@ func makeManyToMany(field *StructField,
 		}
 	}
 
-	field.SetTagSetting(FOREIGN_FIELD_NAMES, ForeignFieldNames)
-	field.SetTagSetting(FOREIGN_DB_NAMES, ForeignDBNames)
-	field.SetTagSetting(ASSOCIATION_FOREIGN_FIELD_NAMES, AssociationForeignFieldNames)
-	field.SetTagSetting(ASSOCIATION_FOREIGN_DB_NAMES, AssociationForeignDBNames)
+	field.SetTagSetting(set_foreign_field_names, ForeignFieldNames)
+	field.SetTagSetting(set_foreign_db_names, ForeignDBNames)
+	field.SetTagSetting(set_association_foreign_field_names, AssociationForeignFieldNames)
+	field.SetTagSetting(set_association_foreign_db_names, AssociationForeignDBNames)
 
 	//we've finished with this information - removing for allocation sake
-	field.UnsetTagSetting(ASSOCIATIONFOREIGNKEY)
-	field.UnsetTagSetting(FOREIGNKEY)
+	field.UnsetTagSetting(set_associationforeignkey)
+	field.UnsetTagSetting(set_foreignkey)
 
 	field.SetHasRelations()
 
 	joinTableHandler := JoinTableHandler{TableName: referencedTable}
 	joinTableHandler.Setup(field, modelType, elemType)
-	field.SetTagSetting(JOIN_TABLE_HANDLER, &joinTableHandler)
+	field.SetTagSetting(set_join_table_handler, &joinTableHandler)
 }
 
 func makeHasMany(field *StructField,
@@ -167,14 +167,14 @@ func makeHasMany(field *StructField,
 	}
 
 	if ForeignFieldNames.len() != 0 {
-		field.SetTagSetting(RELATION_KIND, HAS_MANY)
-		field.SetTagSetting(FOREIGN_FIELD_NAMES, ForeignFieldNames)
-		field.SetTagSetting(FOREIGN_DB_NAMES, ForeignDBNames)
-		field.SetTagSetting(ASSOCIATION_FOREIGN_FIELD_NAMES, AssociationForeignFieldNames)
-		field.SetTagSetting(ASSOCIATION_FOREIGN_DB_NAMES, AssociationForeignDBNames)
+		field.SetTagSetting(set_relation_kind, rel_has_many)
+		field.SetTagSetting(set_foreign_field_names, ForeignFieldNames)
+		field.SetTagSetting(set_foreign_db_names, ForeignDBNames)
+		field.SetTagSetting(set_association_foreign_field_names, AssociationForeignFieldNames)
+		field.SetTagSetting(set_association_foreign_db_names, AssociationForeignDBNames)
 		//we've finished with this information - removing for allocation sake
-		field.UnsetTagSetting(ASSOCIATIONFOREIGNKEY)
-		field.UnsetTagSetting(FOREIGNKEY)
+		field.UnsetTagSetting(set_associationforeignkey)
+		field.UnsetTagSetting(set_foreignkey)
 		field.SetHasRelations()
 	}
 }
@@ -222,14 +222,14 @@ func makeHasOne(field *StructField,
 	}
 
 	if ForeignFieldNames.len() != 0 {
-		field.SetTagSetting(RELATION_KIND, HAS_ONE)
-		field.SetTagSetting(FOREIGN_FIELD_NAMES, ForeignFieldNames)
-		field.SetTagSetting(FOREIGN_DB_NAMES, ForeignDBNames)
-		field.SetTagSetting(ASSOCIATION_FOREIGN_FIELD_NAMES, AssociationForeignFieldNames)
-		field.SetTagSetting(ASSOCIATION_FOREIGN_DB_NAMES, AssociationForeignDBNames)
+		field.SetTagSetting(set_relation_kind, rel_has_one)
+		field.SetTagSetting(set_foreign_field_names, ForeignFieldNames)
+		field.SetTagSetting(set_foreign_db_names, ForeignDBNames)
+		field.SetTagSetting(set_association_foreign_field_names, AssociationForeignFieldNames)
+		field.SetTagSetting(set_association_foreign_db_names, AssociationForeignDBNames)
 		//we've finished with this information - removing for allocation sake
-		field.UnsetTagSetting(ASSOCIATIONFOREIGNKEY)
-		field.UnsetTagSetting(FOREIGNKEY)
+		field.UnsetTagSetting(set_associationforeignkey)
+		field.UnsetTagSetting(set_foreignkey)
 		field.SetHasRelations()
 		return true
 	}
@@ -272,14 +272,14 @@ func makeBelongTo(field *StructField,
 	}
 
 	if ForeignFieldNames.len() != 0 {
-		field.SetTagSetting(RELATION_KIND, BELONGS_TO)
-		field.SetTagSetting(FOREIGN_FIELD_NAMES, ForeignFieldNames)
-		field.SetTagSetting(FOREIGN_DB_NAMES, ForeignDBNames)
-		field.SetTagSetting(ASSOCIATION_FOREIGN_FIELD_NAMES, AssociationForeignFieldNames)
-		field.SetTagSetting(ASSOCIATION_FOREIGN_DB_NAMES, AssociationForeignDBNames)
+		field.SetTagSetting(set_relation_kind, rel_belongs_to)
+		field.SetTagSetting(set_foreign_field_names, ForeignFieldNames)
+		field.SetTagSetting(set_foreign_db_names, ForeignDBNames)
+		field.SetTagSetting(set_association_foreign_field_names, AssociationForeignFieldNames)
+		field.SetTagSetting(set_association_foreign_db_names, AssociationForeignDBNames)
 		//we've finished with this information - removing for allocation sake
-		field.UnsetTagSetting(ASSOCIATIONFOREIGNKEY)
-		field.UnsetTagSetting(FOREIGNKEY)
+		field.UnsetTagSetting(set_associationforeignkey)
+		field.UnsetTagSetting(set_foreignkey)
 		field.SetHasRelations()
 		return true
 	}
@@ -296,9 +296,9 @@ func collectFKsAndAFKs(field *StructField,
 	)
 
 	// if no foreign keys defined with tag
-	if !field.HasSetting(FOREIGNKEY) {
+	if !field.HasSetting(set_foreignkey) {
 		// if no association foreign keys defined with tag
-		if !field.HasSetting(ASSOCIATIONFOREIGNKEY) {
+		if !field.HasSetting(set_associationforeignkey) {
 			for _, pk := range model.PKs() {
 				if modelName == "" {
 					foreignKeys.add(field.StructName + pk.StructName)
@@ -308,8 +308,8 @@ func collectFKsAndAFKs(field *StructField,
 				associationForeignKeys.add(pk.StructName)
 			}
 		} else {
-			if field.HasSetting(ASSOCIATIONFOREIGNKEY) {
-				associationForeignKeys = field.GetSliceSetting(ASSOCIATIONFOREIGNKEY)
+			if field.HasSetting(set_associationforeignkey) {
+				associationForeignKeys = field.GetSliceSetting(set_associationforeignkey)
 			} else {
 				errMsg := fmt.Sprintf(has_no_association_key, "collectFKsAndAFKs")
 				scope.Warn(errMsg)
@@ -330,14 +330,14 @@ func collectFKsAndAFKs(field *StructField,
 			}
 		}
 	} else {
-		if field.HasSetting(FOREIGNKEY) {
-			foreignKeys = field.GetSliceSetting(FOREIGNKEY)
+		if field.HasSetting(set_foreignkey) {
+			foreignKeys = field.GetSliceSetting(set_foreignkey)
 		} else {
 			errMsg := fmt.Sprintf(has_no_foreign_key, "collectFKsAndAFKs")
 			scope.Warn(errMsg)
 		}
 		// generate association foreign keys from foreign keys
-		if !field.HasSetting(ASSOCIATIONFOREIGNKEY) {
+		if !field.HasSetting(set_associationforeignkey) {
 			for _, fk := range foreignKeys {
 				prefix := modelName
 				if modelName == "" {
@@ -357,8 +357,8 @@ func collectFKsAndAFKs(field *StructField,
 				associationForeignKeys = StrSlice{scope.PKName()}
 			}
 		} else {
-			if field.HasSetting(ASSOCIATIONFOREIGNKEY) {
-				associationForeignKeys = field.GetSliceSetting(ASSOCIATIONFOREIGNKEY)
+			if field.HasSetting(set_associationforeignkey) {
+				associationForeignKeys = field.GetSliceSetting(set_associationforeignkey)
 			} else {
 				errMsg := fmt.Sprintf(has_no_association_key, "collectFKsAndAFKs")
 				scope.Warn(errMsg)
@@ -381,16 +381,16 @@ func handleRelationPreload(scope *Scope, field *StructField, conditions []interf
 		query       = ""
 		primaryKeys [][]interface{}
 
-		ForeignDBNames               = field.GetSliceSetting(FOREIGN_DB_NAMES)
-		ForeignFieldNames            = field.GetSliceSetting(FOREIGN_FIELD_NAMES)
-		AssociationForeignFieldNames = field.GetSliceSetting(ASSOCIATION_FOREIGN_FIELD_NAMES)
-		AssociationForeignDBNames    = field.GetSliceSetting(ASSOCIATION_FOREIGN_DB_NAMES)
+		ForeignDBNames               = field.GetSliceSetting(set_foreign_db_names)
+		ForeignFieldNames            = field.GetSliceSetting(set_foreign_field_names)
+		AssociationForeignFieldNames = field.GetSliceSetting(set_association_foreign_field_names)
+		AssociationForeignDBNames    = field.GetSliceSetting(set_association_foreign_db_names)
 		FieldNames                   StrSlice
 		DBNames                      StrSlice
 	)
 
 	// get relations's primary keys
-	if field.RelKind() == BELONGS_TO {
+	if field.RelKind() == rel_belongs_to {
 		FieldNames = ForeignFieldNames
 	} else {
 		FieldNames = AssociationForeignFieldNames
@@ -407,7 +407,7 @@ func handleRelationPreload(scope *Scope, field *StructField, conditions []interf
 	values := toQueryValues(primaryKeys)
 
 	// find relations
-	if field.RelKind() == BELONGS_TO {
+	if field.RelKind() == rel_belongs_to {
 		DBNames = AssociationForeignDBNames
 	} else {
 		DBNames = ForeignDBNames
@@ -418,9 +418,9 @@ func handleRelationPreload(scope *Scope, field *StructField, conditions []interf
 		toQueryCondition(DBNames, dialect),
 		toQueryMarks(primaryKeys))
 
-	if field.HasSetting(POLYMORPHIC_TYPE) {
-		query += fmt.Sprintf(" AND %v = ?", Quote(field.GetStrSetting(POLYMORPHIC_DBNAME), dialect))
-		values = append(values, field.GetStrSetting(POLYMORPHIC_VALUE))
+	if field.HasSetting(set_polymorphic_type) {
+		query += fmt.Sprintf(" AND %v = ?", Quote(field.GetStrSetting(set_polymorphic_dbname), dialect))
+		values = append(values, field.GetStrSetting(set_polymorphic_value))
 	}
 
 	results, resultsValue := field.makeSlice()
@@ -428,7 +428,7 @@ func handleRelationPreload(scope *Scope, field *StructField, conditions []interf
 	// assign find results
 
 	switch field.RelKind() {
-	case HAS_ONE:
+	case rel_has_one:
 		switch indirectScopeValue.Kind() {
 		case reflect.Slice:
 			for j := 0; j < indirectScopeValue.Len(); j++ {
@@ -454,7 +454,7 @@ func handleRelationPreload(scope *Scope, field *StructField, conditions []interf
 				scope.Err(field.Set(result))
 			}
 		}
-	case HAS_MANY:
+	case rel_has_many:
 		switch indirectScopeValue.Kind() {
 		case reflect.Slice:
 			preloadMap := make(map[string][]reflect.Value)
@@ -478,7 +478,7 @@ func handleRelationPreload(scope *Scope, field *StructField, conditions []interf
 			scope.Err(field.Set(resultsValue))
 
 		}
-	case BELONGS_TO:
+	case rel_belongs_to:
 		for i := 0; i < resultsValue.Len(); i++ {
 			result := resultsValue.Index(i)
 			if indirectScopeValue.Kind() == reflect.Slice {
@@ -513,7 +513,7 @@ func handleManyToManyPreload(scope *Scope, field *StructField, conditions []inte
 		indirectScopeValue = IndirectValue(scope.Value)
 		fieldsSourceMap    = map[string][]reflect.Value{}
 		foreignFieldNames  = StrSlice{}
-		ForeignFieldNames  = field.GetSliceSetting(FOREIGN_FIELD_NAMES)
+		ForeignFieldNames  = field.GetSliceSetting(set_foreign_field_names)
 		joinTableHandler   = field.JoinHandler()
 	)
 
@@ -552,7 +552,7 @@ func handleManyToManyPreload(scope *Scope, field *StructField, conditions []inte
 				&StructField{
 					DBName: sourceKey.DBName,
 					Value:  reflect.New(foreignKeyType).Elem(),
-					flags:  0 | (1 << IS_NORMAL), //added as normal field
+					flags:  0 | (1 << ff_is_normal), //added as normal field
 				})
 		}
 

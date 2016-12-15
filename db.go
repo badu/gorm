@@ -751,7 +751,7 @@ func (con *DBCon) Association(column string) *Association {
 		err = errors.New("primary key can't be nil")
 	} else {
 		if field, ok := scope.FieldByName(column); ok {
-			ForeignFieldNames := field.GetSliceSetting(FOREIGN_FIELD_NAMES)
+			ForeignFieldNames := field.GetSliceSetting(set_foreign_field_names)
 			if !field.HasRelations() || ForeignFieldNames.len() == 0 {
 				err = fmt.Errorf("invalid association %v for %v", column, IndirectValue(scope.Value).Type())
 			} else {
@@ -770,12 +770,12 @@ func (con *DBCon) SetJoinTableHandler(source interface{}, column string, handler
 	scope := con.NewScope(source)
 	for _, field := range scope.GetModelStruct().StructFields() {
 		if field.StructName == column || field.DBName == column {
-			if field.HasSetting(MANY2MANY_NAME) {
+			if field.HasSetting(set_many2many_name) {
 				src := (&Scope{Value: source}).GetModelStruct().ModelType
 				destination := (&Scope{Value: field.Interface()}).GetModelStruct().ModelType
-				handler.SetTable(field.GetStrSetting(MANY2MANY_NAME))
+				handler.SetTable(field.GetStrSetting(set_many2many_name))
 				handler.Setup(field, src, destination)
-				field.SetTagSetting(JOIN_TABLE_HANDLER, handler)
+				field.SetTagSetting(set_join_table_handler, handler)
 				table := handler.Table(con)
 				createJoinTable(con.Table(table).Unscoped().NewScope(field), field)
 			}

@@ -26,10 +26,10 @@ func (jth *JoinTableHandler) Setup(
 	destination reflect.Type) {
 
 	var (
-		ForeignDBNames               = field.GetSliceSetting(FOREIGN_DB_NAMES)
-		ForeignFieldNames            = field.GetSliceSetting(FOREIGN_FIELD_NAMES)
-		AssociationForeignFieldNames = field.GetSliceSetting(ASSOCIATION_FOREIGN_FIELD_NAMES)
-		AssociationForeignDBNames    = field.GetSliceSetting(ASSOCIATION_FOREIGN_DB_NAMES)
+		ForeignDBNames               = field.GetSliceSetting(set_foreign_db_names)
+		ForeignFieldNames            = field.GetSliceSetting(set_foreign_field_names)
+		AssociationForeignFieldNames = field.GetSliceSetting(set_association_foreign_field_names)
+		AssociationForeignDBNames    = field.GetSliceSetting(set_association_foreign_db_names)
 	)
 
 	jth.Source = JoinTableInfo{ModelType: source}

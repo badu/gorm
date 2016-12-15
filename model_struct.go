@@ -92,8 +92,8 @@ func (modelStruct *ModelStruct) Create(reflectType reflect.Type, scope *Scope) {
 						subField = subField.clone()
 						subField.Names = append([]string{fieldStruct.Name}, subField.Names...)
 
-						if field.HasSetting(EMBEDDED_PREFIX) {
-							subField.DBName = field.GetStrSetting(EMBEDDED_PREFIX) + subField.DBName
+						if field.HasSetting(set_embedded_prefix) {
+							subField.DBName = field.GetStrSetting(set_embedded_prefix) + subField.DBName
 						}
 
 						err = modelStruct.fieldsMap.Add(subField)
@@ -148,7 +148,7 @@ func (modelStruct *ModelStruct) processRelations(scope *Scope) {
 			if field.IsSlice() {
 				if field.IsStruct() {
 					//it's a slice of structs
-					if field.HasSetting(MANY2MANY_NAME) {
+					if field.HasSetting(set_many2many_name) {
 						//many to many
 						makeManyToMany(field, modelStruct, scope, toScope)
 					} else {

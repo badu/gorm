@@ -11,6 +11,104 @@ import (
 )
 
 const (
+	//StructField TagSettings constants
+	set_many2many_name                  uint8 = 1
+	set_index                           uint8 = 2
+	set_not_null                        uint8 = 3
+	set_size                            uint8 = 4
+	set_unique_index                    uint8 = 5
+	set_is_jointable_foreignkey         uint8 = 6
+	set_default                         uint8 = 7
+	set_embedded_prefix                 uint8 = 8
+	set_foreignkey                      uint8 = 9
+	set_associationforeignkey           uint8 = 10
+	set_column                          uint8 = 11
+	set_type                            uint8 = 12
+	set_unique                          uint8 = 13
+	set_save_associations               uint8 = 14
+	set_polymorphic                     uint8 = 15
+	set_polymorphic_value               uint8 = 16 // was both PolymorphicValue in Relationship struct, and also collected from tags
+	set_polymorphic_type                uint8 = 17 // was PolymorphicType in Relationship struct
+	set_polymorphic_dbname              uint8 = 18 // was PolymorphicDBName in Relationship struct
+	set_relation_kind                   uint8 = 19 // was Kind in Relationship struct
+	set_join_table_handler              uint8 = 20 // was JoinTableHandler in Relationship struct
+	set_foreign_field_names             uint8 = 21 // was ForeignFieldNames in Relationship struct
+	set_foreign_db_names                uint8 = 22 // was ForeignDBNames in Relationship struct
+	set_association_foreign_field_names uint8 = 23 // was AssociationForeignFieldNames in Relationship struct
+	set_association_foreign_db_names    uint8 = 24 // was AssociationForeignDBNames in Relationship struct
+
+	//Tags that can be defined `sql` or `gorm`
+	tag_auto_increment          string = "AUTO_INCREMENT"
+	tag_primary_key             string = "PRIMARY_KEY"
+	tag_ignored                 string = "-"
+	tag_default_str             string = "DEFAULT"
+	tag_embedded                string = "EMBEDDED"
+	tag_many_to_many            string = "MANY2MANY"
+	tag_index                   string = "INDEX"
+	tag_not_null                string = "NOT NULL"
+	tag_size                    string = "SIZE"
+	tag_unique_index            string = "UNIQUE_INDEX"
+	tag_is_jointable_foreignkey string = "IS_JOINTABLE_FOREIGNKEY"
+	tag_embedded_prefix         string = "EMBEDDED_PREFIX"
+	tag_foreignkey              string = "FOREIGNKEY"
+	tag_association_foreign_key string = "ASSOCIATIONFOREIGNKEY"
+	tag_polymorphic             string = "POLYMORPHIC"
+	tag_polymorphic_value       string = "POLYMORPHIC_VALUE"
+	tag_column                  string = "COLUMN"
+	tag_type                    string = "TYPE"
+	tag_unique                  string = "UNIQUE"
+	tag_save_associations       string = "SAVE_ASSOCIATIONS"
+	//not really tags, but used in cachedReverseTagSettingsMap for Stringer
+	tag_relation_kind             string = "Relation kind"
+	tag_join_table_handler        string = "Join Table Handler"
+	tag_foreign_field_names       string = "Foreign field names"
+	tag_foreign_db_names          string = "Foreign db names"
+	tag_assoc_foreign_field_names string = "Assoc foreign field names"
+	tag_assoc_foreign_db_names    string = "Assoc foreign db names"
+
+	//StructField bit flags - flags are uint16, which means we can use 16 flags
+	ff_is_primarykey     uint8 = 0
+	ff_is_normal         uint8 = 1
+	ff_is_ignored        uint8 = 2
+	ff_is_scanner        uint8 = 3
+	ff_is_time           uint8 = 4
+	ff_has_default_value uint8 = 5
+	ff_is_foreignkey     uint8 = 6
+	ff_is_blank          uint8 = 7
+	ff_is_slice          uint8 = 8
+	ff_is_struct         uint8 = 9
+	ff_has_relations     uint8 = 10
+	ff_is_embed_or_anon  uint8 = 11
+	ff_is_autoincrement  uint8 = 12
+	ff_is_pointer        uint8 = 13
+	ff_relation_check    uint8 = 14
+
+	//Relationship Kind constants
+	rel_many2many  uint8 = 1
+	rel_has_many   uint8 = 2
+	rel_has_one    uint8 = 3
+	rel_belongs_to uint8 = 4
+	//Attention : relationship.Kind <= rel_has_one in callback_functions.go saveAfterAssociationsCallback()
+	//which means except rel_belongs_to
+
+	//Method names
+	meth_after_create  string = "AfterCreate"
+	meth_after_save    string = "AfterSave"
+	meth_after_delete  string = "AfterDelete"
+	meth_after_find    string = "AfterFind"
+	meth_after_update  string = "AfterUpdate"
+	meth_before_create string = "BeforeCreate"
+	meth_before_save   string = "BeforeSave"
+	meth_before_delete string = "BeforeDelete"
+	meth_before_update string = "BeforeUpdate"
+
+	//TODO : Extract errors here
+	//ERRORS
+	err_key_not_found          string = "TagSetting : COULDN'T FIND KEY FOR %q ON %q"
+	err_missing_field_names    string = "TagSetting : missing (or two many) field names in foreign or association key"
+	err_cannot_convert         string = "could not convert argument of field %s from %s to %s"
+	err_struct_field_not_valid string = "StructField : field value not valid"
+
 	upper strCase = true
 
 	TAG_SQL         string = "sql"
@@ -32,16 +130,6 @@ const (
 	LOG_OFF     int = 1
 	LOG_VERBOSE int = 2
 	LOG_DEBUG   int = 3
-
-	AFTER_CREATE_METHOD  string = "AfterCreate"
-	AFTER_SAVE_METHOD    string = "AfterSave"
-	AFTER_DELETE_METHOD  string = "AfterDelete"
-	AFTER_FIND_METHOD    string = "AfterFind"
-	AFTER_UPDATE_METHOD  string = "AfterUpdate"
-	BEFORE_CREATE_METHOD string = "BeforeCreate"
-	BEFORE_SAVE_METHOD   string = "BeforeSave"
-	BEFORE_DELETE_METHOD string = "BeforeDelete"
-	BEFORE_UPDATE_METHOD string = "BeforeUpdate"
 
 	CREATED_AT_FIELD_NAME string = "CreatedAt"
 	UPDATED_AT_FIELD_NAME string = "UpdatedAt"
@@ -336,6 +424,41 @@ var (
 		"gorm:save_associations":  SAVE_ASSOC_SETTING,
 		"gorm:association:source": ASSOCIATION_SOURCE_SETTING,
 	}
+
+	//this is a map for transforming strings into uint8 when reading tags of structs
+	tagSettingMap = map[string]uint8{
+		tag_many_to_many:              set_many2many_name,
+		tag_index:                     set_index,
+		tag_not_null:                  set_not_null,
+		tag_size:                      set_size,
+		tag_unique_index:              set_unique_index,
+		tag_is_jointable_foreignkey:   set_is_jointable_foreignkey,
+		tag_default_str:               set_default,
+		tag_embedded_prefix:           set_embedded_prefix,
+		tag_foreignkey:                set_foreignkey,
+		tag_association_foreign_key:   set_associationforeignkey,
+		tag_polymorphic:               set_polymorphic,
+		tag_polymorphic_value:         set_polymorphic_value,
+		tag_column:                    set_column,
+		tag_type:                      set_type,
+		tag_unique:                    set_unique,
+		tag_save_associations:         set_save_associations,
+		tag_relation_kind:             set_relation_kind,
+		tag_join_table_handler:        set_join_table_handler,
+		tag_foreign_field_names:       set_foreign_field_names,
+		tag_foreign_db_names:          set_foreign_db_names,
+		tag_assoc_foreign_field_names: set_association_foreign_field_names,
+		tag_assoc_foreign_db_names:    set_association_foreign_db_names,
+	}
+
+	kindNamesMap = map[uint8]string{
+		rel_many2many:  "Many to many",
+		rel_has_many:   "Has many",
+		rel_has_one:    "Has one",
+		rel_belongs_to: "Belongs to",
+	}
+
+	cachedReverseTagSettingsMap map[uint8]string
 	// Attention : using "unprepared" regexp.MustCompile is really slow : ten times slower
 	// only matches string like `name`, `users.name`
 	regExpNameMatcher = regexp.MustCompile("^[a-zA-Z]+(\\.[a-zA-Z]+)*$")

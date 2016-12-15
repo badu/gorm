@@ -39,7 +39,7 @@ func (postgres) DataTypeOf(field *StructField) string {
 		case reflect.Float32, reflect.Float64:
 			sqlType = "numeric"
 		case reflect.String:
-			if !field.HasSetting(SIZE) {
+			if !field.HasSetting(set_size) {
 				// if SIZE haven't been set, use `text` as the default type, as there are no performance different
 				size = 0
 			}
