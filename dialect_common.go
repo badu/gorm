@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	DIALECT_COMMON_NAME   = "common"
+	COMMON_DIALECT_NAME = "common"
 	COMMON_BOOLEAN        = "BOOLEAN"
 	COMMON_INTEGER        = "INTEGER"
 	COMMON_AUTO_INCREMENT = "INTEGER AUTO_INCREMENT"
@@ -28,7 +28,7 @@ const (
 )
 
 func (commonDialect) GetName() string {
-	return DIALECT_COMMON_NAME
+	return COMMON_DIALECT_NAME
 }
 
 func (dialect *commonDialect) SetDB(db *sql.DB) {

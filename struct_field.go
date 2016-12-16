@@ -27,7 +27,7 @@ func NewStructField(fromStruct reflect.StructField) (*StructField, error) {
 	if result.HasSetting(set_column) {
 		result.DBName = result.GetStrSetting(set_column)
 	} else {
-		result.DBName = NamesMap.ToDBName(fromStruct.Name)
+		result.DBName = NamesMap.toDBName(fromStruct.Name)
 	}
 	//finished with it : cleanup
 	result.UnsetTagSetting(set_column)
@@ -507,7 +507,7 @@ func (field *StructField) ParseFieldStructForDialect() (reflect.Value, string, i
 
 //Function collects information from tags named `sql:""` and `gorm:""`
 func (field *StructField) parseTagSettings(tag reflect.StructTag) error {
-	for _, str := range []string{tag.Get(TAG_SQL), tag.Get(TAG_GORM)} {
+	for _, str := range []string{tag.Get(str_tag_sql), tag.Get(str_tag_gorm)} {
 		tags := strings.Split(str, ";")
 
 		for _, value := range tags {

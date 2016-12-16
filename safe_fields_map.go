@@ -1,22 +1,12 @@
 package gorm
 
 import (
-	"errors"
 	"fmt"
-	"sync"
 )
 
-type (
-	fieldsMap struct {
-		aliases map[string]*StructField
-		l       *sync.RWMutex
-		fields  StructFields
-	}
-)
-
-func (s *fieldsMap) Add(field *StructField) error {
+func (s *fieldsMap) add(field *StructField) error {
 	if s.l == nil {
-		return errors.New("fieldsMap ERROR !!! NOT INITED!")
+		return fmt.Errorf("fieldsMap ERROR !!! NOT INITED!")
 	}
 	s.l.Lock()
 	defer s.l.Unlock()
@@ -39,9 +29,9 @@ func (s *fieldsMap) Add(field *StructField) error {
 	return nil
 }
 
-func (s *fieldsMap) Get(key string) (*StructField, bool) {
+func (s *fieldsMap) get(key string) (*StructField, bool) {
 	if s.l == nil {
-		fmt.Errorf("fieldsMap ERROR : not inited")
+		//fmt.Errorf("fieldsMap ERROR : not inited")
 		return nil, false
 	}
 	s.l.RLock()
@@ -51,17 +41,17 @@ func (s *fieldsMap) Get(key string) (*StructField, bool) {
 	return val, ok
 }
 
-func (s fieldsMap) Fields() StructFields {
+func (s fieldsMap) getFields() StructFields {
 	if s.l == nil {
-		fmt.Errorf("fieldsMap ERROR : not inited")
+		//fmt.Errorf("fieldsMap ERROR : not inited")
 		return nil
 	}
 	return s.fields
 }
 
-func (s fieldsMap) PrimaryFields() StructFields {
+func (s fieldsMap) primaryFields() StructFields {
 	if s.l == nil {
-		fmt.Errorf("fieldsMap ERROR : not inited")
+		//fmt.Errorf("fieldsMap ERROR : not inited")
 		return nil
 	}
 	s.l.RLock()

@@ -2,18 +2,6 @@ package gorm
 
 import (
 	"reflect"
-	"sync"
-)
-
-type (
-	safeModelStructsMap struct {
-		m map[reflect.Type]*ModelStruct
-		l *sync.RWMutex
-	}
-)
-
-var (
-	ModelStructsMap = &safeModelStructsMap{l: new(sync.RWMutex), m: make(map[reflect.Type]*ModelStruct)}
 )
 
 func (s *safeModelStructsMap) Set(key reflect.Type, value *ModelStruct) {

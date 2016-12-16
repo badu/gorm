@@ -22,7 +22,7 @@ func createJoinTable(scope *Scope, field *StructField) {
 	if !dialect.HasTable(tableName) {
 		// getTableOptions return the table options string or an empty string if the table options does not exist
 		// It's settable by end user
-		tableOptions, ok := scope.Get(TABLE_OPT_SETTING)
+		tableOptions, ok := scope.Get(gorm_setting_table_opt)
 		if !ok {
 			tableOptions = ""
 		} else {
@@ -92,6 +92,32 @@ func createJoinTable(scope *Scope, field *StructField) {
 			tableOptions,
 		)
 		scope.Err(newCon(scope.con).Exec(creationSQL).Error)
+	} else {
+		//TODO : make update - see below
+		/**
+		var (
+			quotedTableName = QuotedTableName(scope)
+		)
+
+		for _, field := range scope.GetModelStruct().StructFields() {
+			if !dialect.HasColumn(tableName, field.DBName) {
+				if field.IsNormal() {
+					sqlTag := dialect.DataTypeOf(field)
+					scope.Raw(
+						fmt.Sprintf(
+							"ALTER TABLE %v ADD %v %v;",
+							quotedTableName,
+							Quote(field.DBName, dialect),
+							sqlTag),
+					).Exec()
+				}
+			}
+			if field.HasRelations() {
+				createJoinTable(scope, field)
+			}
+		}
+		autoIndex(scope)
+		*/
 	}
 
 }
@@ -140,7 +166,7 @@ func createTable(scope *Scope) {
 
 	// getTableOptions return the table options string or an empty string if the table options does not exist
 	// It's settable by end user
-	tableOptions, ok := scope.Get(TABLE_OPT_SETTING)
+	tableOptions, ok := scope.Get(gorm_setting_table_opt)
 	if !ok {
 		tableOptions = ""
 	} else {

@@ -16,15 +16,15 @@ func (cps *CallbacksProcessors) reorder(ofCallback *Callbacks) {
 	for _, processor := range *cps {
 		if processor.name != "" {
 			switch processor.kind {
-			case CREATE_CALLBACK:
+			case cb_create:
 				creates.add(processor)
-			case UPDATE_CALLBACK:
+			case cb_update:
 				updates.add(processor)
-			case DELETE_CALLBACK:
+			case cb_delete:
 				deletes.add(processor)
-			case QUERY_CALLBACK:
+			case cb_query:
 				queries.add(processor)
-			case ROW_QUERY_CALLBACK:
+			case cb_row:
 				rowQueries.add(processor)
 			}
 		}

@@ -18,7 +18,7 @@ func (association *Association) Append(values ...interface{}) *Association {
 		return association
 	}
 
-	if association.field.RelKind() == rel_has_one {
+	if association.field.RelationIsHasOne() {
 		return association.Replace(values...)
 	}
 	return association.saveAssociations(values...)
@@ -398,7 +398,7 @@ func (association *Association) reflect(reflectValue reflect.Value) {
 	}
 
 	// value has to been saved for many2many
-	if field.RelKind() == rel_many2many {
+	if field.RelationIsMany2Many() {
 		if scope.NewScope(reflectValue.Interface()).PrimaryKeyZero() {
 			association.setErr(newCon(scope.con).Save(reflectValue.Interface()).Error)
 		}
@@ -421,7 +421,7 @@ func (association *Association) reflect(reflectValue reflect.Value) {
 		}
 	}
 
-	if field.RelKind() == rel_many2many {
+	if field.RelationIsMany2Many() {
 		joinTableHandler := field.JoinHandler()
 		association.setErr(
 			joinTableHandler.Add(

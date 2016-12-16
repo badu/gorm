@@ -2,15 +2,24 @@ package gorm
 
 import (
 	"database/sql"
+	"github.com/adrg/errors"
 	"log"
 	"os"
 	"reflect"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 )
 
 const (
+	//Callback Kind constants
+	cb_create uint8 = 1
+	cb_update uint8 = 2
+	cb_delete uint8 = 3
+	cb_query  uint8 = 4
+	cb_row    uint8 = 5
+
 	//StructField TagSettings constants
 	set_many2many_name                  uint8 = 1
 	set_index                           uint8 = 2
@@ -58,6 +67,7 @@ const (
 	tag_type                    string = "TYPE"
 	tag_unique                  string = "UNIQUE"
 	tag_save_associations       string = "SAVE_ASSOCIATIONS"
+
 	//not really tags, but used in cachedReverseTagSettingsMap for Stringer
 	tag_relation_kind             string = "Relation kind"
 	tag_join_table_handler        string = "Join Table Handler"
@@ -91,6 +101,40 @@ const (
 	//Attention : relationship.Kind <= rel_has_one in callback_functions.go saveAfterAssociationsCallback()
 	//which means except rel_belongs_to
 
+	//Search struct map keys
+	cond_select_query  sqlConditionType = 0
+	cond_where_query   sqlConditionType = 1
+	cond_not_query     sqlConditionType = 2
+	cond_or_query      sqlConditionType = 3
+	cond_having_query  sqlConditionType = 4
+	cond_joins_query   sqlConditionType = 5
+	cond_init_attrs    sqlConditionType = 6
+	cond_assign_attrs  sqlConditionType = 7
+	cond_preload_query sqlConditionType = 8
+	cond_order_query   sqlConditionType = 9
+	cond_omits_query   sqlConditionType = 10
+	cond_group_query   sqlConditionType = 11
+	cond_limit_query   sqlConditionType = 12
+	cond_offset_query  sqlConditionType = 13
+
+	//Search struct flag constants
+	srch_is_unscoped         uint16 = 0
+	srch_is_raw              uint16 = 1
+	srch_is_order_ignored    uint16 = 2
+	srch_has_select          uint16 = 3
+	srch_has_where           uint16 = 4
+	srch_has_not             uint16 = 5
+	srch_has_or              uint16 = 6
+	srch_has_having          uint16 = 7
+	srch_has_joins           uint16 = 8
+	srch_has_init            uint16 = 9
+	srch_has_assign          uint16 = 10
+	srch_has_preload         uint16 = 11
+	srch_has_order           uint16 = 12
+	srch_has_omits           uint16 = 13
+	srch_has_group           uint16 = 14
+	srch_has_offset_or_limit uint16 = 15
+
 	//Method names
 	meth_after_create  string = "AfterCreate"
 	meth_after_save    string = "AfterSave"
@@ -102,38 +146,57 @@ const (
 	meth_before_delete string = "BeforeDelete"
 	meth_before_update string = "BeforeUpdate"
 
-	//TODO : Extract errors here
-	//ERRORS
+	//Errors
 	err_key_not_found          string = "TagSetting : COULDN'T FIND KEY FOR %q ON %q"
-	err_missing_field_names    string = "TagSetting : missing (or two many) field names in foreign or association key"
+	err_missing_field_names    string = "TagSetting : missing (or two many) field names in foreign or association key (%s %s)"
 	err_cannot_convert         string = "could not convert argument of field %s from %s to %s"
 	err_struct_field_not_valid string = "StructField : field value not valid"
+	err_fk_length_not_equal    string = "rel [%q]: invalid foreign keys, should have same length"
+	err_processing_tags        string = "ModelStruct %q processing tags error : %v"
+	err_adding_field           string = "ModelStruct %q add field error : %v"
+	err_no_belong_or_hasone    string = "%q (%q [%q]) is HAS ONE / BELONG TO missing"
 
+	//Warnings
+	warn_poly_field_not_found   string = "\nrel : polymorphic field %q not found on model struct %q"
+	warn_fk_field_not_found     string = "\nrel [%q]: foreign key field %q not found on model struct %q pointed by %q [%q]"
+	warn_afk_field_not_found    string = "\nrel [%q]: association foreign key field %q not found on model struct %q"
+	warn_has_no_foreign_key     string = "\nrel [%q]: field has no foreign key setting"
+	warn_has_no_association_key string = "\nrel [%q]: field has no association key setting"
+
+	//typical fields constants
+	field_default_id_name string = "id"
+	field_poly_type       string = "Type"
+	Field_created_at      string = "CreatedAt"
+	Field_updated_at      string = "UpdatedAt"
+	Field_deleted_at      string = "DeletedAt"
+
+	//Extracted strings
+	str_tag_sql    string = "sql"
+	str_tag_gorm   string = "gorm"
+	str_ascendent  string = "ASC"
+	str_descendent string = "DESC"
+	str_hasmany    string = "HasMany"
+	str_hasone     string = "HasOne"
+	str_belongsto  string = "BelongTo"
+	str_collectfks string = "CollectFKs"
+	str_everything string = "*"
+
+	//Gorm settings for map (Set / Get)
+	gorm_setting_update_column      uint64 = 1
+	gorm_setting_insert_opt         uint64 = 2
+	gorm_setting_delete_opt         uint64 = 3
+	gorm_setting_table_opt          uint64 = 4
+	gorm_setting_query_opt          uint64 = 5 // usually, this contains "FOR UPDATE". See QueryOption test
+	gorm_setting_save_assoc         uint64 = 6
+	gorm_setting_update_opt         uint64 = 7
+	gorm_setting_association_source uint64 = 8 //TODO : @Badu - maybe it's better to keep this info in Association struct
+
+	//
 	upper strCase = true
-
-	TAG_SQL         string = "sql"
-	TAG_GORM        string = "gorm"
-	DEFAULT_ID_NAME string = "id"
-
-	ASCENDENT  string = "ASC"
-	DESCENDENT string = "DESC"
-
-	UPDATE_COLUMN_SETTING      uint64 = 1
-	INSERT_OPT_SETTING         uint64 = 2
-	DELETE_OPT_SETTING         uint64 = 3
-	TABLE_OPT_SETTING          uint64 = 4
-	QUERY_OPT_SETTING          uint64 = 5 // usually, this contains "FOR UPDATE". See QueryOption test
-	SAVE_ASSOC_SETTING         uint64 = 6
-	UPDATE_OPT_SETTING         uint64 = 7
-	ASSOCIATION_SOURCE_SETTING uint64 = 8 //TODO : @Badu - maybe it's better to keep this info in Association struct
 
 	LOG_OFF     int = 1
 	LOG_VERBOSE int = 2
 	LOG_DEBUG   int = 3
-
-	CREATED_AT_FIELD_NAME string = "CreatedAt"
-	UPDATED_AT_FIELD_NAME string = "UpdatedAt"
-	DELETED_AT_FIELD_NAME string = "DeletedAt"
 )
 
 type (
@@ -165,6 +228,12 @@ type (
 		scope  *Scope
 		column string
 		field  *StructField
+	}
+
+	fieldsMap struct {
+		aliases map[string]*StructField
+		l       *sync.RWMutex
+		fields  StructFields
 	}
 
 	// ModelStruct model definition
@@ -311,6 +380,36 @@ type (
 		Destination JoinTableInfo `sql:"-"`
 	}
 
+	safeModelStructsMap struct {
+		m map[reflect.Type]*ModelStruct
+		l *sync.RWMutex
+	}
+
+	safeMap struct {
+		m map[string]string
+		l *sync.RWMutex
+	}
+
+	logger interface {
+		Print(v ...interface{})
+	}
+
+	// LogWriter log writer interface
+	LogWriter interface {
+		Println(v ...interface{})
+	}
+
+	// Logger default logger
+	Logger struct {
+		LogWriter
+	}
+
+	errorsInterface interface {
+		GetErrors() []error
+	}
+	// Errors contains all happened errors
+	GormErrors []error
+
 	//interface used for overriding table name
 	tabler interface {
 		TableName() string
@@ -396,6 +495,13 @@ type (
 var (
 	dialectsMap = map[string]Dialect{}
 
+	ModelStructsMap = &safeModelStructsMap{l: new(sync.RWMutex), m: make(map[reflect.Type]*ModelStruct)}
+
+	NamesMap = &safeMap{l: new(sync.RWMutex), m: make(map[string]string)}
+	// Copied from golint
+	commonInitialisms         = []string{"API", "ASCII", "CPU", "CSS", "DNS", "EOF", "GUID", "HTML", "HTTP", "HTTPS", "ID", "IP", "JSON", "LHS", "QPS", "RAM", "RHS", "RPC", "SLA", "SMTP", "SSH", "TLS", "TTL", "UI", "UID", "UUID", "URI", "URL", "UTF8", "VM", "XML", "XSRF", "XSS"}
+	commonInitialismsReplacer *strings.Replacer
+
 	// DefaultTableNameHandler default table name handler
 	DefaultTableNameHandler = func(con *DBCon, defaultTableName string) string {
 		return defaultTableName
@@ -415,14 +521,14 @@ var (
 
 	//reverse map to allow external settings
 	gormSettingsMap = map[string]uint64{
-		"gorm:update_column":      UPDATE_COLUMN_SETTING,
-		"gorm:insert_option":      INSERT_OPT_SETTING,
-		"gorm:update_option":      UPDATE_OPT_SETTING,
-		"gorm:delete_option":      DELETE_OPT_SETTING,
-		"gorm:table_options":      TABLE_OPT_SETTING,
-		"gorm:query_option":       QUERY_OPT_SETTING,
-		"gorm:save_associations":  SAVE_ASSOC_SETTING,
-		"gorm:association:source": ASSOCIATION_SOURCE_SETTING,
+		"gorm:update_column":      gorm_setting_update_column,
+		"gorm:insert_option":      gorm_setting_insert_opt,
+		"gorm:update_option":      gorm_setting_update_opt,
+		"gorm:delete_option":      gorm_setting_delete_opt,
+		"gorm:table_options":      gorm_setting_table_opt,
+		"gorm:query_option":       gorm_setting_query_opt,
+		"gorm:save_associations":  gorm_setting_save_assoc,
+		"gorm:association:source": gorm_setting_association_source,
 	}
 
 	//this is a map for transforming strings into uint8 when reading tags of structs
@@ -458,6 +564,10 @@ var (
 		rel_belongs_to: "Belongs to",
 	}
 
+	//regexpSelf = regexp.MustCompile(`badu/gorm/.*.go`)
+	regexpSelf   = regexp.MustCompile(`/gorm/.*.go`)
+	regExpLogger = regexp.MustCompile(`(\$\d+)|\?`)
+
 	cachedReverseTagSettingsMap map[uint8]string
 	// Attention : using "unprepared" regexp.MustCompile is really slow : ten times slower
 	// only matches string like `name`, `users.name`
@@ -483,4 +593,19 @@ var (
 	//numberMatcher = regexp.MustCompile("/^-?\\d*\\.?\\d+$/")
 	//time24HourMatcher = regexp.MustCompile("/([01]?[0-9]|2[0-3]):[0-5][0-9]/")
 	//dateTimeISO8601Matcher = regexp.MustCompile("/^(?![+-]?\\d{4,5}-?(?:\\d{2}|W\\d{2})T)(?:|(\\d{4}|[+-]\\d{5})-?(?:|(0\\d|1[0-2])(?:|-?([0-2]\\d|3[0-1]))|([0-2]\\d{2}|3[0-5]\\d|36[0-6])|W([0-4]\\d|5[0-3])(?:|-?([1-7])))(?:(?!\\d)|T(?=\\d)))(?:|([01]\\d|2[0-4])(?:|:?([0-5]\\d)(?:|:?([0-5]\\d)(?:|\\.(\\d{3})))(?:|[zZ]|([+-](?:[01]\\d|2[0-4]))(?:|:?([0-5]\\d)))))$/")
+
+	// ErrRecordNotFound record not found error, happens when haven't find any matched data when looking up with a struct
+	ErrRecordNotFound = errors.New("record not found")
+
+	// ErrInvalidSQL invalid SQL error, happens when you passed invalid SQL
+	ErrInvalidSQL = errors.New("invalid SQL")
+
+	// ErrInvalidTransaction invalid transaction when you are trying to `Commit` or `Rollback`
+	ErrInvalidTransaction = errors.New("no valid transaction")
+
+	// ErrCantStartTransaction can't start transaction when you are trying to start one with `Begin`
+	ErrCantStartTransaction = errors.New("can't start transaction")
+
+	// ErrUnaddressable unaddressable value
+	ErrUnaddressable = errors.New("using unaddressable value")
 )

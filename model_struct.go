@@ -9,12 +9,6 @@ import (
 	"sync"
 )
 
-const (
-	proc_tag_err            string = "ModelStruct %q processing tags error : %v"
-	add_field_err           string = "ModelStruct %q add field error : %v"
-	no_belong_or_hasone_err string = "%q (%q [%q]) is HAS ONE / BELONG TO missing"
-)
-
 // TableName get model's table name
 func (modelStruct *ModelStruct) TableName(db *DBCon) string {
 	return DefaultTableNameHandler(db, modelStruct.defaultTableName)
@@ -30,7 +24,7 @@ func (modelStruct *ModelStruct) Interface() interface{} {
 
 func (modelStruct *ModelStruct) HasColumn(column string) bool {
 	//looking for it
-	field, ok := modelStruct.fieldsMap.Get(column)
+	field, ok := modelStruct.fieldsMap.get(column)
 	if ok {
 		//TODO : @Badu only if it's normal it's declared ?
 		if field.IsNormal() {
@@ -41,11 +35,11 @@ func (modelStruct *ModelStruct) HasColumn(column string) bool {
 }
 
 func (modelStruct *ModelStruct) FieldByName(column string) (*StructField, bool) {
-	field, ok := modelStruct.fieldsMap.Get(column)
+	field, ok := modelStruct.fieldsMap.get(column)
 	if !ok {
 		//couldn't find it in "fields" map
 		for _, field := range modelStruct.fieldsMap.fields {
-			if field.DBName == NamesMap.ToDBName(column) {
+			if field.DBName == NamesMap.toDBName(column) {
 				return field, true
 			}
 		}
@@ -67,7 +61,7 @@ func (modelStruct *ModelStruct) Create(reflectType reflect.Type, scope *Scope) {
 	if ok {
 		modelStruct.defaultTableName = tabler.TableName()
 	} else {
-		tableName := NamesMap.ToDBName(reflectType.Name())
+		tableName := NamesMap.toDBName(reflectType.Name())
 		if scope.con == nil || !scope.con.parent.singularTable {
 			tableName = inflection.Plural(tableName)
 		}
@@ -79,7 +73,7 @@ func (modelStruct *ModelStruct) Create(reflectType reflect.Type, scope *Scope) {
 
 			field, err := NewStructField(fieldStruct)
 			if err != nil {
-				scope.Err(errors.New(fmt.Sprintf(proc_tag_err, modelStruct.ModelType.Name(), err)))
+				scope.Err(errors.New(fmt.Sprintf(err_processing_tags, modelStruct.ModelType.Name(), err)))
 				return
 			}
 
@@ -96,9 +90,9 @@ func (modelStruct *ModelStruct) Create(reflectType reflect.Type, scope *Scope) {
 							subField.DBName = field.GetStrSetting(set_embedded_prefix) + subField.DBName
 						}
 
-						err = modelStruct.fieldsMap.Add(subField)
+						err = modelStruct.fieldsMap.add(subField)
 						if err != nil {
-							scope.Err(errors.New(fmt.Sprintf(add_field_err, modelStruct.ModelType.Name(), err)))
+							scope.Err(errors.New(fmt.Sprintf(err_adding_field, modelStruct.ModelType.Name(), err)))
 							return
 						}
 					}
@@ -106,9 +100,9 @@ func (modelStruct *ModelStruct) Create(reflectType reflect.Type, scope *Scope) {
 				}
 			}
 
-			err = modelStruct.fieldsMap.Add(field)
+			err = modelStruct.fieldsMap.add(field)
 			if err != nil {
-				scope.Err(errors.New(fmt.Sprintf(add_field_err, modelStruct.ModelType.Name(), err)))
+				scope.Err(errors.New(fmt.Sprintf(err_adding_field, modelStruct.ModelType.Name(), err)))
 				return
 			}
 		}
@@ -116,7 +110,7 @@ func (modelStruct *ModelStruct) Create(reflectType reflect.Type, scope *Scope) {
 
 	if modelStruct.noOfPKs() == 0 {
 		//by default we're expecting that the modelstruct has a field named id
-		if field, ok := modelStruct.fieldsMap.Get(DEFAULT_ID_NAME); ok {
+		if field, ok := modelStruct.fieldsMap.get(field_default_id_name); ok {
 			field.SetIsPrimaryKey()
 		}
 		//else - it's not an error : joins don't have primary key named id
@@ -125,14 +119,14 @@ func (modelStruct *ModelStruct) Create(reflectType reflect.Type, scope *Scope) {
 
 func (modelStruct *ModelStruct) PKs() StructFields {
 	if modelStruct.cachedPrimaryFields == nil {
-		modelStruct.cachedPrimaryFields = modelStruct.fieldsMap.PrimaryFields()
+		modelStruct.cachedPrimaryFields = modelStruct.fieldsMap.primaryFields()
 	}
 	return modelStruct.cachedPrimaryFields
 }
 
 func (modelStruct *ModelStruct) noOfPKs() int {
 	if modelStruct.cachedPrimaryFields == nil {
-		modelStruct.cachedPrimaryFields = modelStruct.fieldsMap.PrimaryFields()
+		modelStruct.cachedPrimaryFields = modelStruct.fieldsMap.primaryFields()
 	}
 	return modelStruct.cachedPrimaryFields.len()
 }
@@ -166,7 +160,7 @@ func (modelStruct *ModelStruct) processRelations(scope *Scope) {
 					//attempt to check if belongs to
 					if !makeBelongTo(field, modelStruct, toModelStruct, scope, toScope) {
 						//Oops, neither
-						errMsg := fmt.Errorf(no_belong_or_hasone_err, modelStruct.ModelType.Name(), field.DBName, field.StructName)
+						errMsg := fmt.Errorf(err_no_belong_or_hasone, modelStruct.ModelType.Name(), field.DBName, field.StructName)
 						scope.Warn(errMsg)
 					}
 				}

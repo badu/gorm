@@ -99,7 +99,7 @@ func (scope *Scope) PK() *StructField {
 	primaryFieldsLen := scope.GetModelStruct().noOfPKs()
 	if primaryFieldsLen > 0 {
 		if primaryFieldsLen > 1 {
-			if field, ok := scope.FieldByName(DEFAULT_ID_NAME); ok {
+			if field, ok := scope.FieldByName(field_default_id_name); ok {
 				return field
 			}
 		}
@@ -142,7 +142,7 @@ func (scope *Scope) PrimaryKeyValue() interface{} {
 // FieldByName find `gorm.StructField` with field name or db name
 func (scope *Scope) FieldByName(name string) (*StructField, bool) {
 	var (
-		dbName           = NamesMap.ToDBName(name)
+		dbName           = NamesMap.toDBName(name)
 		mostMatchedField *StructField
 	)
 
@@ -168,7 +168,7 @@ func (scope *Scope) SetColumn(column interface{}, value interface{}) error {
 	case string:
 		//looks like Scope.FieldByName
 		var (
-			dbName           = NamesMap.ToDBName(colType)
+			dbName           = NamesMap.toDBName(colType)
 			mostMatchedField *StructField
 		)
 		for _, field := range scope.Fields() {
@@ -405,7 +405,7 @@ func (scope *Scope) count(value interface{}) *Scope {
 	if !scope.Search.hasSelect() {
 		scope.Search.Select("count(*)")
 	} else {
-		sqlPair := scope.Search.getFirst(Select_query)
+		sqlPair := scope.Search.getFirst(cond_select_query)
 		if sqlPair == nil {
 			scope.Warn("ERROR : search select_query should have exaclty one count")
 			//error has occured in getting first item in slice
@@ -428,7 +428,7 @@ func (scope *Scope) trace(t time.Time) {
 }
 
 func (scope *Scope) shouldSaveAssociations() bool {
-	if saveAssociations, ok := scope.Get(SAVE_ASSOC_SETTING); ok {
+	if saveAssociations, ok := scope.Get(gorm_setting_save_assoc); ok {
 		if v, ok := saveAssociations.(bool); ok && !v {
 			return false
 		}
@@ -441,7 +441,7 @@ func (scope *Scope) shouldSaveAssociations() bool {
 
 func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
 	toScope := scope.con.NewScope(value)
-	tx := scope.con.set(ASSOCIATION_SOURCE_SETTING, scope.Value)
+	tx := scope.con.set(gorm_setting_association_source, scope.Value)
 	//TODO : @Badu - boilerplate string
 	allKeys := append(foreignKeys, GetType(toScope.Value).Name()+"Id", GetType(scope.Value).Name()+"Id")
 
@@ -596,7 +596,7 @@ func (scope *Scope) postQuery(dest interface{}) *Scope {
 
 	if !scope.HasError() {
 		scope.con.RowsAffected = 0
-		if str, ok := scope.Get(QUERY_OPT_SETTING); ok {
+		if str, ok := scope.Get(gorm_setting_query_opt); ok {
 			scope.Search.SQL += addExtraSpaceIfExist(fmt.Sprint(str))
 		}
 
@@ -662,8 +662,8 @@ func (scope *Scope) postCreate() *Scope {
 	//set time fields accordingly
 	if !result.HasError() {
 		now := NowFunc()
-		result.SetColumn(CREATED_AT_FIELD_NAME, now)
-		result.SetColumn(UPDATED_AT_FIELD_NAME, now)
+		result.SetColumn(Field_created_at, now)
+		result.SetColumn(Field_updated_at, now)
 	}
 
 	var blankColumnsWithDefaultValue string
@@ -674,7 +674,7 @@ func (scope *Scope) postCreate() *Scope {
 			//columns, placeholders        StrSlice
 			//because we're using it in a for, we're getting it once
 			dialect                            = result.con.parent.dialect
-			returningColumn                    = "*"
+			returningColumn                    = str_everything
 			quotedTableName                    = QuotedTableName(result)
 			primaryField                       = result.PK()
 			extraOption, columns, placeholders string
@@ -709,7 +709,7 @@ func (scope *Scope) postCreate() *Scope {
 					placeholders += result.Search.addToVars(field.Value.Interface(), dialect)
 				}
 			} else {
-				if field.HasRelations() && field.RelKind() == rel_belongs_to {
+				if field.HasRelations() && field.RelationIsBelongsTo() {
 					ForeignDBNames := field.GetSliceSetting(set_foreign_db_names)
 					for _, foreignKey := range ForeignDBNames {
 						foreignField, ok := result.FieldByName(foreignKey)
@@ -728,7 +728,7 @@ func (scope *Scope) postCreate() *Scope {
 			}
 		}
 
-		if str, ok := result.Get(INSERT_OPT_SETTING); ok {
+		if str, ok := result.Get(gorm_setting_insert_opt); ok {
 			extraOption = fmt.Sprint(str)
 		}
 
@@ -824,7 +824,7 @@ func (scope *Scope) postUpdate() *Scope {
 	//begin transaction
 	result, txStarted := scope.Begin()
 
-	if _, ok := result.Get(UPDATE_COLUMN_SETTING); !ok {
+	if _, ok := result.Get(gorm_setting_update_column); !ok {
 		if !result.HasError() {
 			result.CallMethod(meth_before_save)
 		}
@@ -839,8 +839,8 @@ func (scope *Scope) postUpdate() *Scope {
 	}
 
 	//update the updated at column
-	if _, ok := result.Get(UPDATE_COLUMN_SETTING); !ok {
-		result.SetColumn(UPDATED_AT_FIELD_NAME, NowFunc())
+	if _, ok := result.Get(gorm_setting_update_column); !ok {
+		result.SetColumn(Field_updated_at, NowFunc())
 	}
 
 	//Was "updateCallback"
@@ -878,7 +878,7 @@ func (scope *Scope) postUpdate() *Scope {
 						result.Search.addToVars(field.Value.Interface(), scopeDialect),
 					)
 				} else {
-					if field.HasRelations() && field.RelKind() == rel_belongs_to {
+					if field.HasRelations() && field.RelationIsBelongsTo() {
 						ForeignDBNames := field.GetSliceSetting(set_foreign_db_names)
 						for _, foreignKey := range ForeignDBNames {
 							foreignField, ok := result.FieldByName(foreignKey)
@@ -902,7 +902,7 @@ func (scope *Scope) postUpdate() *Scope {
 			}
 		}
 
-		if str, ok := result.Get(UPDATE_OPT_SETTING); ok {
+		if str, ok := result.Get(gorm_setting_update_opt); ok {
 			extraOption = fmt.Sprint(str)
 		}
 
@@ -923,7 +923,7 @@ func (scope *Scope) postUpdate() *Scope {
 		result = result.saveAfterAssociationsCallback()
 	}
 
-	if _, ok := result.Get(UPDATE_COLUMN_SETTING); !ok {
+	if _, ok := result.Get(gorm_setting_update_column); !ok {
 		if !result.HasError() {
 			result.CallMethod(meth_after_update)
 		}
@@ -948,11 +948,11 @@ func (scope *Scope) postDelete() *Scope {
 	//Was "deleteCallback"
 	if !result.HasError() {
 		var extraOption string
-		if str, ok := result.Get(DELETE_OPT_SETTING); ok {
+		if str, ok := result.Get(gorm_setting_delete_opt); ok {
 			extraOption = fmt.Sprint(str)
 		}
 
-		if !result.Search.isUnscoped() && result.GetModelStruct().HasColumn(DELETED_AT_FIELD_NAME) {
+		if !result.Search.isUnscoped() && result.GetModelStruct().HasColumn(Field_deleted_at) {
 			result.Raw(fmt.Sprintf(
 				"UPDATE %v SET deleted_at=%v%v%v",
 				QuotedTableName(result),
@@ -1006,7 +1006,7 @@ func (scope *Scope) saveBeforeAssociationsCallback() *Scope {
 			continue
 		}
 
-		if scope.willSaveFieldAssociations(field) && field.RelKind() == rel_belongs_to {
+		if scope.willSaveFieldAssociations(field) && field.RelationIsBelongsTo() {
 			fieldValue := field.Value.Addr().Interface()
 			scope.Err(newCon(scope.con).Save(fieldValue).Error)
 			var (

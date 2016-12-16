@@ -7,29 +7,24 @@ import (
 	"strings"
 )
 
-const (
-	poly_field_not_found_warn string = "\nrel : polymorphic field %q not found on model struct %q"
-	fk_field_not_found_warn   string = "\nrel [%q]: foreign key field %q not found on model struct %q pointed by %q [%q]"
-	afk_field_not_found_warn  string = "\nrel [%q]: association foreign key field %q not found on model struct %q"
-	length_err                string = "rel [%q]: invalid foreign keys, should have same length"
-	poly_type                 string = "Type"
-	has_no_foreign_key        string = "\nrel [%q]: field has no foreign key setting"
-	has_no_association_key    string = "\nrel [%q]: field has no association key setting"
-)
-
 func makePoly(field *StructField, toModel *ModelStruct, fromScope *Scope) string {
 	modelName := ""
 	if field.HasSetting(set_polymorphic) {
 		polyName := field.GetStrSetting(set_polymorphic)
-		polyFieldName := polyName + poly_type
+		polyFieldName := polyName + field_poly_type
 		// Dog has many toys, tag polymorphic is Owner, then associationType is Owner
 		// Toy use OwnerID, OwnerType ('dogs') as foreign key
 		if polyField, ok := toModel.FieldByName(polyFieldName); ok {
 			modelName = polyName
 			polyField.LinkPoly(field, fromScope.TableName())
 		} else {
-			errMsg := fmt.Sprintf(poly_field_not_found_warn, polyFieldName, toModel.ModelType.Name())
-			fromScope.Warn(errMsg)
+			fromScope.Warn(
+				fmt.Errorf(
+					warn_poly_field_not_found,
+					polyFieldName,
+					toModel.ModelType.Name(),
+				),
+			)
 		}
 	}
 	return modelName
@@ -43,9 +38,9 @@ func makeManyToMany(field *StructField,
 	var (
 		foreignKeys, associationForeignKeys StrSlice
 		elemType                            = field.Type
-		elemName                            = NamesMap.ToDBName(elemType.Name())
+		elemName                            = NamesMap.toDBName(elemType.Name())
 		modelType                           = fromModel.ModelType
-		modelName                           = NamesMap.ToDBName(modelType.Name())
+		modelName                           = NamesMap.toDBName(modelType.Name())
 		referencedTable                     = field.GetStrSetting(set_many2many_name) //many to many is set (check is in ModelStruct)
 	)
 
@@ -58,8 +53,7 @@ func makeManyToMany(field *StructField,
 		if field.HasSetting(set_foreignkey) {
 			foreignKeys = field.GetSliceSetting(set_foreignkey)
 		} else {
-			errMsg := fmt.Sprintf(has_no_foreign_key, "Many2Many")
-			fromScope.Warn(errMsg)
+			fromScope.Warn(fmt.Errorf(warn_has_no_foreign_key, tag_many_to_many))
 		}
 	}
 
@@ -72,8 +66,7 @@ func makeManyToMany(field *StructField,
 		if field.HasSetting(set_associationforeignkey) {
 			associationForeignKeys = field.GetSliceSetting(set_associationforeignkey)
 		} else {
-			errMsg := fmt.Sprintf(has_no_association_key, "Many2Many")
-			fromScope.Warn(errMsg)
+			fromScope.Warn(fmt.Errorf(warn_has_no_association_key, tag_many_to_many))
 		}
 	}
 
@@ -91,8 +84,16 @@ func makeManyToMany(field *StructField,
 			// join table foreign keys for source
 			ForeignDBNames.add(modelName + "_" + fkField.DBName)
 		} else {
-			errMsg := fmt.Sprintf(fk_field_not_found_warn, "Many2Many", fk, fromModel.ModelType.Name(), field.StructName, toScope.GetModelStruct().ModelType.Name())
-			toScope.Warn(errMsg)
+			toScope.Warn(
+				fmt.Errorf(
+					warn_fk_field_not_found,
+					tag_many_to_many,
+					fk,
+					fromModel.ModelType.Name(),
+					field.StructName,
+					toScope.GetModelStruct().ModelType.Name(),
+				),
+			)
 		}
 	}
 
@@ -103,8 +104,14 @@ func makeManyToMany(field *StructField,
 			// join table foreign keys for association
 			AssociationForeignDBNames.add(elemName + "_" + fkField.DBName)
 		} else {
-			errMsg := fmt.Sprintf(afk_field_not_found_warn, "Many2Many", fk, toScope.GetModelStruct().ModelType.Name())
-			toScope.Warn(errMsg)
+			toScope.Warn(
+				fmt.Errorf(
+					warn_afk_field_not_found,
+					tag_many_to_many,
+					fk,
+					toScope.GetModelStruct().ModelType.Name(),
+				),
+			)
 		}
 	}
 
@@ -129,7 +136,7 @@ func makeHasMany(field *StructField,
 	fromScope, toScope *Scope) {
 
 	var (
-		modelName = NamesMap.ToDBName(fromModel.ModelType.Name()) // User has many comments, associationType is User, comment use UserID as foreign key
+		modelName = NamesMap.toDBName(fromModel.ModelType.Name()) // User has many comments, associationType is User, comment use UserID as foreign key
 	)
 	//checking if we have poly, which alters modelName
 	if polyName := makePoly(field, toModel, fromScope); polyName != "" {
@@ -157,12 +164,26 @@ func makeHasMany(field *StructField,
 				ForeignFieldNames.add(foreignField.StructName)
 				ForeignDBNames.add(foreignField.DBName)
 			} else {
-				errMsg := fmt.Sprintf(afk_field_not_found_warn, "HasMany", associationForeignKeys[idx], fromModel.ModelType.Name())
-				toScope.Warn(errMsg)
+				toScope.Warn(
+					fmt.Errorf(
+						warn_afk_field_not_found,
+						str_hasmany,
+						associationForeignKeys[idx],
+						fromModel.ModelType.Name(),
+					),
+				)
 			}
 		} else {
-			errMsg := fmt.Sprintf(fk_field_not_found_warn, "HasMany", foreignKey, fromModel.ModelType.Name(), field.StructName, toModel.ModelType.Name())
-			toScope.Warn(errMsg)
+			toScope.Warn(
+				fmt.Errorf(
+					warn_fk_field_not_found,
+					str_hasmany,
+					foreignKey,
+					fromModel.ModelType.Name(),
+					field.StructName,
+					toModel.ModelType.Name(),
+				),
+			)
 		}
 	}
 
@@ -184,7 +205,7 @@ func makeHasOne(field *StructField,
 	fromScope, toScope *Scope) bool {
 
 	var (
-		modelName = NamesMap.ToDBName(fromModel.ModelType.Name())
+		modelName = NamesMap.toDBName(fromModel.ModelType.Name())
 	)
 	//checking if we have poly, which alters modelName
 	if polyName := makePoly(field, toModel, fromScope); polyName != "" {
@@ -212,12 +233,26 @@ func makeHasOne(field *StructField,
 				ForeignFieldNames.add(foreignField.StructName)
 				ForeignDBNames.add(foreignField.DBName)
 			} else {
-				errMsg := fmt.Sprintf(afk_field_not_found_warn, "HasOne[1]", associationForeignKeys[idx], fromModel.ModelType.Name())
-				toScope.Warn(errMsg)
+				toScope.Warn(
+					fmt.Errorf(
+						warn_afk_field_not_found,
+						str_hasone,
+						associationForeignKeys[idx],
+						fromModel.ModelType.Name(),
+					),
+				)
 			}
 		} else {
-			errMsg := fmt.Sprintf(fk_field_not_found_warn, "HasOne[2]", foreignKey, toModel.ModelType.Name(), field.StructName, toModel.ModelType.Name())
-			toScope.Warn(errMsg)
+			toScope.Warn(
+				fmt.Errorf(
+					warn_fk_field_not_found,
+					str_hasone,
+					foreignKey,
+					toModel.ModelType.Name(),
+					field.StructName,
+					toModel.ModelType.Name(),
+				),
+			)
 		}
 	}
 
@@ -262,12 +297,26 @@ func makeBelongTo(field *StructField,
 				ForeignFieldNames.add(foreignField.StructName)
 				ForeignDBNames.add(foreignField.DBName)
 			} else {
-				errMsg := fmt.Sprintf(afk_field_not_found_warn, "BelongTo", associationForeignKeys[idx], fromModel.ModelType.Name())
-				toScope.Warn(errMsg)
+				toScope.Warn(
+					fmt.Errorf(
+						warn_afk_field_not_found,
+						str_belongsto,
+						associationForeignKeys[idx],
+						fromModel.ModelType.Name(),
+					),
+				)
 			}
 		} else {
-			errMsg := fmt.Sprintf(fk_field_not_found_warn, "BelongTo", foreignKey, toModel.ModelType.Name(), field.StructName, fromModel.ModelType.Name())
-			toScope.Warn(errMsg)
+			toScope.Warn(
+				fmt.Errorf(
+					warn_fk_field_not_found,
+					str_belongsto,
+					foreignKey,
+					toModel.ModelType.Name(),
+					field.StructName,
+					fromModel.ModelType.Name(),
+				),
+			)
 		}
 	}
 
@@ -311,8 +360,7 @@ func collectFKsAndAFKs(field *StructField,
 			if field.HasSetting(set_associationforeignkey) {
 				associationForeignKeys = field.GetSliceSetting(set_associationforeignkey)
 			} else {
-				errMsg := fmt.Sprintf(has_no_association_key, "collectFKsAndAFKs")
-				scope.Warn(errMsg)
+				scope.Warn(fmt.Errorf(warn_has_no_association_key, str_collectfks))
 			}
 			// generate foreign keys from defined association foreign keys
 			for _, afk := range associationForeignKeys {
@@ -324,8 +372,14 @@ func collectFKsAndAFKs(field *StructField,
 					}
 					associationForeignKeys.add(fkField.StructName)
 				} else {
-					errMsg := fmt.Sprintf(afk_field_not_found_warn, "collectFKsAndAFKs", fkField, model.ModelType.Name())
-					scope.Warn(errMsg)
+					scope.Warn(
+						fmt.Errorf(
+							warn_afk_field_not_found,
+							str_collectfks,
+							fkField,
+							model.ModelType.Name(),
+						),
+					)
 				}
 			}
 		}
@@ -333,8 +387,7 @@ func collectFKsAndAFKs(field *StructField,
 		if field.HasSetting(set_foreignkey) {
 			foreignKeys = field.GetSliceSetting(set_foreignkey)
 		} else {
-			errMsg := fmt.Sprintf(has_no_foreign_key, "collectFKsAndAFKs")
-			scope.Warn(errMsg)
+			scope.Warn(fmt.Errorf(warn_has_no_foreign_key, str_collectfks))
 		}
 		// generate association foreign keys from foreign keys
 		if !field.HasSetting(set_associationforeignkey) {
@@ -348,8 +401,16 @@ func collectFKsAndAFKs(field *StructField,
 					if _, ok := model.FieldByName(afk); ok {
 						associationForeignKeys.add(afk)
 					} else {
-						errMsg := fmt.Sprintf(fk_field_not_found_warn, "collectFKsAndAFKs", afk, model.ModelType.Name(), field.StructName, modelName)
-						scope.Warn(errMsg)
+						scope.Warn(
+							fmt.Errorf(
+								warn_fk_field_not_found,
+								str_collectfks,
+								afk,
+								model.ModelType.Name(),
+								field.StructName,
+								modelName,
+							),
+						)
 					}
 				}
 			}
@@ -360,11 +421,10 @@ func collectFKsAndAFKs(field *StructField,
 			if field.HasSetting(set_associationforeignkey) {
 				associationForeignKeys = field.GetSliceSetting(set_associationforeignkey)
 			} else {
-				errMsg := fmt.Sprintf(has_no_association_key, "collectFKsAndAFKs")
-				scope.Warn(errMsg)
+				scope.Warn(fmt.Errorf(warn_has_no_association_key, str_collectfks))
 			}
 			if foreignKeys.len() != associationForeignKeys.len() {
-				scope.Err(errors.New(length_err))
+				scope.Err(errors.New(err_fk_length_not_equal))
 				return nil, nil
 			}
 		}
@@ -390,7 +450,7 @@ func handleRelationPreload(scope *Scope, field *StructField, conditions []interf
 	)
 
 	// get relations's primary keys
-	if field.RelKind() == rel_belongs_to {
+	if field.RelationIsBelongsTo() {
 		FieldNames = ForeignFieldNames
 	} else {
 		FieldNames = AssociationForeignFieldNames
@@ -407,7 +467,7 @@ func handleRelationPreload(scope *Scope, field *StructField, conditions []interf
 	values := toQueryValues(primaryKeys)
 
 	// find relations
-	if field.RelKind() == rel_belongs_to {
+	if field.RelationIsBelongsTo() {
 		DBNames = AssociationForeignDBNames
 	} else {
 		DBNames = ForeignDBNames
@@ -523,7 +583,7 @@ func handleManyToManyPreload(scope *Scope, field *StructField, conditions []inte
 	// generate query with join table
 	newScope := scope.NewScope(reflect.New(fieldType).Interface())
 
-	preloadDB = preloadDB.Table(newScope.TableName()).Model(newScope.Value).Select("*")
+	preloadDB = preloadDB.Table(newScope.TableName()).Model(newScope.Value).Select(str_everything)
 	preloadDB = joinTableHandler.JoinWith(joinTableHandler, preloadDB, scope.Value)
 
 	// preload inline conditions

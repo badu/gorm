@@ -10,6 +10,7 @@ import (
 )
 
 const (
+	MYSQL_DIALECT_NAME   = "mysql"
 	MYSQL_BOOLEAN_TYPE   = "boolean"
 	MYSQL_INT_TYPE       = "int"
 	MYSQL_AUTO_INCREMENT = "AUTO_INCREMENT"
@@ -28,7 +29,7 @@ const (
 )
 
 func (mysql) GetName() string {
-	return "mysql"
+	return MYSQL_DIALECT_NAME
 }
 
 func (mysql) GetQuoter() string {
@@ -118,7 +119,6 @@ func (mysql) DataTypeOf(field *StructField) string {
 }
 
 func (dialect *mysql) RemoveIndex(tableName string, indexName string) error {
-	//TODO : @Badu - test if Quote(tableName, dialect) works correctly here
 	_, err := dialect.db.Exec(fmt.Sprintf(MYSQL_DROP_INDEX, indexName, Quote(tableName, dialect)))
 	return err
 }

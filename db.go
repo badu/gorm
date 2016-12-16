@@ -4,9 +4,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"reflect"
-	"sync"
 	"time"
+	"sync"
+	"reflect"
 )
 
 func (con *DBCon) set(settintType uint64, value interface{}) *DBCon {
@@ -278,7 +278,7 @@ func (con *DBCon) First(entity interface{}, where ...interface{}) *DBCon {
 				"%v.%v %v",
 				QuotedTableName(newScope),
 				Quote(primaryField.DBName, con.parent.dialect),
-				ASCENDENT),
+				str_ascendent),
 		)
 	}
 
@@ -303,7 +303,7 @@ func (con *DBCon) Last(entity interface{}, where ...interface{}) *DBCon {
 				"%v.%v %v",
 				QuotedTableName(newScope),
 				Quote(primaryField.DBName, con.parent.dialect),
-				DESCENDENT),
+				str_descendent),
 		)
 	}
 
@@ -393,7 +393,7 @@ func (con *DBCon) FirstOrInit(out interface{}, where ...interface{}) *DBCon {
 		newScope.Search.Wheres(where...).initialize(newScope)
 	} else {
 		scope := conClone.NewScope(out)
-		args := scope.Search.getFirst(assign_attrs)
+		args := scope.Search.getFirst(cond_assign_attrs)
 		if args != nil {
 			updatedAttrsWithValues(scope, args.args)
 		}
@@ -417,7 +417,7 @@ func (con *DBCon) FirstOrCreate(out interface{}, where ...interface{}) *DBCon {
 		return newScope.con
 	} else if conClone.search.hasAssign() {
 		scope := conClone.NewScope(out)
-		args := scope.Search.getFirst(assign_attrs)
+		args := scope.Search.getFirst(cond_assign_attrs)
 		if args != nil {
 			scope.attrs = args.args
 			//scope.InstanceSet(UPDATE_INTERF_SETTING, args.args)
@@ -452,7 +452,7 @@ func (con *DBCon) Update(attrs ...interface{}) *DBCon {
 func (con *DBCon) UpdateColumns(values interface{}) *DBCon {
 	newScope := con.NewScope(con.search.Value)
 	newScope.attrs = values
-	newScope = newScope.Set(UPDATE_COLUMN_SETTING, true).Set(SAVE_ASSOC_SETTING, false).postUpdate()
+	newScope = newScope.Set(gorm_setting_update_column, true).Set(gorm_setting_save_assoc, false).postUpdate()
 	if con.parent.callbacks.updates.len() > 0 {
 		newScope.callCallbacks(con.parent.callbacks.updates)
 	}
@@ -742,7 +742,7 @@ func (con *DBCon) AddForeignKey(field string, dest string, onDelete string, onUp
 func (con *DBCon) Association(column string) *Association {
 	var err error
 	//ASSOCIATION_SOURCE_SETTING for plugins to extend gorm (original commit of 05.12.2016)
-	scope := con.set(ASSOCIATION_SOURCE_SETTING, con.search.Value).NewScope(con.search.Value)
+	scope := con.set(gorm_setting_association_source, con.search.Value).NewScope(con.search.Value)
 	primaryField := scope.PK()
 	if primaryField == nil {
 		err = errors.New("SCOPE : primary field is NIL")

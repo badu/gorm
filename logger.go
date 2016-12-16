@@ -4,30 +4,7 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"reflect"
-	"regexp"
 	"time"
-)
-
-type (
-	logger interface {
-		Print(v ...interface{})
-	}
-
-	// LogWriter log writer interface
-	LogWriter interface {
-		Println(v ...interface{})
-	}
-
-	// Logger default logger
-	Logger struct {
-		LogWriter
-	}
-)
-
-var (
-	//regexpSelf = regexp.MustCompile(`badu/gorm/.*.go`)
-	regexpSelf   = regexp.MustCompile(`/gorm/.*.go`)
-	regExpLogger = regexp.MustCompile(`(\$\d+)|\?`)
 )
 
 // Print format & print log

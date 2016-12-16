@@ -3,38 +3,15 @@ package gorm
 import (
 	"bytes"
 	"strings"
-	"sync"
 )
 
-type (
-	safeMap struct {
-		m map[string]string
-		l *sync.RWMutex
-	}
-)
-
-var (
-	NamesMap = &safeMap{l: new(sync.RWMutex), m: make(map[string]string)}
-	// Copied from golint
-	commonInitialisms         = []string{"API", "ASCII", "CPU", "CSS", "DNS", "EOF", "GUID", "HTML", "HTTP", "HTTPS", "ID", "IP", "JSON", "LHS", "QPS", "RAM", "RHS", "RPC", "SLA", "SMTP", "SSH", "TLS", "TTL", "UI", "UID", "UUID", "URI", "URL", "UTF8", "VM", "XML", "XSRF", "XSS"}
-	commonInitialismsReplacer *strings.Replacer
-)
-
-func init() {
-	var commonInitialismsForReplacer []string
-	for _, initialism := range commonInitialisms {
-		commonInitialismsForReplacer = append(commonInitialismsForReplacer, initialism, strings.Title(strings.ToLower(initialism)))
-	}
-	commonInitialismsReplacer = strings.NewReplacer(commonInitialismsForReplacer...)
-}
-
-func (s *safeMap) Set(key string, value string) {
+func (s *safeMap) set(key string, value string) {
 	s.l.Lock()
 	defer s.l.Unlock()
 	s.m[key] = value
 }
 
-func (s *safeMap) Get(key string) string {
+func (s *safeMap) get(key string) string {
 	s.l.RLock()
 	defer s.l.RUnlock()
 	//TODO : @Badu - If the requested key doesn't exist, we get the value type's zero value ("")
@@ -42,9 +19,9 @@ func (s *safeMap) Get(key string) string {
 }
 
 // ToDBName convert string to db name
-func (smap *safeMap) ToDBName(name string) string {
+func (smap *safeMap) toDBName(name string) string {
 	//attempt to retrieve it from map
-	if v := smap.Get(name); v != "" {
+	if v := smap.get(name); v != "" {
 		return v
 	}
 
@@ -85,6 +62,11 @@ func (smap *safeMap) ToDBName(name string) string {
 
 	s := strings.ToLower(buf.String())
 	//store it to the map
-	smap.Set(name, s)
+	smap.set(name, s)
 	return s
+}
+
+//for utils_test
+func (smap *safeMap) ToDBName(name string) string {
+	return smap.toDBName(name)
 }

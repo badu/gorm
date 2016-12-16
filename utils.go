@@ -261,7 +261,7 @@ func convertInterfaceToMap(values interface{}, withIgnoredField bool) map[string
 		switch reflectValue.Kind() {
 		case reflect.Map:
 			for _, key := range reflectValue.MapKeys() {
-				attrs[NamesMap.ToDBName(key.Interface().(string))] = reflectValue.MapIndex(key).Interface()
+				attrs[NamesMap.toDBName(key.Interface().(string))] = reflectValue.MapIndex(key).Interface()
 			}
 		default:
 			for _, field := range (&Scope{Value: values}).Fields() {

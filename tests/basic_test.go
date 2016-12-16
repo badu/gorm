@@ -121,7 +121,7 @@ func RunMigration(t *testing.T) {
 	for _, value := range values {
 		TestDB.DropTable(value)
 	}
-	if TestDBErr = TestDB.AutoMigrate(values...).Error; TestDBErr!= nil {
+	if TestDBErr = TestDB.AutoMigrate(values...).Error; TestDBErr != nil {
 		t.Errorf("No error should happen when create table, but got %+v", TestDBErr)
 	}
 	//t.Log("Migration done.")
@@ -316,6 +316,7 @@ func TableName(t *testing.T) {
 		t.Errorf("[]Cart's singular table name should be shopping_cart")
 	}
 	DB.SingularTable(false)
+
 }
 
 func NullValues(t *testing.T) {
@@ -606,7 +607,7 @@ func Joins(t *testing.T) {
 	var users3 []User
 	TestDB.Joins("join emails on emails.user_id = users.id AND emails.email = ?", "join1@example.com").Joins("join credit_cards on credit_cards.user_id = users.id AND credit_cards.number = ?", "411111111111").Where("name = ?", "joins").First(&users3)
 	if len(users3) != 1 {
-		t.Errorf("should find one users using multiple left join conditions : %v")
+		t.Errorf("should find one users using multiple left join conditions")
 	}
 
 	var users4 []User
