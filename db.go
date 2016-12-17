@@ -794,7 +794,9 @@ func (con *DBCon) SetJoinTableHandler(source interface{}, column string, handler
 	for _, field := range scope.GetModelStruct().StructFields() {
 		if field.StructName == column || field.DBName == column {
 			if field.HasSetting(set_many2many_name) {
+				//TODO : use scope.NewScope
 				src := (&Scope{Value: source, con: con}).GetModelStruct().ModelType
+				//TODO : use scope.NewScope
 				destination := (&Scope{Value: field.Interface(), con: con}).GetModelStruct().ModelType
 				handler.SetTable(field.GetStrSetting(set_many2many_name))
 				handler.Setup(field, src, destination)

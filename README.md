@@ -39,6 +39,7 @@
 - [ ] Documentation for tests and build examples
 - [ ] Generated SQL let's the SQL engine cast : SELECT * FROM aTable WHERE id = '1' (id being int). I think it's a bad practice and it should be fixed
 - [ ] convertInterfaceToMap in utils it's terrible : simplify
+- [ ] unify DBCon NewScope and Scope NewScope
 
 ## 17.12.2016
 - [x] When error occurs, print the SQL that was executed (via AddErr of the Scope, we're passing SQL and SQLVars)
