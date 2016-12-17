@@ -171,15 +171,16 @@ const (
 	Field_deleted_at      string = "DeletedAt"
 
 	//Extracted strings
-	str_tag_sql    string = "sql"
-	str_tag_gorm   string = "gorm"
-	str_ascendent  string = "ASC"
-	str_descendent string = "DESC"
-	str_hasmany    string = "HasMany"
-	str_hasone     string = "HasOne"
-	str_belongsto  string = "BelongTo"
-	str_collectfks string = "CollectFKs"
-	str_everything string = "*"
+	str_tag_sql     string = "sql"
+	str_tag_gorm    string = "gorm"
+	str_ascendent   string = "ASC"
+	str_descendent  string = "DESC"
+	str_hasmany     string = "HasMany"
+	str_hasone      string = "HasOne"
+	str_belongsto   string = "BelongTo"
+	str_collectfks  string = "CollectFKs"
+	str_everything  string = "*"
+	str_primary_key string = "primary key"
 
 	//Gorm settings for map (Set / Get)
 	gorm_setting_update_column      uint64 = 1
@@ -292,6 +293,7 @@ type (
 
 		RowsAffected int64 //TODO : @Badu - this should sit inside Scope, because it's contextual
 		//TODO : @Badu - add flags - which includes singularTable, future blockGlobalUpdate and logMode (encoded on 3 bytes)
+		modelsStructMap *safeModelStructsMap
 	}
 	//declared to allow existing code to run, dbcon.Open(...) db = &gorm.DB{*dbcon}
 	DB struct {
@@ -494,8 +496,6 @@ type (
 
 var (
 	dialectsMap = map[string]Dialect{}
-
-	ModelStructsMap = &safeModelStructsMap{l: new(sync.RWMutex), m: make(map[reflect.Type]*ModelStruct)}
 
 	NamesMap = &safeMap{l: new(sync.RWMutex), m: make(map[string]string)}
 	// Copied from golint

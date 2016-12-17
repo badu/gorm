@@ -1,11 +1,17 @@
 package tests
 
 import (
-	"gorm"
+	"os"
 	"testing"
 )
 
 func TestAllGorm(t *testing.T) {
+	//os.Setenv("GORM_DIALECT", "sqlite")
+	//os.Setenv("GORM_DIALECT", "foundation")
+	//os.Setenv("GORM_DIALECT", "postgres")
+	os.Setenv("GORM_DIALECT", "mysql")
+	os.Setenv("GORM_DBADDRESS", "127.0.0.1:3306")
+
 	t.Run("0) Open connection", OpenTestConnection)
 	if TestDBErr != nil {
 		t.Fatalf("No error should happen when connecting to test database, but got err=%+v", TestDBErr)
@@ -167,7 +173,7 @@ func TempTestListModels(t *testing.T) {
 	//TestDB.SetLogMode(gorm.LOG_DEBUG)
 	t.Run("1) RunMigration", RunMigration)
 
-	for _, value := range gorm.ModelStructsMap.M() {
+	for _, value := range TestDB.KnownModelStructs() {
 		t.Logf("%v", value)
 	}
 }

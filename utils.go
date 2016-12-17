@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"runtime"
 	"strings"
+	"sync"
 	"unicode"
 )
 
@@ -243,7 +244,7 @@ func getColumnAsScope(column string, scope *Scope) *Scope {
 }
 
 //using inline advantage
-func convertInterfaceToMap(values interface{}, withIgnoredField bool) map[string]interface{} {
+func convertInterfaceToMap(con *DBCon, values interface{}, withIgnoredField bool) map[string]interface{} {
 	var attrs = map[string]interface{}{}
 
 	switch value := values.(type) {
@@ -251,7 +252,7 @@ func convertInterfaceToMap(values interface{}, withIgnoredField bool) map[string
 		return value
 	case []interface{}:
 		for _, v := range value {
-			for key, value := range convertInterfaceToMap(v, withIgnoredField) {
+			for key, value := range convertInterfaceToMap(con, v, withIgnoredField) {
 				attrs[key] = value
 			}
 		}
@@ -264,7 +265,7 @@ func convertInterfaceToMap(values interface{}, withIgnoredField bool) map[string
 				attrs[NamesMap.toDBName(key.Interface().(string))] = reflectValue.MapIndex(key).Interface()
 			}
 		default:
-			for _, field := range (&Scope{Value: values}).Fields() {
+			for _, field := range (&Scope{Value: values, con:con}).Fields() {
 				if !field.IsBlank() && (withIgnoredField || !field.IsIgnored()) {
 					attrs[field.DBName] = field.Value.Interface()
 				}
@@ -308,13 +309,13 @@ func argsToInterface(args ...interface{}) interface{} {
 //using inline advantage
 func updatedAttrsWithValues(scope *Scope, value interface{}) (map[string]interface{}, bool) {
 	if IndirectValue(scope.Value).Kind() != reflect.Struct {
-		return convertInterfaceToMap(value, false), true
+		return convertInterfaceToMap(scope.con, value, false), true
 	}
 	var (
 		results   = map[string]interface{}{}
 		hasUpdate = false
 	)
-	for key, value := range convertInterfaceToMap(value, true) {
+	for key, value := range convertInterfaceToMap(scope.con, value, true) {
 		field, ok := scope.FieldByName(key)
 		if !ok {
 			fmt.Printf("Field %q NOT found!\n", key)
@@ -506,6 +507,7 @@ func Open(dialectName string, args ...interface{}) (*DBCon, error) {
 	}
 	//set no log
 	db.LogMode(false)
+	db.modelsStructMap = &safeModelStructsMap{l: new(sync.RWMutex), m: make(map[reflect.Type]*ModelStruct)}
 	//TODO : @Badu - don't like that it points itself - maybe what's kept in initial should be gormSetting (use dbcon.get() to get them)
 	db.parent = &db
 

@@ -35,19 +35,10 @@ func DialectHasTzSupport() bool {
 }
 
 func OpenTestConnection(t *testing.T) {
-
 	osDialect := os.Getenv("GORM_DIALECT")
 	osDBAddress := os.Getenv("GORM_DBADDRESS")
-	//to test with mysql
-	//osDialect = "mysql"
-	//osDBAddress = "127.0.0.1:3306"
-
 	switch osDialect {
 	case "mysql":
-		// CREATE USER 'gorm'@'localhost' IDENTIFIED BY 'gorm';
-		// CREATE DATABASE gorm;
-		// GRANT ALL ON * TO 'gorm'@'localhost';
-		os.Setenv("GORM_DIALECT", "mysql")
 		if osDBAddress != "" {
 			osDBAddress = fmt.Sprintf("tcp(%v)", osDBAddress)
 		}
@@ -56,7 +47,7 @@ func OpenTestConnection(t *testing.T) {
 			t.Fatalf("ERROR : %v", TestDBErr)
 		}
 	case "postgres":
-		os.Setenv("GORM_DIALECT", "postgres")
+
 		if osDBAddress != "" {
 			osDBAddress = fmt.Sprintf("host=%v ", osDBAddress)
 		}
@@ -65,13 +56,13 @@ func OpenTestConnection(t *testing.T) {
 			t.Fatalf("ERROR : %v", TestDBErr)
 		}
 	case "foundation":
-		os.Setenv("GORM_DIALECT", "foundation")
+
 		TestDB, TestDBErr = gorm.Open("foundation", "dbname=gorm port=15432 sslmode=disable")
 		if TestDBErr != nil {
 			t.Fatalf("ERROR : %v", TestDBErr)
 		}
 	default:
-		os.Setenv("GORM_DIALECT", "sqlite")
+
 		TestDB, TestDBErr = gorm.Open("sqlite3", "test.db?cache=shared&mode=memory")
 		if TestDBErr != nil {
 			t.Fatalf("ERROR : %v", TestDBErr)

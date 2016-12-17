@@ -4,9 +4,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"time"
-	"sync"
 	"reflect"
+	"sync"
+	"time"
 )
 
 func (con *DBCon) set(settintType uint64, value interface{}) *DBCon {
@@ -44,6 +44,10 @@ func (con *DBCon) Get(name string) (interface{}, bool) {
 		return value, ok
 	}
 	return nil, false
+}
+
+func (con *DBCon) KnownModelStructs() map[reflect.Type]*ModelStruct {
+	return con.parent.modelsStructMap.getMap()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -204,10 +208,30 @@ func (con *DBCon) Dialect() Dialect {
 
 // NewScope create a scope for current operation
 func (con *DBCon) NewScope(value interface{}) *Scope {
-	conClone := con.clone()
-	conClone.search.Value = value
-	//TODO : @Badu - this is the point where connection passes over the search to scope
-	return &Scope{con: conClone, Search: conClone.search.Clone(), Value: value}
+	clone := &DBCon{
+		sqli:     con.sqli,
+		parent:   con.parent,
+		logger:   con.logger,
+		logMode:  con.logMode,
+		settings: map[uint64]interface{}{},
+		Error:    con.Error,
+	}
+	for key, value := range con.settings {
+		clone.settings[key] = value
+	}
+	if con.search == nil {
+		clone.search = &Search{Conditions: make(SqlConditions), Value: value}
+	} else {
+		clone.search = con.search.CloneWithValue(value)
+	}
+
+	//TODO : this is the point where connection passes over the search to scope
+	//for some reason the cloned search needs to be cloned again ... do not interfere
+	freshScope := &Scope{con: clone, Search: clone.search.Clone(), Value: value}
+	if freshScope.con == nil {
+		fmt.Println("WELL, IT'S BROKEN")
+	}
+	return freshScope
 }
 
 // CommonDB return the underlying `*sql.DB` or `*sql.Tx` instance, mainly intended to allow coexistence with legacy non-GORM code.
@@ -243,7 +267,7 @@ func (con *DBCon) SetLogMode(mode int) {
 
 // SingularTable use singular table by default
 func (con *DBCon) SingularTable(enable bool) {
-	ModelStructsMap = &safeModelStructsMap{l: new(sync.RWMutex), m: make(map[reflect.Type]*ModelStruct)}
+	con.parent.modelsStructMap = &safeModelStructsMap{l: new(sync.RWMutex), m: make(map[reflect.Type]*ModelStruct)}
 	con.parent.singularTable = enable
 }
 
@@ -771,8 +795,8 @@ func (con *DBCon) SetJoinTableHandler(source interface{}, column string, handler
 	for _, field := range scope.GetModelStruct().StructFields() {
 		if field.StructName == column || field.DBName == column {
 			if field.HasSetting(set_many2many_name) {
-				src := (&Scope{Value: source}).GetModelStruct().ModelType
-				destination := (&Scope{Value: field.Interface()}).GetModelStruct().ModelType
+				src := (&Scope{Value: source, con: con}).GetModelStruct().ModelType
+				destination := (&Scope{Value: field.Interface(), con: con}).GetModelStruct().ModelType
 				handler.SetTable(field.GetStrSetting(set_many2many_name))
 				handler.Setup(field, src, destination)
 				field.SetTagSetting(set_join_table_handler, handler)

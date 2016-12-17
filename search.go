@@ -95,6 +95,19 @@ func (s *Search) Clone() *Search {
 	return &clone
 }
 
+func (s *Search) CloneWithValue(value interface{}) *Search {
+	clone := Search{}
+	clone.flags = s.flags
+	//clone conditions
+	clone.Conditions = make(SqlConditions)
+	for key, value := range s.Conditions {
+		clone.Conditions[key] = value
+	}
+	clone.tableName = s.tableName
+	clone.Value = value
+	return &clone
+}
+
 func (s *Search) Wheres(wheres ...interface{}) *Search {
 	if len(wheres) > 0 {
 		s.addSqlCondition(cond_where_query, wheres[0], wheres[1:]...)
@@ -280,39 +293,39 @@ func (s *Search) unsetFlag(value uint16) {
 }
 
 func (s *Search) isOrderIgnored() bool {
-	return s.flags&(1<< srch_is_order_ignored) != 0
+	return s.flags&(1<<srch_is_order_ignored) != 0
 }
 
 func (s *Search) hasSelect() bool {
-	return s.flags&(1<< srch_has_select) != 0
+	return s.flags&(1<<srch_has_select) != 0
 }
 
 func (s *Search) hasJoins() bool {
-	return s.flags&(1<< srch_has_joins) != 0
+	return s.flags&(1<<srch_has_joins) != 0
 }
 
 func (s *Search) hasOrder() bool {
-	return s.flags&(1<< srch_has_order) != 0
+	return s.flags&(1<<srch_has_order) != 0
 }
 
 func (s *Search) hasAssign() bool {
-	return s.flags&(1<< srch_has_assign) != 0
+	return s.flags&(1<<srch_has_assign) != 0
 }
 
 func (s *Search) hasPreload() bool {
-	return s.flags&(1<< srch_has_preload) != 0
+	return s.flags&(1<<srch_has_preload) != 0
 }
 
 func (s *Search) hasHaving() bool {
-	return s.flags&(1<< srch_has_having) != 0
+	return s.flags&(1<<srch_has_having) != 0
 }
 
 func (s *Search) hasGroup() bool {
-	return s.flags&(1<< srch_has_group) != 0
+	return s.flags&(1<<srch_has_group) != 0
 }
 
 func (s *Search) hasOffsetOrLimit() bool {
-	return s.flags&(1<< srch_has_offset_or_limit) != 0
+	return s.flags&(1<<srch_has_offset_or_limit) != 0
 }
 
 func (s *Search) setIsOrderIgnored() *Search {
@@ -321,7 +334,7 @@ func (s *Search) setIsOrderIgnored() *Search {
 }
 
 func (s *Search) IsRaw() bool {
-	return s.flags&(1<< srch_is_raw) != 0
+	return s.flags&(1<<srch_is_raw) != 0
 }
 
 func (s *Search) SetRaw() *Search {
@@ -330,7 +343,7 @@ func (s *Search) SetRaw() *Search {
 }
 
 func (s *Search) isUnscoped() bool {
-	return s.flags&(1<< srch_is_unscoped) != 0
+	return s.flags&(1<<srch_is_unscoped) != 0
 }
 
 func (s *Search) setUnscoped() *Search {

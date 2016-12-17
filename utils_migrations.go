@@ -28,7 +28,7 @@ func createJoinTable(scope *Scope, field *StructField) {
 		} else {
 			tableOptions = tableOptions.(string)
 		}
-		destinationValue := ModelStructsMap.Get(handler.Destination.ModelType)
+		destinationValue := scope.con.parent.modelsStructMap.get(handler.Destination.ModelType)
 		if destinationValue != nil {
 			for _, fk := range handler.Destination.ForeignKeys {
 				if sqlTypes != "" {
@@ -56,7 +56,7 @@ func createJoinTable(scope *Scope, field *StructField) {
 			fmt.Println(errMsg)
 			scope.Err(errMsg)
 		}
-		sourceValue := ModelStructsMap.Get(handler.Source.ModelType)
+		sourceValue := scope.con.parent.modelsStructMap.get(handler.Source.ModelType)
 		if sourceValue != nil {
 			for _, fk := range handler.Source.ForeignKeys {
 				if sqlTypes != "" {
@@ -140,7 +140,7 @@ func createTable(scope *Scope) {
 			// Check if the primary key constraint was specified as
 			// part of the column type. If so, we can only support
 			// one column as the primary key.
-			if strings.Contains(strings.ToLower(sqlTag), "primary key") {
+			if strings.Contains(strings.ToLower(sqlTag), str_primary_key) {
 				primaryKeyInColumnType = true
 			}
 			if tags != "" {

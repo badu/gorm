@@ -4,20 +4,20 @@ import (
 	"reflect"
 )
 
-func (s *safeModelStructsMap) Set(key reflect.Type, value *ModelStruct) {
+func (s *safeModelStructsMap) set(key reflect.Type, value *ModelStruct) {
 	s.l.Lock()
 	defer s.l.Unlock()
 	s.m[key] = value
 }
 
-func (s *safeModelStructsMap) Get(key reflect.Type) *ModelStruct {
+func (s *safeModelStructsMap) get(key reflect.Type) *ModelStruct {
 	s.l.RLock()
 	defer s.l.RUnlock()
 	return s.m[key]
 }
 
 //for listing in debug mode
-func (s *safeModelStructsMap) M() map[reflect.Type]*ModelStruct {
+func (s *safeModelStructsMap) getMap() map[reflect.Type]*ModelStruct {
 	s.l.RLock()
 	defer s.l.RUnlock()
 	return s.m
