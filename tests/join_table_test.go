@@ -7,7 +7,7 @@ import (
 func DoJoinTable(t *testing.T) {
 
 	TestDB.Exec("drop table person_addresses;")
-	TestDB.AutoMigrate(&Person{},&PersonAddress{})
+	TestDB.AutoMigrate(&Person{}, &PersonAddress{})
 	TestDB.SetJoinTableHandler(&Person{}, "Addresses", &PersonAddress{})
 
 	address1 := &Address{Address1: "address 1 of person 1"}

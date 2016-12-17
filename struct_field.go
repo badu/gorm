@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func NewStructField(fromStruct reflect.StructField) (*StructField, error) {
+func NewStructField(fromStruct reflect.StructField, toDBName string) (*StructField, error) {
 	result := &StructField{
 		StructName:  fromStruct.Name,
 		Names:       []string{fromStruct.Name},
@@ -27,7 +27,7 @@ func NewStructField(fromStruct reflect.StructField) (*StructField, error) {
 	if result.HasSetting(set_column) {
 		result.DBName = result.GetStrSetting(set_column)
 	} else {
-		result.DBName = NamesMap.toDBName(fromStruct.Name)
+		result.DBName = toDBName
 	}
 	//finished with it : cleanup
 	result.UnsetTagSetting(set_column)

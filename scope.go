@@ -31,6 +31,9 @@ func (scope *Scope) Get(settingType uint64) (interface{}, bool) {
 // Err add error to Scope
 func (scope *Scope) Err(err error) error {
 	if err != nil {
+		//these are passed over to the con, so it can print what SQL was executing
+		scope.con.search.SQL = scope.Search.SQL
+		scope.con.search.SQLVars = scope.Search.SQLVars
 		scope.con.AddError(err)
 	}
 	return err
@@ -142,7 +145,7 @@ func (scope *Scope) PrimaryKeyValue() interface{} {
 // FieldByName find `gorm.StructField` with field name or db name
 func (scope *Scope) FieldByName(name string) (*StructField, bool) {
 	var (
-		dbName           = NamesMap.toDBName(name)
+		dbName           = scope.con.parent.namesMap.toDBName(name)
 		mostMatchedField *StructField
 	)
 
@@ -168,7 +171,7 @@ func (scope *Scope) SetColumn(column interface{}, value interface{}) error {
 	case string:
 		//looks like Scope.FieldByName
 		var (
-			dbName           = NamesMap.toDBName(colType)
+			dbName           = scope.con.parent.namesMap.toDBName(colType)
 			mostMatchedField *StructField
 		)
 		for _, field := range scope.Fields() {
@@ -442,8 +445,8 @@ func (scope *Scope) shouldSaveAssociations() bool {
 func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
 	toScope := scope.con.NewScope(value)
 	tx := scope.con.set(gorm_setting_association_source, scope.Value)
-	//TODO : @Badu - boilerplate string
-	allKeys := append(foreignKeys, GetType(toScope.Value).Name()+"Id", GetType(scope.Value).Name()+"Id")
+
+	allKeys := append(foreignKeys, GetType(toScope.Value).Name()+field_Id_name, GetType(scope.Value).Name()+field_Id_name)
 
 	//because we're using it in a for, we're getting it once
 	dialect := scope.con.parent.dialect

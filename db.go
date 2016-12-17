@@ -50,6 +50,10 @@ func (con *DBCon) KnownModelStructs() map[reflect.Type]*ModelStruct {
 	return con.parent.modelsStructMap.getMap()
 }
 
+func (con *DBCon) KnownNames(name string) string {
+	return con.parent.namesMap.toDBName(name)
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // "unscoped" methods
 ////////////////////////////////////////////////////////////////////////////////
@@ -225,13 +229,9 @@ func (con *DBCon) NewScope(value interface{}) *Scope {
 		clone.search = con.search.CloneWithValue(value)
 	}
 
-	//TODO : this is the point where connection passes over the search to scope
-	//for some reason the cloned search needs to be cloned again ... do not interfere
-	freshScope := &Scope{con: clone, Search: clone.search.Clone(), Value: value}
-	if freshScope.con == nil {
-		fmt.Println("WELL, IT'S BROKEN")
-	}
-	return freshScope
+	//Important note : this is the point where connection passes over the search to scope
+	//Observation : for some reason the cloned search needs to be cloned again ... do not interfere
+	return &Scope{con: clone, Search: clone.search.Clone(), Value: value}
 }
 
 // CommonDB return the underlying `*sql.DB` or `*sql.Tx` instance, mainly intended to allow coexistence with legacy non-GORM code.
@@ -285,7 +285,6 @@ func (con *DBCon) SingularTable(enable bool) {
 //     db.Scopes(AmountGreaterThan1000, OrderStatus([]string{"paid", "shipped"})).Find(&orders)
 func (con *DBCon) Scopes(funcs ...DBConFunc) *DBCon {
 	for _, f := range funcs {
-		//TODO : @Badu - assignment to method receiver propagates only to callees but not to callers
 		con = f(con)
 	}
 	return con
@@ -818,9 +817,17 @@ func (con *DBCon) AddError(err error) error {
 			case LOG_VERBOSE:
 				con.log(err)
 			case LOG_OFF:
-				go con.toLog(fileWithLineNum(), err)
+				if con.search != nil {
+					go con.toLog(str_tag_sql, fileWithLineNum(), time.Duration(0), con.search.SQL, err, con.search.SQLVars)
+				} else {
+					go con.toLog(fileWithLineNum(), err)
+				}
 			case LOG_DEBUG:
-				fmt.Printf("ERROR : %v\n%s\n", err, fullFileWithLineNum())
+				if con.search != nil {
+					con.toLog(str_tag_sql, fullFileWithLineNum(), time.Duration(0), con.search.SQL, err, con.search.SQLVars)
+				} else {
+					fmt.Printf("ERROR : %v\n%s\n", err, fullFileWithLineNum())
+				}
 			}
 			gormErrors := GormErrors(con.GetErrors())
 			gormErrors = gormErrors.Add(err)
@@ -891,7 +898,5 @@ func (con *DBCon) log(v ...interface{}) {
 }
 
 func (con *DBCon) slog(sql string, t time.Time, vars ...interface{}) {
-	if con.logMode == LOG_VERBOSE || con.logMode == LOG_DEBUG {
-		con.toLog("sql", fileWithLineNum(), NowFunc().Sub(t), sql, vars)
-	}
+	con.toLog(str_tag_sql, fileWithLineNum(), NowFunc().Sub(t), sql, nil, vars)
 }

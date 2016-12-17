@@ -14,7 +14,7 @@ func (s *safeMap) set(key string, value string) {
 func (s *safeMap) get(key string) string {
 	s.l.RLock()
 	defer s.l.RUnlock()
-	//TODO : @Badu - If the requested key doesn't exist, we get the value type's zero value ("")
+	//If the requested key doesn't exist, we get the value type's zero value ("")
 	return s.m[key]
 }
 
@@ -64,9 +64,4 @@ func (smap *safeMap) toDBName(name string) string {
 	//store it to the map
 	smap.set(name, s)
 	return s
-}
-
-//for utils_test
-func (smap *safeMap) ToDBName(name string) string {
-	return smap.toDBName(name)
 }

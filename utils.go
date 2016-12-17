@@ -9,7 +9,6 @@ import (
 	"runtime"
 	"strings"
 	"sync"
-	"unicode"
 )
 
 // RegisterDialect register new dialect
@@ -262,10 +261,10 @@ func convertInterfaceToMap(con *DBCon, values interface{}, withIgnoredField bool
 		switch reflectValue.Kind() {
 		case reflect.Map:
 			for _, key := range reflectValue.MapKeys() {
-				attrs[NamesMap.toDBName(key.Interface().(string))] = reflectValue.MapIndex(key).Interface()
+				attrs[con.parent.namesMap.toDBName(key.Interface().(string))] = reflectValue.MapIndex(key).Interface()
 			}
 		default:
-			for _, field := range (&Scope{Value: values, con:con}).Fields() {
+			for _, field := range (&Scope{Value: values, con: con}).Fields() {
 				if !field.IsBlank() && (withIgnoredField || !field.IsIgnored()) {
 					attrs[field.DBName] = field.Value.Interface()
 				}
@@ -417,21 +416,12 @@ func getScannerValue(value reflect.Value) reflect.Value {
 	return fieldValue
 }
 
-func isPrintable(s string) bool {
-	for _, r := range s {
-		if !unicode.IsPrint(r) {
-			return false
-		}
-	}
-	return true
-}
-
 func fullFileWithLineNum() string {
 	result := ""
 	for i := 1; i < 12; i++ {
 		_, file, line, ok := runtime.Caller(i)
 		if ok {
-			result += fmt.Sprintf("%v:%v\n", file, line)
+			result += fmt.Sprintf("%s.%v:%v\n", i, file, line)
 		} else {
 			break
 		}
@@ -441,12 +431,16 @@ func fullFileWithLineNum() string {
 }
 
 func fileWithLineNum() string {
-	for i := 1; i < 12; i++ {
+	for i := 3; i < 12; i++ {
 		_, file, line, ok := runtime.Caller(i)
-		if ok && !regexpSelf.MatchString(file) {
-			return fmt.Sprintf("%v:%v", file, line)
+		if ok {
+			//if it's our test
+			if regexpTest.MatchString(file) {
+				return fmt.Sprintf("%v:%v", file, line)
+			} else if !regexpSelf.MatchString(file) {
+				return fmt.Sprintf("%v:%v", file, line)
+			}
 		}
-
 	}
 	return ""
 }
@@ -499,15 +493,17 @@ func Open(dialectName string, args ...interface{}) (*DBCon, error) {
 	}
 
 	db = DBCon{
-		dialect:   conDialect,
-		logger:    defaultLogger,
-		callbacks: &Callbacks{},
-		settings:  map[uint64]interface{}{},
-		sqli:      dbSQL,
+		dialect:         conDialect,
+		logger:          defaultLogger,
+		callbacks:       &Callbacks{},
+		settings:        map[uint64]interface{}{},
+		sqli:            dbSQL,
+		modelsStructMap: &safeModelStructsMap{l: new(sync.RWMutex), m: make(map[reflect.Type]*ModelStruct)},
+		namesMap:        &safeMap{l: new(sync.RWMutex), m: make(map[string]string)},
 	}
 	//set no log
 	db.LogMode(false)
-	db.modelsStructMap = &safeModelStructsMap{l: new(sync.RWMutex), m: make(map[reflect.Type]*ModelStruct)}
+
 	//TODO : @Badu - don't like that it points itself - maybe what's kept in initial should be gormSetting (use dbcon.get() to get them)
 	db.parent = &db
 

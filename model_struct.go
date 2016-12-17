@@ -34,12 +34,12 @@ func (modelStruct *ModelStruct) HasColumn(column string) bool {
 	return false
 }
 
-func (modelStruct *ModelStruct) FieldByName(column string) (*StructField, bool) {
+func (modelStruct *ModelStruct) FieldByName(column string, con *DBCon) (*StructField, bool) {
 	field, ok := modelStruct.fieldsMap.get(column)
 	if !ok {
 		//couldn't find it in "fields" map
 		for _, field := range modelStruct.fieldsMap.fields {
-			if field.DBName == NamesMap.toDBName(column) {
+			if field.DBName == con.namesMap.toDBName(column) {
 				return field, true
 			}
 		}
@@ -61,7 +61,7 @@ func (modelStruct *ModelStruct) Create(reflectType reflect.Type, scope *Scope) {
 	if ok {
 		modelStruct.defaultTableName = tabler.TableName()
 	} else {
-		tableName := NamesMap.toDBName(reflectType.Name())
+		tableName := scope.con.parent.namesMap.toDBName(reflectType.Name())
 		if scope.con == nil || !scope.con.parent.singularTable {
 			tableName = inflection.Plural(tableName)
 		}
@@ -70,8 +70,7 @@ func (modelStruct *ModelStruct) Create(reflectType reflect.Type, scope *Scope) {
 	// Get all fields
 	for i := 0; i < reflectType.NumField(); i++ {
 		if fieldStruct := reflectType.Field(i); ast.IsExported(fieldStruct.Name) {
-
-			field, err := NewStructField(fieldStruct)
+			field, err := NewStructField(fieldStruct, scope.con.parent.namesMap.toDBName(fieldStruct.Name))
 			if err != nil {
 				scope.Err(errors.New(fmt.Sprintf(err_processing_tags, modelStruct.ModelType.Name(), err)))
 				return
@@ -134,8 +133,6 @@ func (modelStruct *ModelStruct) noOfPKs() int {
 func (modelStruct *ModelStruct) processRelations(scope *Scope) {
 	for _, field := range modelStruct.StructFields() {
 		if field.WillCheckRelations() {
-			//TODO : @Badu - if you need to look at fields as they are built
-			//scope.con.Log("Before\n", field)
 			toScope := scope.NewScope(field.Interface())
 			toModelStruct := toScope.GetModelStruct()
 			//ATTN : order matters, since it can be both slice and struct
@@ -166,8 +163,6 @@ func (modelStruct *ModelStruct) processRelations(scope *Scope) {
 				}
 			}
 			field.UnsetCheckRelations()
-			//TODO : @Badu - if you need to look at fields as they are built
-			//scope.con.Log("Processed\n", field)
 		}
 	}
 }

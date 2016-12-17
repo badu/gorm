@@ -169,6 +169,7 @@ const (
 	Field_created_at      string = "CreatedAt"
 	Field_updated_at      string = "UpdatedAt"
 	Field_deleted_at      string = "DeletedAt"
+	field_Id_name         string = "Id"
 
 	//Extracted strings
 	str_tag_sql     string = "sql"
@@ -293,7 +294,9 @@ type (
 
 		RowsAffected int64 //TODO : @Badu - this should sit inside Scope, because it's contextual
 		//TODO : @Badu - add flags - which includes singularTable, future blockGlobalUpdate and logMode (encoded on 3 bytes)
+
 		modelsStructMap *safeModelStructsMap
+		namesMap        *safeMap
 	}
 	//declared to allow existing code to run, dbcon.Open(...) db = &gorm.DB{*dbcon}
 	DB struct {
@@ -497,7 +500,6 @@ type (
 var (
 	dialectsMap = map[string]Dialect{}
 
-	NamesMap = &safeMap{l: new(sync.RWMutex), m: make(map[string]string)}
 	// Copied from golint
 	commonInitialisms         = []string{"API", "ASCII", "CPU", "CSS", "DNS", "EOF", "GUID", "HTML", "HTTP", "HTTPS", "ID", "IP", "JSON", "LHS", "QPS", "RAM", "RHS", "RPC", "SLA", "SMTP", "SSH", "TLS", "TTL", "UI", "UID", "UUID", "URI", "URL", "UTF8", "VM", "XML", "XSRF", "XSS"}
 	commonInitialismsReplacer *strings.Replacer
@@ -564,8 +566,8 @@ var (
 		rel_belongs_to: "Belongs to",
 	}
 
-	//regexpSelf = regexp.MustCompile(`badu/gorm/.*.go`)
-	regexpSelf   = regexp.MustCompile(`/gorm/.*.go`)
+	regexpSelf   = regexp.MustCompile(`gorm/.*.go`)
+	regexpTest   = regexp.MustCompile(`gorm/tests/.*.go`)
 	regExpLogger = regexp.MustCompile(`(\$\d+)|\?`)
 
 	cachedReverseTagSettingsMap map[uint8]string

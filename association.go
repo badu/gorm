@@ -140,7 +140,7 @@ func (association *Association) Replace(values ...interface{}) *Association {
 				}
 			}
 
-			// has_one or has_many relations, set foreign key to be nil (TODO or delete them?)
+			// has_one or has_many relations, set foreign key to be nil
 			var foreignKeyMap = map[string]interface{}{}
 
 			for idx, foreignKey := range ForeignDBNames {

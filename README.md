@@ -36,17 +36,20 @@
 # Changes log (29.10.2016-present)
 
 # Todo
-- [ ] Debug SQL string even when it fails 
 - [ ] Documentation for tests and build examples
 - [ ] Generated SQL let's the SQL engine cast : SELECT * FROM aTable WHERE id = '1' (id being int). I think it's a bad practice and it should be fixed
-- [ ] convertInterfaceToMap it's terrible : simplify
+- [ ] convertInterfaceToMap in utils it's terrible : simplify
 
 ## 17.12.2016
+- [x] When error occurs, print the SQL that was executed (via AddErr of the Scope, we're passing SQL and SQLVars)
 - [x] DBCon has modelsStructMap property which keeps the map that was a "global" variable (separate of concerns and encapsulation)
 - [x] convertInterfaceToMap in utils - created a scope without connection (should be forbidden)
 - [x] SetJoinTableHandler in DBCon - created a scope without connection (should be forbidden)
 - [x] safeModelStructsMap made private
 - [x] DBCon exposes modelsStructMap via KnownModelStructs()
+- [x] DBCon has namesMap property which keeps the map that was a "global" variable (separate of concerns and encapsulation) same as above
+- [x] DBCon KnownNames(name string) for checking against namesMap
+- [x] had to modify ModelStruct FieldByName signature to FieldByName(column string, con *DBCon) to give access to namesMap
 
 ## 16.12.2016
 - [x] Replaced - where possible - conditions for relation checking (readability)

@@ -440,7 +440,7 @@ func HasOneOverrideForeignKey2(t *testing.T) {
 		ForeignFieldNames := field.GetForeignFieldNames()
 		AssociationForeignFieldNames := field.GetAssociationForeignFieldNames()
 
-		if !field.RelationIsHasOne()  ||
+		if !field.RelationIsHasOne() ||
 			!reflect.DeepEqual(ForeignFieldNames, gorm.StrSlice{"UserID"}) ||
 			!reflect.DeepEqual(AssociationForeignFieldNames, gorm.StrSlice{"Refer"}) {
 			t.Errorf("Override belongs to foreign key with tag")

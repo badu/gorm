@@ -14,7 +14,7 @@ func makePoly(field *StructField, toModel *ModelStruct, fromScope *Scope) string
 		polyFieldName := polyName + field_poly_type
 		// Dog has many toys, tag polymorphic is Owner, then associationType is Owner
 		// Toy use OwnerID, OwnerType ('dogs') as foreign key
-		if polyField, ok := toModel.FieldByName(polyFieldName); ok {
+		if polyField, ok := toModel.FieldByName(polyFieldName, fromScope.con.parent); ok {
 			modelName = polyName
 			polyField.LinkPoly(field, fromScope.TableName())
 		} else {
@@ -38,9 +38,9 @@ func makeManyToMany(field *StructField,
 	var (
 		foreignKeys, associationForeignKeys StrSlice
 		elemType                            = field.Type
-		elemName                            = NamesMap.toDBName(elemType.Name())
+		elemName                            = fromScope.con.parent.namesMap.toDBName(elemType.Name())
 		modelType                           = fromModel.ModelType
-		modelName                           = NamesMap.toDBName(modelType.Name())
+		modelName                           = fromScope.con.parent.namesMap.toDBName(modelType.Name())
 		referencedTable                     = field.GetStrSetting(set_many2many_name) //many to many is set (check is in ModelStruct)
 	)
 
@@ -78,7 +78,7 @@ func makeManyToMany(field *StructField,
 	)
 
 	for _, fk := range foreignKeys {
-		if fkField, ok := fromModel.FieldByName(fk); ok {
+		if fkField, ok := fromModel.FieldByName(fk, fromScope.con.parent); ok {
 			// source foreign keys (db names)
 			ForeignFieldNames.add(fkField.DBName)
 			// join table foreign keys for source
@@ -136,7 +136,7 @@ func makeHasMany(field *StructField,
 	fromScope, toScope *Scope) {
 
 	var (
-		modelName = NamesMap.toDBName(fromModel.ModelType.Name()) // User has many comments, associationType is User, comment use UserID as foreign key
+		modelName = fromScope.con.parent.namesMap.toDBName(fromModel.ModelType.Name()) // User has many comments, associationType is User, comment use UserID as foreign key
 	)
 	//checking if we have poly, which alters modelName
 	if polyName := makePoly(field, toModel, fromScope); polyName != "" {
@@ -153,8 +153,8 @@ func makeHasMany(field *StructField,
 	)
 
 	for idx, foreignKey := range foreignKeys {
-		if foreignField, ok := toModel.FieldByName(foreignKey); ok {
-			if associationField, ok := fromModel.FieldByName(associationForeignKeys[idx]); ok {
+		if foreignField, ok := toModel.FieldByName(foreignKey, fromScope.con.parent); ok {
+			if associationField, ok := fromModel.FieldByName(associationForeignKeys[idx], fromScope.con.parent); ok {
 				// source foreign keys
 				foreignField.SetIsForeignKey()
 				AssociationForeignFieldNames.add(associationField.StructName)
@@ -205,7 +205,7 @@ func makeHasOne(field *StructField,
 	fromScope, toScope *Scope) bool {
 
 	var (
-		modelName = NamesMap.toDBName(fromModel.ModelType.Name())
+		modelName = fromScope.con.parent.namesMap.toDBName(fromModel.ModelType.Name())
 	)
 	//checking if we have poly, which alters modelName
 	if polyName := makePoly(field, toModel, fromScope); polyName != "" {
@@ -222,8 +222,8 @@ func makeHasOne(field *StructField,
 	)
 
 	for idx, foreignKey := range foreignKeys {
-		if foreignField, ok := toModel.FieldByName(foreignKey); ok {
-			if assocField, ok := fromModel.FieldByName(associationForeignKeys[idx]); ok {
+		if foreignField, ok := toModel.FieldByName(foreignKey, fromScope.con.parent); ok {
+			if assocField, ok := fromModel.FieldByName(associationForeignKeys[idx], fromScope.con.parent); ok {
 				foreignField.SetIsForeignKey()
 				// source foreign keys
 				AssociationForeignFieldNames.add(assocField.StructName)
@@ -285,8 +285,8 @@ func makeBelongTo(field *StructField,
 	)
 
 	for idx, foreignKey := range foreignKeys {
-		if foreignField, ok := fromModel.FieldByName(foreignKey); ok {
-			if associationField, ok := toModel.FieldByName(associationForeignKeys[idx]); ok {
+		if foreignField, ok := fromModel.FieldByName(foreignKey, fromScope.con.parent); ok {
+			if associationField, ok := toModel.FieldByName(associationForeignKeys[idx], fromScope.con.parent); ok {
 				foreignField.SetIsForeignKey()
 
 				// association foreign keys
@@ -364,7 +364,7 @@ func collectFKsAndAFKs(field *StructField,
 			}
 			// generate foreign keys from defined association foreign keys
 			for _, afk := range associationForeignKeys {
-				if fkField, ok := model.FieldByName(afk); ok {
+				if fkField, ok := model.FieldByName(afk, scope.con.parent); ok {
 					if modelName == "" {
 						foreignKeys.add(field.StructName + fkField.StructName)
 					} else {
@@ -398,7 +398,7 @@ func collectFKsAndAFKs(field *StructField,
 				}
 				if strings.HasPrefix(fk, prefix) {
 					afk := strings.TrimPrefix(fk, prefix)
-					if _, ok := model.FieldByName(afk); ok {
+					if _, ok := model.FieldByName(afk, scope.con.parent); ok {
 						associationForeignKeys.add(afk)
 					} else {
 						scope.Warn(

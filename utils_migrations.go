@@ -37,7 +37,7 @@ func createJoinTable(scope *Scope, field *StructField) {
 				if primaryKeys != "" {
 					primaryKeys += ","
 				}
-				theField, ok := destinationValue.FieldByName(fk.AssociationDBName)
+				theField, ok := destinationValue.FieldByName(fk.AssociationDBName, scope.con.parent)
 				if ok {
 					//clone the field so we can unset primary key and autoincrement values
 					clone := theField.clone()
@@ -65,7 +65,7 @@ func createJoinTable(scope *Scope, field *StructField) {
 				if primaryKeys != "" {
 					primaryKeys += ","
 				}
-				theField, ok := sourceValue.FieldByName(fk.AssociationDBName)
+				theField, ok := sourceValue.FieldByName(fk.AssociationDBName, scope.con.parent)
 				if ok {
 					//clone the field so we can unset primary key and autoincrement values
 					clone := theField.clone()
