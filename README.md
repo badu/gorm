@@ -43,7 +43,12 @@
 
 ## 18.12.2016
 - [x] Removed Search struct TableName() method
-- [x] Replaced, where possible, GetSliceSetting with GetForeignFieldNames, GetAssociationForeignFieldNames, GetForeignDBNames, GetAssociationDBNames 
+- [x] Replaced, where possible, GetSliceSetting with GetForeignFieldNames, GetAssociationForeignFieldNames, GetForeignDBNames, GetAssociationDBNames
+- [x] Fix for Association.Count when there are no where conditions
+- [x] Fixed some tests (duplicate entries errors or misspellings)
+- [x] removed Scope's attrs interface{} - since we can pass it as argument to postUpdate()
+- [x] Scope TableName fix : if implements tabler or dbtabler should override the search table name
+- [ ] Fix for Update after save, e.g. TestDB.Save(&animal).Update("name", "Francis") - scope table name is empty, do not execute query
 
 ## 17.12.2016
 - [x] When error occurs, print the SQL that was executed (via AddErr of the Scope, we're passing SQL and SQLVars)

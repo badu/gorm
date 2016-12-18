@@ -92,7 +92,7 @@ func StringPrimaryKeyForNumericValueStartingWithZero(t *testing.T) {
 		ZipCode string `gorm:"primary_key"`
 		Address string
 	}
-
+	TestDB.DropTable(AddressByZipCode{})
 	TestDB.AutoMigrate(&AddressByZipCode{})
 	TestDB.Create(&AddressByZipCode{ZipCode: "00501", Address: "Holtsville"})
 
@@ -600,6 +600,7 @@ func FindOrCreate(t *testing.T) {
 		t.Errorf("UpdateAt should be changed when update values with assign")
 	}
 
+	user4.Id = 0 //otherwise, will have duplicate entry error
 	TestDB.Where(&User{Name: "find or create 4"}).Assign(User{Age: 44}).FirstOrCreate(&user4)
 	if user4.Name != "find or create 4" || user4.Id == 0 || user4.Age != 44 {
 		t.Errorf("user should be created with search value and assigned attrs")
@@ -625,7 +626,7 @@ func FindOrCreate(t *testing.T) {
 		t.Errorf("embedded struct email should be saved")
 	}
 
-	if TestDB.Where("email = ?", "1231231231").First(&CreditCard{}).RecordNotFound() {
+	if TestDB.Where("number = ?", "1231231231").First(&CreditCard{}).RecordNotFound() {
 		t.Errorf("embedded struct credit card should be saved")
 	}
 }

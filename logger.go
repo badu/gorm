@@ -17,7 +17,9 @@ func (logger Logger) Print(values ...interface{}) {
 
 		if values[0] == str_tag_sql {
 			//error
-			messages = append(messages, fmt.Sprintf("ERROR: %q\n", values[4]))
+			if values[4] != nil {
+				messages = append(messages, fmt.Sprintf("ERROR: %q\n", values[4]))
+			}
 			// duration
 			messages = append(messages, fmt.Sprintf("\033[36;1m[%.2fms]\033[0m", float64(values[2].(time.Duration).Nanoseconds()/1e4)/100.0))
 			// sql

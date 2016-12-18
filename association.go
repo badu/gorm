@@ -319,16 +319,6 @@ func (association *Association) Clear() *Association {
 
 // Count return the count of current associations
 func (association *Association) Count() int {
-	//fixes for mysql tests - for some reason, we get here with nils
-	if association.field == nil {
-		fmt.Println("FIELD IS NIL IN COUNT!")
-		return 0
-	}
-	if association.scope == nil {
-		fmt.Println("SCOPE IS NIL IN COUNT!")
-		return 0
-	}
-
 	var (
 		count      = 0
 		field      = association.field
@@ -345,6 +335,10 @@ func (association *Association) Count() int {
 	case rel_has_many, rel_has_one:
 		AssociationForeignFieldNames := field.GetAssociationForeignFieldNames()
 		primaryKeys := getColumnAsArray(AssociationForeignFieldNames, scope.Value)
+		if len(primaryKeys) == 0 {
+			//fix where %v IN (%v) is empty
+			return 0
+		}
 		ForeignDBNames := field.GetForeignDBNames()
 		conn = conn.Where(
 			fmt.Sprintf(
@@ -356,8 +350,12 @@ func (association *Association) Count() int {
 		)
 	case rel_belongs_to:
 		ForeignFieldNames := field.GetForeignFieldNames()
-		AssociationForeignDBNames := field.GetAssociationDBNames()
 		primaryKeys := getColumnAsArray(ForeignFieldNames, scope.Value)
+		if len(primaryKeys) == 0 {
+			//fix where %v IN (%v) is empty
+			return 0
+		}
+		AssociationForeignDBNames := field.GetAssociationDBNames()
 		conn = conn.Where(
 			fmt.Sprintf(
 				"%v IN (%v)",

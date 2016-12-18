@@ -199,15 +199,18 @@ func (scope *Scope) SetColumn(column interface{}, value interface{}) error {
 
 // TableName return table name
 func (scope *Scope) TableName() string {
-	if scope.Search != nil && scope.Search.tableName != "" {
-		return scope.Search.tableName
-	}
+	//fix : if implements tabler or dbtabler should override the search table name
 	switch tabler := scope.Value.(type) {
 	case tabler:
 		return tabler.TableName()
 	case dbTabler:
 		return tabler.TableName(scope.con)
 	}
+
+	if scope.Search != nil && scope.Search.tableName != "" {
+		return scope.Search.tableName
+	}
+
 	return scope.GetModelStruct().TableName(scope.con.Model(scope.Value))
 }
 
@@ -813,9 +816,9 @@ func (scope *Scope) postCreate() *Scope {
 }
 
 //calls methods after update
-func (scope *Scope) postUpdate() *Scope {
-	if scope.attrs != nil {
-		updateMaps, hasUpdate := updatedAttrsWithValues(scope, scope.attrs)
+func (scope *Scope) postUpdate(attrs interface{}) *Scope {
+	if attrs != nil {
+		updateMaps, hasUpdate := updatedAttrsWithValues(scope, attrs)
 		if hasUpdate {
 			scope.updateMaps = updateMaps
 		} else {
@@ -908,15 +911,15 @@ func (scope *Scope) postUpdate() *Scope {
 		if str, ok := result.Get(gorm_setting_update_opt); ok {
 			extraOption = fmt.Sprint(str)
 		}
-
-		if sql != "" {
-			result.Raw(fmt.Sprintf(
-				"UPDATE %v SET %v%v%v",
-				QuotedTableName(result),
-				sql,
-				addExtraSpaceIfExist(result.Search.combinedConditionSql(result)),
-				addExtraSpaceIfExist(extraOption),
-			)).Exec()
+		//fix : scope table name is empty, do not execute query
+		if sql != "" && scope.TableName() != "" {
+				result.Raw(fmt.Sprintf(
+					"UPDATE %v SET %v%v%v",
+					QuotedTableName(result),
+					sql,
+					addExtraSpaceIfExist(result.Search.combinedConditionSql(result)),
+					addExtraSpaceIfExist(extraOption),
+				)).Exec()
 		}
 	}
 	//END Was "updateCallback"

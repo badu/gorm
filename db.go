@@ -442,10 +442,11 @@ func (con *DBCon) FirstOrCreate(out interface{}, where ...interface{}) *DBCon {
 		scope := conClone.NewScope(out)
 		args := scope.Search.getFirst(cond_assign_attrs)
 		if args != nil {
-			scope.attrs = args.args
-			//scope.InstanceSet(UPDATE_INTERF_SETTING, args.args)
+			scope = scope.postUpdate(args.args)
+		}else{
+			scope = scope.postUpdate(nil)
 		}
-		scope = scope.postUpdate()
+
 		if conClone.parent.callbacks.updates.len() > 0 {
 			scope.callCallbacks(conClone.parent.callbacks.updates)
 		}
@@ -457,8 +458,7 @@ func (con *DBCon) FirstOrCreate(out interface{}, where ...interface{}) *DBCon {
 // Updates update attributes with callbacks
 func (con *DBCon) Updates(values interface{}, ignoreProtectedAttrs ...bool) *DBCon {
 	newScope := con.NewScope(con.search.Value)
-	newScope.attrs = values
-	newScope = newScope.postUpdate()
+	newScope = newScope.postUpdate(values)
 	if con.parent.callbacks.updates.len() > 0 {
 		newScope.callCallbacks(con.parent.callbacks.updates)
 	}
@@ -474,8 +474,7 @@ func (con *DBCon) Update(attrs ...interface{}) *DBCon {
 // UpdateColumns update attributes without callbacks
 func (con *DBCon) UpdateColumns(values interface{}) *DBCon {
 	newScope := con.NewScope(con.search.Value)
-	newScope.attrs = values
-	newScope = newScope.Set(gorm_setting_update_column, true).Set(gorm_setting_save_assoc, false).postUpdate()
+	newScope = newScope.Set(gorm_setting_update_column, true).Set(gorm_setting_save_assoc, false).postUpdate(values)
 	if con.parent.callbacks.updates.len() > 0 {
 		newScope.callCallbacks(con.parent.callbacks.updates)
 	}
@@ -492,7 +491,7 @@ func (con *DBCon) UpdateColumn(attrs ...interface{}) *DBCon {
 func (con *DBCon) Save(value interface{}) *DBCon {
 	scope := con.NewScope(value)
 	if !scope.PrimaryKeyZero() {
-		scope = scope.postUpdate()
+		scope = scope.postUpdate(nil)
 		if con.parent.callbacks.updates.len() > 0 {
 			scope.callCallbacks(con.parent.callbacks.updates)
 		}

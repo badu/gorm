@@ -367,14 +367,22 @@ func (field *StructField) GetAssociationDBNames() StrSlice {
 	return slice
 }
 
-func (field *StructField) GetSliceSetting(named uint8) StrSlice {
-	value, ok := field.tagSettings.get(named)
+func (field *StructField) GetAssocFKs() StrSlice {
+	value, ok := field.tagSettings.get(set_associationforeignkey)
 	if !ok {
-		//doesn't exist
-		//reverseTagSettingsMap()
-		//fmt.Printf("ERROR : SLICE %q NOT EXISTS!\n", cachedReverseTagSettingsMap[named])
-		//_, file, line, _ := runtime.Caller(1)
-		//fmt.Printf("Called from %s %d\n", file, line)
+		return nil
+	}
+	slice, ok := value.(StrSlice)
+	if !ok {
+		//can't convert to slice
+		return nil
+	}
+	return slice
+}
+
+func (field *StructField) GetFKs() StrSlice {
+	value, ok := field.tagSettings.get(set_foreignkey)
+	if !ok {
 		return nil
 	}
 	slice, ok := value.(StrSlice)

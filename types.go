@@ -256,8 +256,6 @@ type (
 
 		//added to get rid of UPDATE_ATTRS_SETTING - since it's accessible only in that instance
 		updateMaps map[string]interface{}
-		//added to get rid of UPDATE_INTERF_SETTING - since it's accessible only in that instance
-		attrs interface{}
 	}
 
 	sqlConditionType uint16
