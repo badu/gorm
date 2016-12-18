@@ -911,7 +911,7 @@ func (scope *Scope) postUpdate(attrs interface{}) *Scope {
 		if str, ok := result.Get(gorm_setting_update_opt); ok {
 			extraOption = fmt.Sprint(str)
 		}
-		//fix : scope table name is empty, do not execute query
+
 		if sql != "" && scope.TableName() != "" {
 				result.Raw(fmt.Sprintf(
 					"UPDATE %v SET %v%v%v",

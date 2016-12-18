@@ -11,91 +11,96 @@ import (
 )
 
 func NewStructField(fromStruct reflect.StructField, toDBName string) (*StructField, error) {
-	result := &StructField{
+	field := &StructField{
 		StructName:  fromStruct.Name,
 		Names:       []string{fromStruct.Name},
 		tagSettings: TagSettings{Uint8Map: make(map[uint8]interface{}), l: new(sync.RWMutex)},
 	}
 	//field should process itself the tag settings
-	err := result.parseTagSettings(fromStruct.Tag)
+	err := field.parseTagSettings(fromStruct.Tag)
 
 	if fromStruct.Anonymous {
-		result.setFlag(ff_is_embed_or_anon)
+		field.setFlag(ff_is_embed_or_anon)
 	}
 
 	// Even it is ignored, also possible to decode db value into the field
-	if result.HasSetting(set_column) {
-		result.DBName = result.GetStrSetting(set_column)
+	if field.HasSetting(set_column) {
+		field.DBName = field.GetStrSetting(set_column)
 	} else {
-		result.DBName = toDBName
+		field.DBName = toDBName
 	}
 	//finished with it : cleanup
-	result.UnsetTagSetting(set_column)
+	field.UnsetTagSetting(set_column)
 
 	//keeping the type for later usage
-	result.Type = fromStruct.Type
+	field.Type = fromStruct.Type
 
 	//dereference it, it's a pointer
-	for result.Type.Kind() == reflect.Ptr {
-		result.setFlag(ff_is_pointer)
-		result.Type = result.Type.Elem()
+	for field.Type.Kind() == reflect.Ptr {
+		field.setFlag(ff_is_pointer)
+		field.Type = field.Type.Elem()
 	}
 
-	//create a value of it, to be returned
-	result.Value = reflect.New(result.Type)
-
-	if !result.IsIgnored() {
+	if !field.IsIgnored() {
+		fv := reflect.New(field.Type)
 		//checking implements scanner or time
-		_, isScanner := result.Value.Interface().(sql.Scanner)
-		_, isTime := result.Value.Interface().(*time.Time)
+		_, isScanner := fv.Interface().(sql.Scanner)
+		_, isTime := fv.Interface().(*time.Time)
 		if isScanner {
 			// is scanner
-			result.setFlag(ff_is_normal)
-			result.setFlag(ff_is_scanner)
+			field.setFlag(ff_is_normal)
+			field.setFlag(ff_is_scanner)
 		} else if isTime {
 			// is time
-			result.setFlag(ff_is_normal)
-			result.setFlag(ff_is_time)
+			field.setFlag(ff_is_normal)
+			field.setFlag(ff_is_time)
 		}
 	}
 
-	//ATTN : order matters, since it can be both slice and struct
-	if result.Type.Kind() == reflect.Slice {
+	//ATTN : order matters (can't use switch), since it can be both slice and struct
+	if field.Type.Kind() == reflect.Slice {
 		//mark it as slice
-		result.setFlag(ff_is_slice)
+		field.setFlag(ff_is_slice)
 
-		for result.Type.Kind() == reflect.Slice || result.Type.Kind() == reflect.Ptr {
-			if result.Type.Kind() == reflect.Ptr {
-				result.setFlag(ff_is_pointer)
+		for field.Type.Kind() == reflect.Slice || field.Type.Kind() == reflect.Ptr {
+			if field.Type.Kind() == reflect.Ptr {
+				field.setFlag(ff_is_pointer)
 			}
 			//getting rid of slices and slices of pointers
-			result.Type = result.Type.Elem()
+			field.Type = field.Type.Elem()
 		}
 		//it's a slice of structs
-		if result.Type.Kind() == reflect.Struct {
+		if field.Type.Kind() == reflect.Struct {
 			//mark it as struct
-			result.setFlag(ff_is_struct)
+			field.setFlag(ff_is_struct)
 		}
-	} else if result.Type.Kind() == reflect.Struct {
+	} else if field.Type.Kind() == reflect.Struct {
 		//mark it as struct
-		result.setFlag(ff_is_struct)
-		if !result.IsIgnored() && result.IsScanner() {
-			for i := 0; i < result.Type.NumField(); i++ {
-				result.parseTagSettings(result.Type.Field(i).Tag)
+		field.setFlag(ff_is_struct)
+		if !field.IsIgnored() && field.IsScanner() {
+			for i := 0; i < field.Type.NumField(); i++ {
+				field.parseTagSettings(field.Type.Field(i).Tag)
 			}
 		}
 	}
-	if !result.IsIgnored() && !result.IsScanner() && !result.IsTime() && !result.IsEmbedOrAnon() {
-		if result.IsSlice() {
-			result.setFlag(ff_relation_check) //marker for later processing of relationships
-		} else if result.IsStruct() {
-			result.setFlag(ff_relation_check) //marker for later processing of relationships
+
+	if !field.IsIgnored() && !field.IsScanner() && !field.IsTime() && !field.IsEmbedOrAnon() {
+		if field.IsSlice() || field.IsStruct() {
+			field.setFlag(ff_relation_check) //marker for later processing of relationships
 		} else {
-			result.setFlag(ff_is_normal)
+			field.setFlag(ff_is_normal)
 		}
 	}
 
-	return result, err
+	if !field.IsStruct() && field.IsSlice() {
+		//create a slice value of it, to be returned
+		_, field.Value = field.makeSlice()
+	} else {
+		//otherwise, create a value of it, to be returned
+		field.Value = reflect.New(field.Type)
+	}
+
+	return field, err
 }
 
 func (field *StructField) ptrToLoad() reflect.Value {
@@ -292,7 +297,6 @@ func (field *StructField) RelationIsBelongsTo() bool {
 	return kind == rel_belongs_to
 }
 
-//TODO : replace everywhere with RelationIsHasMany, RelationIsHasOne, RelationIsBelongsTo
 func (field *StructField) RelKind() uint8 {
 	kind, ok := field.tagSettings.get(set_relation_kind)
 	if !ok {
@@ -459,23 +463,11 @@ func (field *StructField) Set(value interface{}) error {
 // ParseFieldStructForDialect parse field struct for dialect
 func (field *StructField) ParseFieldStructForDialect() (reflect.Value, string, int, string) {
 	var (
-		size       = 0
-		fieldValue reflect.Value
-
-		additionalType = ""
-		sqlType        = ""
+		size int
+		//TODO : maybe it's best that this would be kept into settings and retrieved via field.GetStrSetting
+		//so we can delete set_not_null, set_unique,  set_default and set_type from our map
+		additionalType, sqlType string
 	)
-
-	if !field.IsStruct() && field.IsSlice() {
-		_, fieldValue = field.makeSlice()
-	} else {
-		fieldValue = reflect.Indirect(reflect.New(field.Type))
-	}
-
-	//fmt.Printf("ParseFieldStructForDialect : %s : %v = %v (slice ? %t, struct ? %t)\n", field.DBName,field.Type, fieldValue, field.IsSlice(), field.IsStruct())
-	//TODO : @Badu - we have the scanner field info in StructField
-	// Get scanner's real value
-	fieldValue = getScannerValue(fieldValue)
 
 	if field.tagSettings.has(set_size) {
 		// Default Size
@@ -509,6 +501,17 @@ func (field *StructField) ParseFieldStructForDialect() (reflect.Value, string, i
 	if field.HasSetting(set_type) {
 		sqlType = field.GetStrSetting(set_type)
 	}
+
+	fieldValue := reflect.Indirect(reflect.New(field.Type))
+
+	if field.IsStruct() && field.IsScanner() {
+		//implements scanner
+		fieldValue = fieldValue.Field(0) //Attention : returns the ONLY first field
+
+	} else if field.IsSlice() {
+		fieldValue = field.Value
+	}
+
 	return fieldValue, sqlType, size, strings.TrimSpace(additionalType)
 }
 

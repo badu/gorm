@@ -165,6 +165,20 @@ func TestAllGorm(t *testing.T) {
 	t.Run("147) QueryOption", QueryOption)
 }
 
+func TempTestFailure(t *testing.T) {
+	os.Setenv("GORM_DIALECT", "mysql")
+	os.Setenv("GORM_DBADDRESS", "127.0.0.1:3306")
+
+	t.Run("0) Open connection", OpenTestConnection)
+	if TestDBErr != nil {
+		t.Fatalf("No error should happen when connecting to test database, but got err=%+v", TestDBErr)
+	}
+	//TestDB.SetLogMode(gorm.LOG_DEBUG)
+	t.Run("1) RunMigration", RunMigration)
+
+	//t.Run("ManyToManyWithMultiPrimaryKeys", ManyToManyWithMultiPrimaryKeys)
+}
+
 func TempTestListModels(t *testing.T) {
 	t.Run("0) Open connection", OpenTestConnection)
 	if TestDBErr != nil {

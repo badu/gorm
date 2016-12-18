@@ -165,6 +165,7 @@ const (
 
 	//typical fields constants
 	field_default_id_name string = "id"
+	field_deleted_at_name string = "deleted_at"
 	field_poly_type       string = "Type"
 	Field_created_at      string = "CreatedAt"
 	Field_updated_at      string = "UpdatedAt"

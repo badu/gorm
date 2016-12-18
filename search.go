@@ -400,12 +400,12 @@ func (s *Search) whereSQL(scope *Scope) string {
 		quotedTableName                = QuotedTableName(scope)
 	)
 
-	if !s.isUnscoped() && scope.GetModelStruct().HasColumn("deleted_at") {
+	if !s.isUnscoped() && scope.GetModelStruct().HasColumn(field_deleted_at_name) {
 
 		if primarySQL != "" {
 			primarySQL += " AND "
 		}
-		primarySQL += fmt.Sprintf("%v.deleted_at IS NULL", quotedTableName)
+		primarySQL += fmt.Sprintf("%v.%s IS NULL", quotedTableName, field_deleted_at_name)
 	}
 
 	if !scope.PrimaryKeyZero() {

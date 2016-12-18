@@ -51,7 +51,7 @@ func makeManyToMany(field *StructField,
 		}
 	} else {
 		if field.HasSetting(set_foreignkey) {
-			foreignKeys = field.GetFKs()//.GetSliceSetting(set_foreignkey)
+			foreignKeys = field.GetFKs()
 		} else {
 			fromScope.Warn(fmt.Errorf(warn_has_no_foreign_key, tag_many_to_many))
 		}
@@ -64,7 +64,7 @@ func makeManyToMany(field *StructField,
 		}
 	} else {
 		if field.HasSetting(set_associationforeignkey) {
-			associationForeignKeys = field.GetAssocFKs()//.GetSliceSetting(set_associationforeignkey)
+			associationForeignKeys = field.GetAssocFKs()
 		} else {
 			fromScope.Warn(fmt.Errorf(warn_has_no_association_key, tag_many_to_many))
 		}
@@ -358,7 +358,7 @@ func collectFKsAndAFKs(field *StructField,
 			}
 		} else {
 			if field.HasSetting(set_associationforeignkey) {
-				associationForeignKeys = field.GetAssocFKs()//.GetSliceSetting(set_associationforeignkey)
+				associationForeignKeys = field.GetAssocFKs()
 			} else {
 				scope.Warn(fmt.Errorf(warn_has_no_association_key, str_collectfks))
 			}
@@ -385,7 +385,7 @@ func collectFKsAndAFKs(field *StructField,
 		}
 	} else {
 		if field.HasSetting(set_foreignkey) {
-			foreignKeys = field.GetFKs()//.GetSliceSetting(set_foreignkey)
+			foreignKeys = field.GetFKs()
 		} else {
 			scope.Warn(fmt.Errorf(warn_has_no_foreign_key, str_collectfks))
 		}
@@ -419,7 +419,7 @@ func collectFKsAndAFKs(field *StructField,
 			}
 		} else {
 			if field.HasSetting(set_associationforeignkey) {
-				associationForeignKeys = field.GetAssocFKs()//.GetSliceSetting(set_associationforeignkey)
+				associationForeignKeys = field.GetAssocFKs()
 			} else {
 				scope.Warn(fmt.Errorf(warn_has_no_association_key, str_collectfks))
 			}
@@ -441,10 +441,10 @@ func handleRelationPreload(scope *Scope, field *StructField, conditions []interf
 		query       = ""
 		primaryKeys [][]interface{}
 
-		ForeignDBNames               = field.GetForeignDBNames()//.GetSliceSetting(set_foreign_db_names)
-		ForeignFieldNames            = field.GetForeignFieldNames()//.GetSliceSetting(set_foreign_field_names)
-		AssociationForeignFieldNames = field.GetAssociationForeignFieldNames()//.GetSliceSetting(set_association_foreign_field_names)
-		AssociationForeignDBNames    = field.GetAssociationDBNames()//.GetSliceSetting(set_association_foreign_db_names)
+		ForeignDBNames               = field.GetForeignDBNames()
+		ForeignFieldNames            = field.GetForeignFieldNames()
+		AssociationForeignFieldNames = field.GetAssociationForeignFieldNames()
+		AssociationForeignDBNames    = field.GetAssociationDBNames()
 		FieldNames                   StrSlice
 		DBNames                      StrSlice
 	)
@@ -573,7 +573,7 @@ func handleManyToManyPreload(scope *Scope, field *StructField, conditions []inte
 		indirectScopeValue = IndirectValue(scope.Value)
 		fieldsSourceMap    = map[string][]reflect.Value{}
 		foreignFieldNames  = StrSlice{}
-		ForeignFieldNames  = field.GetForeignFieldNames()//.GetSliceSetting(set_foreign_field_names)
+		ForeignFieldNames  = field.GetForeignFieldNames()
 		joinTableHandler   = field.JoinHandler()
 	)
 

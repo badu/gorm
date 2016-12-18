@@ -97,8 +97,7 @@ func toQueryCondition(columns StrSlice, dialect Dialect) string {
 
 //using inline advantage
 func toQueryMarks(primaryValues [][]interface{}) string {
-	/**
-	results := ""
+	result := ""
 	for _, primaryValue := range primaryValues {
 		marks := ""
 		for range primaryValue {
@@ -107,29 +106,16 @@ func toQueryMarks(primaryValues [][]interface{}) string {
 			}
 			marks += "?"
 		}
-		if results != "" {
-			results += ","
+		if result != "" {
+			result += ","
 		}
-		results += marks
-	}
-	return results
-	**/
-	//Attention : the above optimization breaks ManyToManyWithMultiPrimaryKeys
-	var results []string
-
-	for _, primaryValue := range primaryValues {
-		var marks []string
-		for _, _ = range primaryValue {
-			marks = append(marks, "?")
-		}
-
-		if len(marks) > 1 {
-			results = append(results, fmt.Sprintf("(%v)", strings.Join(marks, ",")))
+		if len(primaryValue) > 1 {
+			result += "(" + marks + ")"
 		} else {
-			results = append(results, strings.Join(marks, ""))
+			result += marks
 		}
 	}
-	return strings.Join(results, ",")
+	return result
 }
 
 //using inline advantage
@@ -409,20 +395,12 @@ func GetTType(value interface{}) reflect.Type {
 	return result
 }
 
-func getScannerValue(value reflect.Value) reflect.Value {
-	fieldValue := value
-	if _, isScanner := reflect.New(fieldValue.Type()).Interface().(sql.Scanner); isScanner && fieldValue.Kind() == reflect.Struct {
-		return getScannerValue(fieldValue.Field(0))
-	}
-	return fieldValue
-}
-
 func fullFileWithLineNum() string {
 	result := ""
 	for i := 1; i < 12; i++ {
 		_, file, line, ok := runtime.Caller(i)
 		if ok {
-			result += fmt.Sprintf("%s.%v:%v\n", i, file, line)
+			result += fmt.Sprintf("%d %v:%v \n", i, file, line)
 		} else {
 			break
 		}
@@ -432,7 +410,7 @@ func fullFileWithLineNum() string {
 }
 
 func fileWithLineNum() string {
-	for i := 3; i < 12; i++ {
+	for i := 2; i < 12; i++ {
 		_, file, line, ok := runtime.Caller(i)
 		if ok {
 			//if it's our test
