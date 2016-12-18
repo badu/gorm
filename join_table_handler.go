@@ -91,7 +91,7 @@ func (jth JoinTableHandler) Add(handler JoinTableHandlerInterface, con *DBCon, s
 		if assignColumns != "" {
 			assignColumns += ","
 		}
-		assignColumns += Quote(key, dialect)
+		assignColumns += con.quote(key)
 		if binVars == "" {
 			binVars = "?"
 		} else {
@@ -100,7 +100,7 @@ func (jth JoinTableHandler) Add(handler JoinTableHandlerInterface, con *DBCon, s
 		if conditions != "" {
 			conditions += " AND "
 		}
-		conditions += fmt.Sprintf("%v = ?", Quote(key, dialect))
+		conditions += fmt.Sprintf("%v = ?", con.quote(key))
 		values = append(values, value)
 	}
 
@@ -110,11 +110,11 @@ func (jth JoinTableHandler) Add(handler JoinTableHandlerInterface, con *DBCon, s
 
 	sql := fmt.Sprintf(
 		"INSERT INTO %v (%v) SELECT %v %v WHERE NOT EXISTS (SELECT * FROM %v WHERE %v)",
-		Quote(handler.Table(con), dialect),
+		con.quote(handler.Table(con)),
 		assignColumns,
 		binVars,
 		dialect.SelectFromDummyTable(),
-		Quote(handler.Table(con), dialect),
+		con.quote(handler.Table(con)),
 		conditions,
 	)
 	//fmt.Printf("\nSQL : %s\n", sql)
@@ -138,17 +138,12 @@ func (jth JoinTableHandler) JoinWith(handler JoinTableHandlerInterface, con *DBC
 	var (
 		scope           = con.NewScope(source)
 		tableName       = handler.Table(con)
-		dialect         = scope.con.parent.dialect
-		quotedTableName = Quote(tableName, dialect)
+		quotedTableName = con.quote(tableName)
 		joinConditions  string
 	)
 
 	if jth.Source.ModelType == scope.GetModelStruct().ModelType {
-		destinationTableName := QuotedTableName(
-			con.NewScope(
-				reflect.New(jth.Destination.ModelType).Interface(),
-			),
-		)
+		destinationTableName := con.NewScope(reflect.New(jth.Destination.ModelType).Interface()).quotedTableName()
 
 		for _, foreignKey := range jth.Destination.ForeignKeys {
 			if joinConditions != "" {
@@ -158,9 +153,9 @@ func (jth JoinTableHandler) JoinWith(handler JoinTableHandlerInterface, con *DBC
 			joinConditions += fmt.Sprintf(
 				"%v.%v = %v.%v",
 				quotedTableName,
-				Quote(foreignKey.DBName, dialect),
+				con.quote(foreignKey.DBName),
 				destinationTableName,
-				Quote(foreignKey.AssociationDBName, dialect),
+				con.quote(foreignKey.AssociationDBName),
 			)
 		}
 
@@ -185,7 +180,7 @@ func (jth JoinTableHandler) JoinWith(handler JoinTableHandlerInterface, con *DBC
 
 			condString = fmt.Sprintf(
 				"%v IN (%v)",
-				toQueryCondition(quotedForeignDBNames, dialect),
+				scope.toQueryCondition(quotedForeignDBNames),
 				toQueryMarks(foreignFieldValues),
 			)
 

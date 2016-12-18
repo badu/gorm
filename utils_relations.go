@@ -437,7 +437,6 @@ func handleRelationPreload(scope *Scope, field *StructField, conditions []interf
 	var (
 		indirectScopeValue = IndirectValue(scope.Value)
 
-		dialect     = scope.con.parent.dialect
 		query       = ""
 		primaryKeys [][]interface{}
 
@@ -475,11 +474,11 @@ func handleRelationPreload(scope *Scope, field *StructField, conditions []interf
 
 	query = fmt.Sprintf(
 		"%v IN (%v)",
-		toQueryCondition(DBNames, dialect),
+		scope.toQueryCondition(DBNames),
 		toQueryMarks(primaryKeys))
 
 	if field.HasSetting(set_polymorphic_type) {
-		query += fmt.Sprintf(" AND %v = ?", Quote(field.GetStrSetting(set_polymorphic_dbname), dialect))
+		query += fmt.Sprintf(" AND %v = ?", scope.con.quote(field.GetStrSetting(set_polymorphic_dbname)))
 		values = append(values, field.GetStrSetting(set_polymorphic_value))
 	}
 

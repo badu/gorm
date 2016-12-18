@@ -445,14 +445,51 @@ func (scope *Scope) shouldSaveAssociations() bool {
 	return !scope.HasError()
 }
 
+func (scope *Scope) quoteIfPossible(str string) string {
+	// only match string like `name`, `users.name`
+	if regExpNameMatcher.MatchString(str) {
+		return scope.con.quote(str)
+	}
+	return str
+}
+
+func (scope *Scope) toQueryCondition(columns StrSlice) string {
+	newColumns := ""
+	for _, column := range columns {
+		if newColumns != "" {
+			newColumns += ","
+		}
+		newColumns += scope.con.quote(column)
+	}
+
+	if len(columns) > 1 {
+		return fmt.Sprintf("(%v)", newColumns)
+	}
+	return newColumns
+}
+
+//TODO : since table name can be overriden we should use model's not search
+func (scope *Scope) quotedTableName() string {
+	result := ""
+	//fail fast
+	if scope.Search == nil || scope.Search.tableName == "" {
+		result = scope.con.quote(scope.TableName())
+	}
+
+	if strings.Index(scope.Search.tableName, " ") != -1 {
+		result = scope.Search.tableName
+	}
+	if result == "" {
+		result = scope.con.quote(scope.Search.tableName)
+	}
+	return result
+}
+
 func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
 	toScope := scope.con.NewScope(value)
 	tx := scope.con.set(gorm_setting_association_source, scope.Value)
 
 	allKeys := append(foreignKeys, GetType(toScope.Value).Name()+field_Id_name, GetType(scope.Value).Name()+field_Id_name)
-
-	//because we're using it in a for, we're getting it once
-	dialect := scope.con.parent.dialect
 
 	for _, foreignKey := range allKeys {
 		fromField, _ := scope.FieldByName(foreignKey)
@@ -463,14 +500,14 @@ func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
 				//fail fast - continue : both fields are nil
 				continue
 			}
-			aStr := fmt.Sprintf("%v = ?", Quote(toField.DBName, dialect))
+			aStr := fmt.Sprintf("%v = ?", scope.con.quote(toField.DBName))
 			scope.Err(tx.Where(aStr, scope.PrimaryKeyValue()).Find(value).Error)
 			return scope
 		}
 
 		//fail fast - relationship is nil
 		if !fromField.HasRelations() {
-			aStr := fmt.Sprintf("%v = ?", Quote(toScope.PKName(), dialect))
+			aStr := fmt.Sprintf("%v = ?", scope.con.quote(toScope.PKName()))
 			scope.Err(tx.Where(aStr, fromField.Value.Interface()).Find(value).Error)
 			return scope
 		}
@@ -497,7 +534,7 @@ func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
 					tx = tx.Where(
 						fmt.Sprintf(
 							"%v = ?",
-							Quote(AssociationForeignDBNames[idx], dialect),
+							scope.con.quote(AssociationForeignDBNames[idx]),
 						),
 						field.Value.Interface(),
 					)
@@ -511,7 +548,7 @@ func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
 					tx = tx.Where(
 						fmt.Sprintf(
 							"%v = ?",
-							Quote(foreignKey, dialect),
+							scope.con.quote(foreignKey),
 						),
 						field.Value.Interface(),
 					)
@@ -522,7 +559,7 @@ func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
 				tx = tx.Where(
 					fmt.Sprintf(
 						"%v = ?",
-						Quote(fromField.GetStrSetting(set_polymorphic_dbname), dialect),
+						scope.con.quote(fromField.GetStrSetting(set_polymorphic_dbname)),
 					),
 					fromField.GetStrSetting(set_polymorphic_value),
 				)
@@ -650,7 +687,7 @@ func (scope *Scope) postQuery(dest interface{}) *Scope {
 //calls methods after creation
 func (scope *Scope) postCreate() *Scope {
 	//begin transaction
-	result, txStarted := scope.Begin()
+	result, txStarted := scope.begin()
 
 	//call callbacks
 	if !result.HasError() {
@@ -681,7 +718,7 @@ func (scope *Scope) postCreate() *Scope {
 			//because we're using it in a for, we're getting it once
 			dialect                            = result.con.parent.dialect
 			returningColumn                    = str_everything
-			quotedTableName                    = QuotedTableName(result)
+			quotedTableName                    = result.quotedTableName()
 			primaryField                       = result.PK()
 			extraOption, columns, placeholders string
 		)
@@ -703,12 +740,12 @@ func (scope *Scope) postCreate() *Scope {
 					if blankColumnsWithDefaultValue != "" {
 						blankColumnsWithDefaultValue += ","
 					}
-					blankColumnsWithDefaultValue += Quote(field.DBName, dialect)
+					blankColumnsWithDefaultValue += scope.con.quote(field.DBName)
 				} else if isNotPKOrBlank {
 					if columns != "" {
 						columns += ","
 					}
-					columns += Quote(field.DBName, dialect)
+					columns += scope.con.quote(field.DBName)
 					if placeholders != "" {
 						placeholders += ","
 					}
@@ -723,7 +760,7 @@ func (scope *Scope) postCreate() *Scope {
 							if columns != "" {
 								columns += ","
 							}
-							columns += Quote(foreignField.DBName, dialect)
+							columns += scope.con.quote(foreignField.DBName)
 							if placeholders != "" {
 								placeholders += ","
 							}
@@ -739,7 +776,7 @@ func (scope *Scope) postCreate() *Scope {
 		}
 
 		if primaryField != nil {
-			returningColumn = Quote(primaryField.DBName, dialect)
+			returningColumn = scope.con.quote(primaryField.DBName)
 		}
 
 		lastInsertIDReturningSuffix := dialect.LastInsertIDReturningSuffix(quotedTableName, returningColumn)
@@ -754,7 +791,7 @@ func (scope *Scope) postCreate() *Scope {
 		} else {
 			result.Raw(fmt.Sprintf(
 				"INSERT INTO %v (%v) VALUES (%v)%v%v",
-				QuotedTableName(result),
+				result.quotedTableName(),
 				columns,
 				placeholders,
 				addExtraSpaceIfExist(extraOption),
@@ -812,7 +849,7 @@ func (scope *Scope) postCreate() *Scope {
 	}
 
 	//attempt to commit in the end
-	return result.CommitOrRollback(txStarted)
+	return result.commitOrRollback(txStarted)
 }
 
 //calls methods after update
@@ -828,7 +865,7 @@ func (scope *Scope) postUpdate(attrs interface{}) *Scope {
 	}
 
 	//begin transaction
-	result, txStarted := scope.Begin()
+	result, txStarted := scope.begin()
 
 	if _, ok := result.Get(gorm_setting_update_column); !ok {
 		if !result.HasError() {
@@ -864,7 +901,7 @@ func (scope *Scope) postUpdate(attrs interface{}) *Scope {
 				}
 				sql += fmt.Sprintf(
 					"%v = %v",
-					Quote(column, scopeDialect),
+					scope.con.quote(column),
 					result.Search.addToVars(value, scopeDialect),
 				)
 
@@ -880,7 +917,7 @@ func (scope *Scope) postUpdate(attrs interface{}) *Scope {
 					}
 					sql += fmt.Sprintf(
 						"%v = %v",
-						Quote(field.DBName, scopeDialect),
+						scope.con.quote(field.DBName),
 						result.Search.addToVars(field.Value.Interface(), scopeDialect),
 					)
 				} else {
@@ -894,7 +931,7 @@ func (scope *Scope) postUpdate(attrs interface{}) *Scope {
 								}
 								sql += fmt.Sprintf(
 									"%v = %v",
-									Quote(foreignField.DBName, scopeDialect),
+									scope.con.quote(foreignField.DBName),
 									result.Search.addToVars(
 										foreignField.Value.Interface(),
 										scopeDialect,
@@ -913,13 +950,13 @@ func (scope *Scope) postUpdate(attrs interface{}) *Scope {
 		}
 
 		if sql != "" && scope.TableName() != "" {
-				result.Raw(fmt.Sprintf(
-					"UPDATE %v SET %v%v%v",
-					QuotedTableName(result),
-					sql,
-					addExtraSpaceIfExist(result.Search.combinedConditionSql(result)),
-					addExtraSpaceIfExist(extraOption),
-				)).Exec()
+			result.Raw(fmt.Sprintf(
+				"UPDATE %v SET %v%v%v",
+				result.quotedTableName(),
+				sql,
+				addExtraSpaceIfExist(result.Search.combinedConditionSql(result)),
+				addExtraSpaceIfExist(extraOption),
+			)).Exec()
 		}
 	}
 	//END Was "updateCallback"
@@ -938,13 +975,13 @@ func (scope *Scope) postUpdate(attrs interface{}) *Scope {
 		}
 	}
 
-	return result.CommitOrRollback(txStarted)
+	return result.commitOrRollback(txStarted)
 }
 
 //calls methods after deletion
 func (scope *Scope) postDelete() *Scope {
 	//begin transaction
-	result, txStarted := scope.Begin()
+	result, txStarted := scope.begin()
 
 	//call callbacks
 	if !result.HasError() {
@@ -961,7 +998,7 @@ func (scope *Scope) postDelete() *Scope {
 		if !result.Search.isUnscoped() && result.GetModelStruct().HasColumn(Field_deleted_at) {
 			result.Raw(fmt.Sprintf(
 				"UPDATE %v SET deleted_at=%v%v%v",
-				QuotedTableName(result),
+				result.quotedTableName(),
 				result.Search.addToVars(NowFunc(), result.con.parent.dialect),
 				addExtraSpaceIfExist(result.Search.combinedConditionSql(result)),
 				addExtraSpaceIfExist(extraOption),
@@ -969,7 +1006,7 @@ func (scope *Scope) postDelete() *Scope {
 		} else {
 			result.Raw(fmt.Sprintf(
 				"DELETE FROM %v%v%v",
-				QuotedTableName(result),
+				result.quotedTableName(),
 				addExtraSpaceIfExist(result.Search.combinedConditionSql(result)),
 				addExtraSpaceIfExist(extraOption),
 			)).Exec()
@@ -983,7 +1020,7 @@ func (scope *Scope) postDelete() *Scope {
 	}
 
 	//attempt to commit
-	return result.CommitOrRollback(txStarted)
+	return result.commitOrRollback(txStarted)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -991,7 +1028,7 @@ func (scope *Scope) postDelete() *Scope {
 ////////////////////////////////////////////////////////////////////////////////
 //[create step 1] [delete step 1] [update step 1]
 // Begin start a transaction
-func (scope *Scope) Begin() (*Scope, bool) {
+func (scope *Scope) begin() (*Scope, bool) {
 	if db, ok := scope.con.sqli.(sqlDb); ok {
 		//parent db implements Begin() -> call Begin()
 		if tx, err := db.Begin(); err == nil {
@@ -1104,7 +1141,7 @@ func (scope *Scope) saveAfterAssociationsCallback() *Scope {
 
 //[create step 9] [delete step 5] [update step 8]
 // CommitOrRollback commit current transaction if no error happened, otherwise will rollback it
-func (scope *Scope) CommitOrRollback(txStarted bool) *Scope {
+func (scope *Scope) commitOrRollback(txStarted bool) *Scope {
 	if txStarted {
 		if db, ok := scope.con.sqli.(sqlTx); ok {
 			if scope.HasError() {

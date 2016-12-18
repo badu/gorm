@@ -31,12 +31,10 @@ func (association *Association) Replace(values ...interface{}) *Association {
 	}
 
 	var (
-		scope      = association.scope
-		field      = association.field
-		fieldValue = field.Value
-		conn       = newCon(scope.con)
-		dialect    = conn.parent.dialect
-
+		scope                        = association.scope
+		field                        = association.field
+		fieldValue                   = field.Value
+		conn                         = newCon(scope.con)
 		ForeignDBNames               = field.GetForeignDBNames()
 		AssociationForeignFieldNames = field.GetAssociationForeignFieldNames()
 	)
@@ -63,7 +61,7 @@ func (association *Association) Replace(values ...interface{}) *Association {
 			conn = conn.Where(
 				fmt.Sprintf(
 					"%v = ?",
-					Quote(field.GetStrSetting(set_polymorphic_dbname), dialect),
+					conn.quote(field.GetStrSetting(set_polymorphic_dbname)),
 				),
 				field.GetStrSetting(set_polymorphic_value))
 		}
@@ -89,7 +87,7 @@ func (association *Association) Replace(values ...interface{}) *Association {
 				if len(newPrimaryKeys) > 0 {
 					sql := fmt.Sprintf(
 						"%v NOT IN (%v)",
-						toQueryCondition(associationForeignDBNames, dialect),
+						scope.toQueryCondition(associationForeignDBNames),
 						toQueryMarks(newPrimaryKeys),
 					)
 					conn = conn.Where(sql, toQueryValues(newPrimaryKeys)...)
@@ -109,7 +107,7 @@ func (association *Association) Replace(values ...interface{}) *Association {
 				conn = conn.Where(
 					fmt.Sprintf(
 						"%v IN (%v)",
-						toQueryCondition(ForeignDBNames, dialect),
+						scope.toQueryCondition(ForeignDBNames),
 						toQueryMarks(sourcePrimaryKeys),
 					),
 					toQueryValues(sourcePrimaryKeys)...,
@@ -133,7 +131,7 @@ func (association *Association) Replace(values ...interface{}) *Association {
 				if len(newPrimaryKeys) > 0 {
 					sql := fmt.Sprintf(
 						"%v NOT IN (%v)",
-						toQueryCondition(assocDBNames, dialect),
+						scope.toQueryCondition(assocDBNames),
 						toQueryMarks(newPrimaryKeys),
 					)
 					conn = conn.Where(sql, toQueryValues(newPrimaryKeys)...)
@@ -146,7 +144,7 @@ func (association *Association) Replace(values ...interface{}) *Association {
 			for idx, foreignKey := range ForeignDBNames {
 				foreignKeyMap[foreignKey] = nil
 				if field, ok := scope.FieldByName(AssociationForeignFieldNames[idx]); ok {
-					conn = conn.Where(fmt.Sprintf("%v = ?", Quote(foreignKey, dialect)), field.Value.Interface())
+					conn = conn.Where(fmt.Sprintf("%v = ?", conn.quote(foreignKey)), field.Value.Interface())
 				}
 			}
 
@@ -165,12 +163,10 @@ func (association *Association) Delete(values ...interface{}) *Association {
 	}
 
 	var (
-		field      = association.field
-		fieldValue = field.Value
-		scope      = association.scope
-		conn       = newCon(scope.con)
-		dialect    = conn.parent.dialect
-
+		field                        = association.field
+		fieldValue                   = field.Value
+		scope                        = association.scope
+		conn                         = newCon(scope.con)
 		ForeignDBNames               = field.GetForeignDBNames()
 		AssociationForeignFieldNames = field.GetAssociationForeignFieldNames()
 	)
@@ -197,7 +193,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 				conn = conn.Where(
 					fmt.Sprintf(
 						"%v = ?",
-						Quote(foreignKey, dialect),
+						conn.quote(foreignKey),
 					),
 					field.Value.Interface())
 			}
@@ -216,7 +212,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 		deletingPrimaryKeys := getColumnAsArray(associationForeignFieldNames, values...)
 		sql := fmt.Sprintf(
 			"%v IN (%v)",
-			toQueryCondition(AssociationForeignDBNames, dialect),
+			scope.toQueryCondition(AssociationForeignDBNames),
 			toQueryMarks(deletingPrimaryKeys),
 		)
 		conn = conn.Where(sql, toQueryValues(deletingPrimaryKeys)...)
@@ -234,7 +230,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 			conn = conn.Where(
 				fmt.Sprintf(
 					"%v IN (%v)",
-					toQueryCondition(ForeignDBNames, dialect),
+					scope.toQueryCondition(ForeignDBNames),
 					toQueryMarks(primaryKeys),
 				),
 				toQueryValues(primaryKeys)...,
@@ -255,7 +251,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 			conn = conn.Where(
 				fmt.Sprintf(
 					"%v IN (%v)",
-					toQueryCondition(ForeignDBNames, dialect),
+					scope.toQueryCondition(ForeignDBNames),
 					toQueryMarks(primaryKeys),
 				),
 				toQueryValues(primaryKeys)...,
@@ -265,7 +261,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 			conn = conn.Where(
 				fmt.Sprintf(
 					"%v IN (%v)",
-					toQueryCondition(deletingResourcePrimaryDBNames, dialect),
+					scope.toQueryCondition(deletingResourcePrimaryDBNames),
 					toQueryMarks(deletingPrimaryKeys),
 				),
 				toQueryValues(deletingPrimaryKeys)...,
@@ -324,7 +320,6 @@ func (association *Association) Count() int {
 		field      = association.field
 		scope      = association.scope
 		conn       = scope.con
-		dialect    = conn.parent.dialect
 		fieldValue = field.Value.Interface()
 	)
 
@@ -343,7 +338,7 @@ func (association *Association) Count() int {
 		conn = conn.Where(
 			fmt.Sprintf(
 				"%v IN (%v)",
-				toQueryCondition(ForeignDBNames, dialect),
+				scope.toQueryCondition(ForeignDBNames),
 				toQueryMarks(primaryKeys),
 			),
 			toQueryValues(primaryKeys)...,
@@ -359,7 +354,7 @@ func (association *Association) Count() int {
 		conn = conn.Where(
 			fmt.Sprintf(
 				"%v IN (%v)",
-				toQueryCondition(AssociationForeignDBNames, dialect),
+				scope.toQueryCondition(AssociationForeignDBNames),
 				toQueryMarks(primaryKeys),
 			),
 			toQueryValues(primaryKeys)...,
@@ -370,8 +365,8 @@ func (association *Association) Count() int {
 		conn = conn.Where(
 			fmt.Sprintf(
 				"%v.%v = ?",
-				QuotedTableName(scope.NewScope(fieldValue)),
-				Quote(field.GetStrSetting(set_polymorphic_dbname), dialect),
+				scope.NewScope(fieldValue).quotedTableName(),
+				conn.quote(field.GetStrSetting(set_polymorphic_dbname)),
 			),
 			field.GetStrSetting(set_polymorphic_value),
 		)

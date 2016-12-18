@@ -119,7 +119,8 @@ func (mysql) DataTypeOf(field *StructField) string {
 }
 
 func (dialect *mysql) RemoveIndex(tableName string, indexName string) error {
-	_, err := dialect.db.Exec(fmt.Sprintf(MYSQL_DROP_INDEX, indexName, Quote(tableName, dialect)))
+	q := dialect.GetQuoter()
+	_, err := dialect.db.Exec(fmt.Sprintf(MYSQL_DROP_INDEX, indexName, q+regExpPeriod.ReplaceAllString(tableName, q+"."+q)+q))
 	return err
 }
 

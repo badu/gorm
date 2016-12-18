@@ -296,6 +296,7 @@ type (
 
 		modelsStructMap *safeModelStructsMap
 		namesMap        *safeMap
+		quotedNames     *safeMap
 	}
 	//declared to allow existing code to run, dbcon.Open(...) db = &gorm.DB{*dbcon}
 	DB struct {

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"reflect"
 	"runtime"
-	"strings"
 	"sync"
 )
 
@@ -47,52 +46,6 @@ func addExtraSpaceIfExist(str string) string {
 		return " " + str
 	}
 	return ""
-}
-
-//quotes a field - called almost everywhere - using inline advantage
-func Quote(field string, dialect Dialect) string {
-	q := dialect.GetQuoter()
-	return q + regExpPeriod.ReplaceAllString(field, q+"."+q) + q
-}
-
-//using inline advantage
-func QuoteIfPossible(str string, dialect Dialect) string {
-	// only match string like `name`, `users.name`
-	if regExpNameMatcher.MatchString(str) {
-		return Quote(str, dialect)
-	}
-	return str
-}
-
-//using inline advantage
-// QuotedTableName return quoted table name
-func QuotedTableName(scope *Scope) string {
-	//fail fast
-	if scope.Search == nil || scope.Search.tableName == "" {
-		return Quote(scope.TableName(), scope.con.parent.dialect)
-	}
-
-	if strings.Index(scope.Search.tableName, " ") != -1 {
-		return scope.Search.tableName
-	}
-
-	return Quote(scope.Search.tableName, scope.con.parent.dialect)
-}
-
-//using inline advantage
-func toQueryCondition(columns StrSlice, dialect Dialect) string {
-	newColumns := ""
-	for _, column := range columns {
-		if newColumns != "" {
-			newColumns += ","
-		}
-		newColumns += Quote(column, dialect)
-	}
-
-	if len(columns) > 1 {
-		return fmt.Sprintf("(%v)", newColumns)
-	}
-	return newColumns
 }
 
 //using inline advantage
@@ -479,6 +432,7 @@ func Open(dialectName string, args ...interface{}) (*DBCon, error) {
 		sqli:            dbSQL,
 		modelsStructMap: &safeModelStructsMap{l: new(sync.RWMutex), m: make(map[reflect.Type]*ModelStruct)},
 		namesMap:        &safeMap{l: new(sync.RWMutex), m: make(map[string]string)},
+		quotedNames:     &safeMap{l: new(sync.RWMutex), m: make(map[string]string)},
 	}
 	//set no log
 	db.LogMode(false)

@@ -39,9 +39,10 @@
 - [ ] Documentation for tests and build examples
 - [ ] Generated SQL let's the SQL engine cast : SELECT * FROM aTable WHERE id = '1' (id being int). I think it's a bad practice and it should be fixed
 - [ ] convertInterfaceToMap in utils it's terrible : simplify
-- [ ] unify DBCon NewScope and Scope NewScope
+- [ ] unify DBCon NewScope and Scope NewScope!!!
 
 ## 18.12.2016
+- [x] Quote fields are now cached and DBCon is holding them
 - [x] Removed Search struct TableName() method
 - [x] Replaced, where possible, GetSliceSetting with GetForeignFieldNames, GetAssociationForeignFieldNames, GetForeignDBNames, GetAssociationDBNames
 - [x] Fix for Association.Count when there are no where conditions
@@ -50,7 +51,7 @@
 - [x] Scope TableName fix : if implements tabler or dbtabler should override the search table name
 - [x] Fix for Update after save, e.g. TestDB.Save(&animal).Update("name", "Francis") - scope table name is empty, do not execute query
 - [x] getScannerValue removed from utils
-- [x] toQueryMarks optimisation
+- [x] toQueryMarks optimisation (concat instead of string joins)
 
 ## 17.12.2016
 - [x] When error occurs, print the SQL that was executed (via AddErr of the Scope, we're passing SQL and SQLVars)

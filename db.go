@@ -299,8 +299,8 @@ func (con *DBCon) First(entity interface{}, where ...interface{}) *DBCon {
 		newScope.Search.Order(
 			fmt.Sprintf(
 				"%v.%v %v",
-				QuotedTableName(newScope),
-				Quote(primaryField.DBName, con.parent.dialect),
+				newScope.quotedTableName(),
+				con.quote(primaryField.DBName),
 				str_ascendent),
 		)
 	}
@@ -324,8 +324,8 @@ func (con *DBCon) Last(entity interface{}, where ...interface{}) *DBCon {
 		newScope.Search.Order(
 			fmt.Sprintf(
 				"%v.%v %v",
-				QuotedTableName(newScope),
-				Quote(primaryField.DBName, con.parent.dialect),
+				newScope.quotedTableName(),
+				con.quote(primaryField.DBName),
 				str_descendent),
 		)
 	}
@@ -443,7 +443,7 @@ func (con *DBCon) FirstOrCreate(out interface{}, where ...interface{}) *DBCon {
 		args := scope.Search.getFirst(cond_assign_attrs)
 		if args != nil {
 			scope = scope.postUpdate(args.args)
-		}else{
+		} else {
 			scope = scope.postUpdate(nil)
 		}
 
@@ -632,7 +632,7 @@ func (con *DBCon) DropTable(values ...interface{}) *DBCon {
 		scope.Raw(
 			fmt.Sprintf(
 				"DROP TABLE %v",
-				QuotedTableName(scope),
+				scope.quotedTableName(),
 			),
 		).Exec()
 		conn = scope.con
@@ -687,8 +687,8 @@ func (con *DBCon) ModifyColumn(column string, typ string) *DBCon {
 	scope.Raw(
 		fmt.Sprintf(
 			"ALTER TABLE %v MODIFY %v %v",
-			QuotedTableName(scope),
-			Quote(column, con.parent.dialect),
+			scope.quotedTableName(),
+			con.quote(column),
 			typ,
 		),
 	).Exec()
@@ -701,8 +701,8 @@ func (con *DBCon) DropColumn(column string) *DBCon {
 	scope.Raw(
 		fmt.Sprintf(
 			"ALTER TABLE %v DROP COLUMN %v",
-			QuotedTableName(scope),
-			Quote(column, scope.con.parent.dialect),
+			scope.quotedTableName(),
+			con.quote(column),
 		),
 	).Exec()
 	return scope.con
@@ -748,9 +748,9 @@ func (con *DBCon) AddForeignKey(field string, dest string, onDelete string, onUp
 	scope.Raw(
 		fmt.Sprintf(
 			query,
-			QuotedTableName(scope),
-			QuoteIfPossible(keyName, dialect),
-			QuoteIfPossible(field, dialect),
+			scope.quotedTableName(),
+			scope.quoteIfPossible(keyName),
+			scope.quoteIfPossible(field),
 			dest,
 			onDelete,
 			onUpdate,
@@ -859,6 +859,15 @@ func (con *DBCon) Log(v ...interface{}) {
 ////////////////////////////////////////////////////////////////////////////////
 // Private Methods For *gorm.DBCon
 ////////////////////////////////////////////////////////////////////////////////
+//cached names for speed
+func (con DBCon) quote(name string) string {
+	if con.parent.quotedNames.get(name) == "" {
+		q := con.parent.dialect.GetQuoter()
+		con.parent.quotedNames.set(name, q+regExpPeriod.ReplaceAllString(name, q+"."+q)+q)
+	}
+	return con.parent.quotedNames.get(name)
+}
+
 //returns a cloned connection - with extradata included
 func (con *DBCon) clone() *DBCon {
 	clone := DBCon{

@@ -43,8 +43,8 @@ func createJoinTable(scope *Scope, field *StructField) {
 					clone := theField.clone()
 					clone.UnsetIsPrimaryKey()
 					clone.UnsetIsAutoIncrement()
-					sqlTypes += Quote(fk.DBName, dialect) + " " + dialect.DataTypeOf(clone)
-					primaryKeys += Quote(fk.DBName, dialect)
+					sqlTypes += scope.con.quote(fk.DBName) + " " + dialect.DataTypeOf(clone)
+					primaryKeys += scope.con.quote(fk.DBName)
 				} else {
 					errMsg := fmt.Errorf("ERROR : %q doesn't have a field named %q", destinationValue.ModelType.Name(), fk.AssociationDBName)
 					fmt.Println(errMsg)
@@ -71,8 +71,8 @@ func createJoinTable(scope *Scope, field *StructField) {
 					clone := theField.clone()
 					clone.UnsetIsPrimaryKey()
 					clone.UnsetIsAutoIncrement()
-					sqlTypes += Quote(fk.DBName, dialect) + " " + dialect.DataTypeOf(clone)
-					primaryKeys += Quote(fk.DBName, dialect)
+					sqlTypes += scope.con.quote(fk.DBName) + " " + dialect.DataTypeOf(clone)
+					primaryKeys += scope.con.quote(fk.DBName)
 				} else {
 					errMsg := fmt.Errorf("ERROR : %q doesn't have a field named %q", sourceValue.ModelType.Name(), fk.AssociationDBName)
 					fmt.Println(errMsg)
@@ -86,7 +86,7 @@ func createJoinTable(scope *Scope, field *StructField) {
 		}
 		creationSQL := fmt.Sprintf(
 			"CREATE TABLE %v (%v, PRIMARY KEY (%v)) %s",
-			Quote(tableName, dialect),
+			scope.con.quote(tableName),
 			sqlTypes,
 			primaryKeys,
 			tableOptions,
@@ -131,7 +131,7 @@ func createTable(scope *Scope) {
 		primaryKeyStr          string
 		//because we're using it in a for, we're getting it once
 		dialect   = scope.con.parent.dialect
-		tableName = QuotedTableName(scope)
+		tableName = scope.quotedTableName()
 	)
 
 	for _, field := range scope.GetModelStruct().StructFields() {
@@ -146,14 +146,14 @@ func createTable(scope *Scope) {
 			if tags != "" {
 				tags += ","
 			}
-			tags += Quote(field.DBName, dialect) + " " + sqlTag
+			tags += scope.con.quote(field.DBName) + " " + sqlTag
 		}
 
 		if field.IsPrimaryKey() {
 			if primaryKeys != "" {
 				primaryKeys += ","
 			}
-			primaryKeys += Quote(field.DBName, dialect)
+			primaryKeys += scope.con.quote(field.DBName)
 		}
 		if field.HasRelations() {
 			createJoinTable(scope, field)
@@ -201,7 +201,7 @@ func addIndex(scope *Scope, unique bool, indexName string, column ...string) {
 		if columns != "" {
 			columns += ","
 		}
-		columns += QuoteIfPossible(name, dialect)
+		columns += scope.quoteIfPossible(name)
 	}
 
 	sqlCreate := "CREATE INDEX"
@@ -214,7 +214,7 @@ func addIndex(scope *Scope, unique bool, indexName string, column ...string) {
 			"%s %v ON %v(%v) %v",
 			sqlCreate,
 			indexName,
-			QuotedTableName(scope),
+			scope.quotedTableName(),
 			columns,
 			scope.Search.whereSQL(scope),
 		),
@@ -232,7 +232,7 @@ func autoMigrate(scope *Scope) {
 		createTable(scope)
 	} else {
 		var (
-			quotedTableName = QuotedTableName(scope)
+			quotedTableName = scope.quotedTableName()
 		)
 
 		for _, field := range scope.GetModelStruct().StructFields() {
@@ -243,7 +243,7 @@ func autoMigrate(scope *Scope) {
 						fmt.Sprintf(
 							"ALTER TABLE %v ADD %v %v;",
 							quotedTableName,
-							Quote(field.DBName, dialect),
+							scope.con.quote(field.DBName),
 							sqlTag),
 					).Exec()
 				}

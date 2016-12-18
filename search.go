@@ -397,7 +397,7 @@ func (s *Search) whereSQL(scope *Scope) string {
 	var (
 		SQL, orSQL, andSQL, primarySQL string
 		dialect                        = scope.con.parent.dialect
-		quotedTableName                = QuotedTableName(scope)
+		quotedTableName                = scope.quotedTableName()
 	)
 
 	if !s.isUnscoped() && scope.GetModelStruct().HasColumn(field_deleted_at_name) {
@@ -416,7 +416,7 @@ func (s *Search) whereSQL(scope *Scope) string {
 			primarySQL += fmt.Sprintf(
 				"%v.%v = %v",
 				quotedTableName,
-				Quote(field.DBName, dialect),
+				scope.con.quote(field.DBName),
 				s.addToVars(field.Value.Interface(), dialect),
 			)
 
@@ -472,9 +472,9 @@ func (s *Search) whereSQL(scope *Scope) string {
 func (s *Search) buildWhereCondition(fromPair SqlPair, scope *Scope) string {
 	var (
 		str             string
-		quotedTableName = QuotedTableName(scope)
+		quotedTableName = scope.quotedTableName()
 		dialect         = scope.con.parent.dialect
-		quotedPKName    = Quote(scope.PKName(), dialect)
+		quotedPKName    = scope.con.quote(scope.PKName())
 	)
 
 	switch expType := fromPair.expression.(type) {
@@ -525,7 +525,7 @@ func (s *Search) buildWhereCondition(fromPair SqlPair, scope *Scope) string {
 					fmt.Sprintf(
 						"(%v.%v = %v)",
 						quotedTableName,
-						Quote(key, dialect),
+						scope.con.quote(key),
 						s.addToVars(value, dialect),
 					),
 				)
@@ -534,7 +534,7 @@ func (s *Search) buildWhereCondition(fromPair SqlPair, scope *Scope) string {
 					fmt.Sprintf(
 						"(%v.%v IS NULL)",
 						quotedTableName,
-						Quote(key, dialect),
+						scope.con.quote(key),
 					),
 				)
 			}
@@ -548,8 +548,8 @@ func (s *Search) buildWhereCondition(fromPair SqlPair, scope *Scope) string {
 				sqls = append(sqls,
 					fmt.Sprintf(
 						"(%v.%v = %v)",
-						QuotedTableName(newScope),
-						Quote(field.DBName, dialect),
+						newScope.quotedTableName(),
+						scope.con.quote(field.DBName),
 						s.addToVars(field.Value.Interface(), dialect),
 					),
 				)
@@ -588,7 +588,7 @@ func (s *Search) buildNotCondition(fromPair SqlPair, scope *Scope) string {
 		str             string
 		notEqualSQL     string
 		primaryKey      = scope.PKName()
-		quotedTableName = QuotedTableName(scope)
+		quotedTableName = scope.quotedTableName()
 		dialect         = scope.con.parent.dialect
 		sqls            []string
 		tempMarks       []string
@@ -598,13 +598,13 @@ func (s *Search) buildNotCondition(fromPair SqlPair, scope *Scope) string {
 		// is number
 		if regExpNumberMatcher.MatchString(exprType) {
 			id, _ := strconv.Atoi(exprType)
-			return fmt.Sprintf("(%v <> %v)", Quote(primaryKey, dialect), id)
+			return fmt.Sprintf("(%v <> %v)", scope.con.quote(primaryKey), id)
 		} else if regExpLikeInMatcher.MatchString(exprType) {
 			str = fmt.Sprintf(" NOT (%v) ", exprType)
 			notEqualSQL = fmt.Sprintf("NOT (%v)", exprType)
 		} else {
-			str = fmt.Sprintf("(%v.%v NOT IN (?))", quotedTableName, Quote(exprType, dialect))
-			notEqualSQL = fmt.Sprintf("(%v.%v <> ?)", quotedTableName, Quote(exprType, dialect))
+			str = fmt.Sprintf("(%v.%v NOT IN (?))", quotedTableName, scope.con.quote(exprType))
+			notEqualSQL = fmt.Sprintf("(%v.%v <> ?)", quotedTableName, scope.con.quote(exprType))
 		}
 	case int,
 		int8,
@@ -617,7 +617,7 @@ func (s *Search) buildNotCondition(fromPair SqlPair, scope *Scope) string {
 		uint32,
 		uint64,
 		sql.NullInt64:
-		return fmt.Sprintf("(%v.%v <> %v)", quotedTableName, Quote(primaryKey, dialect), exprType)
+		return fmt.Sprintf("(%v.%v <> %v)", quotedTableName, scope.con.quote(primaryKey), exprType)
 	case []int,
 		[]int8,
 		[]int16,
@@ -630,7 +630,7 @@ func (s *Search) buildNotCondition(fromPair SqlPair, scope *Scope) string {
 		[]uint64,
 		[]string:
 		if reflect.ValueOf(exprType).Len() > 0 {
-			str = fmt.Sprintf("(%v.%v NOT IN (?))", quotedTableName, Quote(primaryKey, dialect))
+			str = fmt.Sprintf("(%v.%v NOT IN (?))", quotedTableName, scope.con.quote(primaryKey))
 			//TODO : @Badu - seems really bad "work around" (boiler plate logic)
 			fromPair.args = []interface{}{exprType}
 		}
@@ -642,7 +642,7 @@ func (s *Search) buildNotCondition(fromPair SqlPair, scope *Scope) string {
 					fmt.Sprintf(
 						"(%v.%v <> %v)",
 						quotedTableName,
-						Quote(key, dialect),
+						scope.con.quote(key),
 						s.addToVars(value, dialect),
 					),
 				)
@@ -651,7 +651,7 @@ func (s *Search) buildNotCondition(fromPair SqlPair, scope *Scope) string {
 					fmt.Sprintf(
 						"(%v.%v IS NOT NULL)",
 						quotedTableName,
-						Quote(key, dialect),
+						scope.con.quote(key),
 					),
 				)
 			}
@@ -664,8 +664,8 @@ func (s *Search) buildNotCondition(fromPair SqlPair, scope *Scope) string {
 				sqls = append(sqls,
 					fmt.Sprintf(
 						"(%v.%v <> %v)",
-						QuotedTableName(newScope),
-						Quote(field.DBName, dialect),
+						newScope.quotedTableName(),
+						scope.con.quote(field.DBName),
 						s.addToVars(field.Value.Interface(), dialect),
 					),
 				)
@@ -756,7 +756,7 @@ func (s *Search) combinedConditionSql(scope *Scope) string {
 				if orderSQL != "" {
 					orderSQL += ","
 				}
-				orderSQL += QuoteIfPossible(str, dialect)
+				orderSQL += scope.quoteIfPossible(str)
 			} else if pair, ok := orderPair.args[0].(*SqlPair); ok {
 				exp := pair.strExpr()
 				for _, arg := range pair.args {
@@ -835,12 +835,12 @@ func (s *Search) prepareQuerySQL(scope *Scope) {
 				}
 			}
 		} else if s.hasJoins() {
-			selectSQL = fmt.Sprintf("%v.*", QuotedTableName(scope))
+			selectSQL = fmt.Sprintf("%v.*", scope.quotedTableName())
 		} else {
 			selectSQL = str_everything
 		}
 
-		scope.Raw(fmt.Sprintf("SELECT %v FROM %v %v", selectSQL, QuotedTableName(scope), s.combinedConditionSql(scope)))
+		scope.Raw(fmt.Sprintf("SELECT %v FROM %v %v", selectSQL, scope.quotedTableName(), s.combinedConditionSql(scope)))
 	}
 }
 
