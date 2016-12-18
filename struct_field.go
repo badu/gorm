@@ -367,7 +367,6 @@ func (field *StructField) GetAssociationDBNames() StrSlice {
 	return slice
 }
 
-//TODO : replace everywhere with GetForeignFieldNames, GetAssociationForeignFieldNames, GetForeignDBNames, GetAssociationDBNames
 func (field *StructField) GetSliceSetting(named uint8) StrSlice {
 	value, ok := field.tagSettings.get(named)
 	if !ok {

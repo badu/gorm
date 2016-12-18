@@ -37,8 +37,8 @@ func (association *Association) Replace(values ...interface{}) *Association {
 		conn       = newCon(scope.con)
 		dialect    = conn.parent.dialect
 
-		ForeignDBNames               = field.GetSliceSetting(set_foreign_db_names)
-		AssociationForeignFieldNames = field.GetSliceSetting(set_association_foreign_field_names)
+		ForeignDBNames               = field.GetForeignDBNames()
+		AssociationForeignFieldNames = field.GetAssociationForeignFieldNames()
 	)
 
 	// Append new values
@@ -74,7 +74,7 @@ func (association *Association) Replace(values ...interface{}) *Association {
 			// Delete Relations except new created
 			if len(values) > 0 {
 				var associationForeignFieldNames, associationForeignDBNames StrSlice
-				AssociationForeignDBNames := field.GetSliceSetting(set_association_foreign_db_names)
+				AssociationForeignDBNames := field.GetAssociationDBNames()
 				// if many to many relations, get association fields name from association foreign keys
 				associationScope := scope.NewScope(fieldValue.Interface())
 				for idx, dbName := range AssociationForeignFieldNames {
@@ -98,7 +98,7 @@ func (association *Association) Replace(values ...interface{}) *Association {
 
 			// if many to many relations, delete related relations from join table
 			var sourceForeignFieldNames StrSlice
-			ForeignFieldNames := field.GetSliceSetting(set_foreign_field_names)
+			ForeignFieldNames := field.GetForeignFieldNames()
 			for _, dbName := range ForeignFieldNames {
 				if field, ok := scope.FieldByName(dbName); ok {
 					sourceForeignFieldNames.add(field.StructName)
@@ -171,8 +171,8 @@ func (association *Association) Delete(values ...interface{}) *Association {
 		conn       = newCon(scope.con)
 		dialect    = conn.parent.dialect
 
-		ForeignDBNames               = field.GetSliceSetting(set_foreign_db_names)
-		AssociationForeignFieldNames = field.GetSliceSetting(set_association_foreign_field_names)
+		ForeignDBNames               = field.GetForeignDBNames()
+		AssociationForeignFieldNames = field.GetAssociationForeignFieldNames()
 	)
 
 	if len(values) == 0 {
@@ -189,8 +189,8 @@ func (association *Association) Delete(values ...interface{}) *Association {
 
 	switch field.RelKind() {
 	case rel_many2many:
-		ForeignFieldNames := field.GetSliceSetting(set_foreign_field_names)
-		AssociationForeignDBNames := field.GetSliceSetting(set_association_foreign_db_names)
+		ForeignFieldNames := field.GetForeignFieldNames()
+		AssociationForeignDBNames := field.GetAssociationDBNames()
 		// source value's foreign keys
 		for idx, foreignKey := range ForeignDBNames {
 			if field, ok := scope.FieldByName(ForeignFieldNames[idx]); ok {
@@ -343,9 +343,9 @@ func (association *Association) Count() int {
 		joinTableHandler := field.JoinHandler()
 		conn = joinTableHandler.JoinWith(joinTableHandler, conn, scope.Value)
 	case rel_has_many, rel_has_one:
-		AssociationForeignFieldNames := field.GetSliceSetting(set_association_foreign_field_names)
+		AssociationForeignFieldNames := field.GetAssociationForeignFieldNames()
 		primaryKeys := getColumnAsArray(AssociationForeignFieldNames, scope.Value)
-		ForeignDBNames := field.GetSliceSetting(set_foreign_db_names)
+		ForeignDBNames := field.GetForeignDBNames()
 		conn = conn.Where(
 			fmt.Sprintf(
 				"%v IN (%v)",
@@ -355,8 +355,8 @@ func (association *Association) Count() int {
 			toQueryValues(primaryKeys)...,
 		)
 	case rel_belongs_to:
-		ForeignFieldNames := field.GetSliceSetting(set_foreign_field_names)
-		AssociationForeignDBNames := field.GetSliceSetting(set_association_foreign_db_names)
+		ForeignFieldNames := field.GetForeignFieldNames()
+		AssociationForeignDBNames := field.GetAssociationDBNames()
 		primaryKeys := getColumnAsArray(ForeignFieldNames, scope.Value)
 		conn = conn.Where(
 			fmt.Sprintf(

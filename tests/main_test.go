@@ -6,11 +6,11 @@ import (
 )
 
 func TestAllGorm(t *testing.T) {
-	os.Setenv("GORM_DIALECT", "sqlite")
+	//os.Setenv("GORM_DIALECT", "sqlite")
 	//os.Setenv("GORM_DIALECT", "foundation")
 	//os.Setenv("GORM_DIALECT", "postgres")
-	//os.Setenv("GORM_DIALECT", "mysql")
-	//os.Setenv("GORM_DBADDRESS", "127.0.0.1:3306")
+	os.Setenv("GORM_DIALECT", "mysql")
+	os.Setenv("GORM_DBADDRESS", "127.0.0.1:3306")
 
 	t.Run("0) Open connection", OpenTestConnection)
 	if TestDBErr != nil {

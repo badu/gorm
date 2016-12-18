@@ -472,8 +472,8 @@ func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
 			return scope
 		}
 		var (
-			ForeignDBNames            = fromField.GetSliceSetting(set_foreign_db_names)
-			AssociationForeignDBNames = fromField.GetSliceSetting(set_association_foreign_db_names)
+			ForeignDBNames            = fromField.GetForeignDBNames()
+			AssociationForeignDBNames = fromField.GetAssociationDBNames()
 		)
 		//now, fail fast is over
 		switch fromField.RelKind() {
@@ -713,7 +713,7 @@ func (scope *Scope) postCreate() *Scope {
 				}
 			} else {
 				if field.HasRelations() && field.RelationIsBelongsTo() {
-					ForeignDBNames := field.GetSliceSetting(set_foreign_db_names)
+					ForeignDBNames := field.GetForeignDBNames()
 					for _, foreignKey := range ForeignDBNames {
 						foreignField, ok := result.FieldByName(foreignKey)
 						if ok && !result.Search.changeableField(foreignField) {
@@ -882,7 +882,7 @@ func (scope *Scope) postUpdate() *Scope {
 					)
 				} else {
 					if field.HasRelations() && field.RelationIsBelongsTo() {
-						ForeignDBNames := field.GetSliceSetting(set_foreign_db_names)
+						ForeignDBNames := field.GetForeignDBNames()
 						for _, foreignKey := range ForeignDBNames {
 							foreignField, ok := result.FieldByName(foreignKey)
 							if ok && !result.Search.changeableField(foreignField) {
@@ -1013,8 +1013,8 @@ func (scope *Scope) saveBeforeAssociationsCallback() *Scope {
 			fieldValue := field.Value.Addr().Interface()
 			scope.Err(newCon(scope.con).Save(fieldValue).Error)
 			var (
-				ForeignFieldNames         = field.GetSliceSetting(set_foreign_field_names)
-				AssociationForeignDBNames = field.GetSliceSetting(set_association_foreign_db_names)
+				ForeignFieldNames         = field.GetForeignFieldNames()
+				AssociationForeignDBNames = field.GetAssociationDBNames()
 			)
 			if ForeignFieldNames.len() != 0 {
 				// set value's foreign key
@@ -1040,8 +1040,8 @@ func (scope *Scope) saveAfterAssociationsCallback() *Scope {
 		//Attention : relationship.Kind <= HAS_ONE means except BELONGS_TO
 		if scope.willSaveFieldAssociations(field) && field.RelKind() <= rel_has_one {
 			value := field.Value
-			ForeignFieldNames := field.GetSliceSetting(set_foreign_field_names)
-			AssociationForeignDBNames := field.GetSliceSetting(set_association_foreign_db_names)
+			ForeignFieldNames := field.GetForeignFieldNames()
+			AssociationForeignDBNames := field.GetAssociationDBNames()
 			switch value.Kind() {
 			case reflect.Slice:
 				for i := 0; i < value.Len(); i++ {

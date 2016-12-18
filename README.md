@@ -41,6 +41,10 @@
 - [ ] convertInterfaceToMap in utils it's terrible : simplify
 - [ ] unify DBCon NewScope and Scope NewScope
 
+## 18.12.2016
+- [x] Removed Search struct TableName() method
+- [x] Replaced, where possible, GetSliceSetting with GetForeignFieldNames, GetAssociationForeignFieldNames, GetForeignDBNames, GetAssociationDBNames 
+
 ## 17.12.2016
 - [x] When error occurs, print the SQL that was executed (via AddErr of the Scope, we're passing SQL and SQLVars)
 - [x] DBCon has modelsStructMap property which keeps the map that was a "global" variable (separate of concerns and encapsulation)

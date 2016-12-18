@@ -549,7 +549,7 @@ func (con *DBCon) Model(value interface{}) *DBCon {
 // Table specify the table you would like to run db operations
 func (con *DBCon) Table(name string) *DBCon {
 	clone := con.clone()
-	clone.search.Table(name)
+	clone.search.tableName = name
 	//reseting the value
 	clone.search.Value = nil
 	return clone
@@ -774,7 +774,7 @@ func (con *DBCon) Association(column string) *Association {
 		err = errors.New("primary key can't be nil")
 	} else {
 		if field, ok := scope.FieldByName(column); ok {
-			ForeignFieldNames := field.GetSliceSetting(set_foreign_field_names)
+			ForeignFieldNames := field.GetForeignFieldNames()
 			if !field.HasRelations() || ForeignFieldNames.len() == 0 {
 				err = fmt.Errorf("invalid association %v for %v", column, IndirectValue(scope.Value).Type())
 			} else {

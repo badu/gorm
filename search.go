@@ -218,11 +218,6 @@ func (s *Search) Assign(attrs ...interface{}) *Search {
 	return s
 }
 
-func (s *Search) Table(name string) *Search {
-	s.tableName = name
-	return s
-}
-
 func (s *Search) Order(value interface{}, reorder ...bool) *Search {
 	if len(reorder) > 0 && reorder[0] {
 		//reseting existing entry
