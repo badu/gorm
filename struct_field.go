@@ -588,7 +588,7 @@ func (field *StructField) parseTagSettings(tag reflect.StructTag) error {
 	return nil
 }
 
-func (field *StructField) isZeroValue(){
+func (field *StructField) isZeroValue() {
 	//if reflect.DeepEqual(field.Value.Interface(), reflect.Zero(field.Value.Type()).Interface())
 }
 

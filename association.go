@@ -34,7 +34,7 @@ func (association *Association) Replace(values ...interface{}) *Association {
 		scope                        = association.scope
 		field                        = association.field
 		fieldValue                   = field.Value
-		conn                         = newCon(scope.con)
+		conn                         = scope.con.empty()
 		ForeignDBNames               = field.GetForeignDBNames()
 		AssociationForeignFieldNames = field.GetAssociationForeignFieldNames()
 	)
@@ -75,7 +75,7 @@ func (association *Association) Replace(values ...interface{}) *Association {
 				var associationForeignFieldNames, associationForeignDBNames StrSlice
 				AssociationForeignDBNames := field.GetAssociationDBNames()
 				// if many to many relations, get association fields name from association foreign keys
-				associationScope := newScope(conn, fieldValue.Interface())
+				associationScope := conn.emptyScope(fieldValue.Interface())
 				for idx, dbName := range AssociationForeignFieldNames {
 					if field, ok := associationScope.FieldByName(dbName); ok {
 						associationForeignFieldNames.add(field.StructName)
@@ -122,7 +122,7 @@ func (association *Association) Replace(values ...interface{}) *Association {
 				var assocFKNames, assocDBNames StrSlice
 
 				// If has one/many relations, use primary keys
-				for _, field := range newScope(conn, fieldValue.Interface()).PKs() {
+				for _, field := range conn.emptyScope(fieldValue.Interface()).PKs() {
 					assocFKNames.add(field.StructName)
 					assocDBNames.add(field.DBName)
 				}
@@ -167,7 +167,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 		field                        = association.field
 		fieldValue                   = field.Value
 		scope                        = association.scope
-		conn                         = newCon(scope.con)
+		conn                         = scope.con.empty()
 		ForeignDBNames               = field.GetForeignDBNames()
 		AssociationForeignFieldNames = field.GetAssociationForeignFieldNames()
 	)
@@ -177,7 +177,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 	}
 
 	var deletingResourcePrimaryFieldNames, deletingResourcePrimaryDBNames StrSlice
-	for _, field := range newScope(conn, fieldValue.Interface()).PKs() {
+	for _, field := range conn.emptyScope(fieldValue.Interface()).PKs() {
 		deletingResourcePrimaryFieldNames.add(field.StructName)
 		deletingResourcePrimaryDBNames.add(field.DBName)
 	}
@@ -201,7 +201,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 		}
 
 		// get association's foreign fields name
-		var associationScope = newScope(conn, fieldValue.Interface())
+		var associationScope = conn.emptyScope(fieldValue.Interface())
 		var associationForeignFieldNames StrSlice
 		for _, associationDBName := range AssociationForeignFieldNames {
 			if field, ok := associationScope.FieldByName(associationDBName); ok {
@@ -366,7 +366,7 @@ func (association *Association) Count() int {
 		conn = conn.Where(
 			fmt.Sprintf(
 				"%v.%v = ?",
-				newScope(conn, fieldValue).quotedTableName(),
+				conn.emptyScope(fieldValue).quotedTableName(),
 				conn.quote(field.GetStrSetting(set_polymorphic_dbname)),
 			),
 			field.GetStrSetting(set_polymorphic_value),
@@ -393,8 +393,8 @@ func (association *Association) reflect(reflectValue reflect.Value) {
 
 	// value has to been saved for many2many
 	if field.RelationIsMany2Many() {
-		if newScope(scope.con, reflectValue.Interface()).PrimaryKeyZero() {
-			association.setErr(newCon(scope.con).Save(reflectValue.Interface()).Error)
+		if scope.con.emptyScope(reflectValue.Interface()).PrimaryKeyZero() {
+			association.setErr(scope.con.empty().Save(reflectValue.Interface()).Error)
 		}
 	}
 
@@ -420,13 +420,13 @@ func (association *Association) reflect(reflectValue reflect.Value) {
 		association.setErr(
 			joinTableHandler.Add(
 				joinTableHandler,
-				newCon(scope.con),
+				scope.con.empty(),
 				scope.Value,
 				reflectValue.Interface(),
 			),
 		)
 	} else {
-		association.setErr(newCon(scope.con).Select(field.StructName).Save(scope.Value).Error)
+		association.setErr(scope.con.empty().Select(field.StructName).Save(scope.Value).Error)
 
 		if setFieldBackToValue {
 			reflectValue.Elem().Set(field.Value)

@@ -295,7 +295,7 @@ func (scope *Scope) callMethod(methodName string, reflectValue reflect.Value) {
 		case func(*Scope):
 			method(scope)
 		case func(*DBCon):
-			newCon := newCon(scope.con)
+			newCon := scope.con.empty()
 			method(newCon)
 			scope.Err(newCon.Error)
 		case func() error:
@@ -303,7 +303,7 @@ func (scope *Scope) callMethod(methodName string, reflectValue reflect.Value) {
 		case func(*Scope) error:
 			scope.Err(method(scope))
 		case func(*DBCon) error:
-			newCon := newCon(scope.con)
+			newCon := scope.con.empty()
 			scope.Err(method(newCon))
 			scope.Err(newCon.Error)
 		default:
@@ -650,7 +650,7 @@ func (scope *Scope) postQuery(dest interface{}) *Scope {
 					elem = reflect.New(queryResultType).Elem()
 				}
 
-				scope.scan(rows, columns, newScope(scope.con, elem.Addr().Interface()).Fields())
+				scope.scan(rows, columns, scope.con.emptyScope(elem.Addr().Interface()).Fields())
 
 				if isSlice {
 					if isPtr {
@@ -819,7 +819,7 @@ func (scope *Scope) postCreate() *Scope {
 
 	//Was "forceReloadAfterCreateCallback" method
 	if blankColumnsWithDefaultValue != "" {
-		db := newCon(result.con).Table(result.TableName()).Select(blankColumnsWithDefaultValue)
+		db := scope.con.empty().Table(result.TableName()).Select(blankColumnsWithDefaultValue)
 		for _, field := range result.Fields() {
 			if field.IsPrimaryKey() && !field.IsBlank() {
 				db = db.Where(fmt.Sprintf("%v = ?", field.DBName), field.Value.Interface())
@@ -1046,7 +1046,7 @@ func (scope *Scope) saveBeforeAssociationsCallback() *Scope {
 
 		if scope.willSaveFieldAssociations(field) && field.RelationIsBelongsTo() {
 			fieldValue := field.Value.Addr().Interface()
-			scope.Err(newCon(scope.con).Save(fieldValue).Error)
+			scope.Err(scope.con.empty().Save(fieldValue).Error)
 			var (
 				ForeignFieldNames         = field.GetForeignFieldNames()
 				AssociationForeignDBNames = field.GetAssociationDBNames()
@@ -1055,7 +1055,7 @@ func (scope *Scope) saveBeforeAssociationsCallback() *Scope {
 				// set value's foreign key
 				for idx, fieldName := range ForeignFieldNames {
 					associationForeignName := AssociationForeignDBNames[idx]
-					if foreignField, ok := newScope(scope.con, fieldValue).FieldByName(associationForeignName); ok {
+					if foreignField, ok := scope.con.emptyScope(fieldValue).FieldByName(associationForeignName); ok {
 						scope.Err(scope.SetColumn(fieldName, foreignField.Value.Interface()))
 					}
 				}
@@ -1081,7 +1081,7 @@ func (scope *Scope) saveAfterAssociationsCallback() *Scope {
 			case reflect.Slice:
 				for i := 0; i < value.Len(); i++ {
 					//TODO : @Badu - cloneCon without copy, then NewScope which clone's con - but with copy
-					newCon := newCon(scope.con)
+					newCon := scope.con.empty()
 					elem := value.Index(i).Addr().Interface()
 					newScope := newCon.NewScope(elem)
 
@@ -1109,7 +1109,7 @@ func (scope *Scope) saveAfterAssociationsCallback() *Scope {
 				}
 			default:
 				elem := value.Addr().Interface()
-				newScope := newScope(scope.con, elem)
+				newScope := scope.con.emptyScope(elem)
 
 				if ForeignFieldNames.len() != 0 {
 					for idx, fieldName := range ForeignFieldNames {
@@ -1126,7 +1126,7 @@ func (scope *Scope) saveAfterAssociationsCallback() *Scope {
 							field.GetStrSetting(set_polymorphic_type),
 							field.GetStrSetting(set_polymorphic_value)))
 				}
-				scope.Err(newCon(scope.con).Save(elem).Error)
+				scope.Err(scope.con.empty().Save(elem).Error)
 			}
 		}
 

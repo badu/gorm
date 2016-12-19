@@ -461,7 +461,7 @@ func handleRelationPreload(scope *Scope, field *StructField, conditions []interf
 	}
 
 	// preload conditions
-	preloadDB, preloadConditions := generatePreloadDBWithConditions(newCon(scope.con), conditions)
+	preloadDB, preloadConditions := generatePreloadDBWithConditions(scope.con.empty(), conditions)
 
 	values := toQueryValues(primaryKeys)
 
@@ -577,10 +577,10 @@ func handleManyToManyPreload(scope *Scope, field *StructField, conditions []inte
 	)
 
 	// preload conditions
-	preloadDB, preloadConditions := generatePreloadDBWithConditions(newCon(scope.con), conditions)
+	preloadDB, preloadConditions := generatePreloadDBWithConditions(scope.con.empty(), conditions)
 
 	// generate query with join table
-	freshScope := newScope(scope.con, reflect.New(fieldType).Interface())
+	freshScope := scope.con.emptyScope(reflect.New(fieldType).Interface())
 
 	preloadDB = preloadDB.Table(freshScope.TableName()).Model(freshScope.Value).Select(str_everything)
 	preloadDB = joinTableHandler.JoinWith(joinTableHandler, preloadDB, scope.Value)
@@ -601,7 +601,7 @@ func handleManyToManyPreload(scope *Scope, field *StructField, conditions []inte
 	for rows.Next() {
 		var (
 			elem   = reflect.New(fieldType).Elem()
-			fields = newScope(scope.con, elem.Addr().Interface()).Fields()
+			fields = scope.con.emptyScope(elem.Addr().Interface()).Fields()
 		)
 
 		// register foreign keys in join tables

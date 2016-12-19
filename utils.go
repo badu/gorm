@@ -171,11 +171,11 @@ func getColumnAsScope(column string, scope *Scope) *Scope {
 					results = reflect.Append(results, fieldRef.Addr())
 				}
 			}
-			return newScope(scope.con, results.Interface())
+			return scope.con.emptyScope(results.Interface())
 		}
 	case reflect.Struct:
 		if field := indirectScopeValue.FieldByName(column); field.CanAddr() {
-			return newScope(scope.con, field.Addr().Interface())
+			return scope.con.emptyScope(field.Addr().Interface())
 		}
 	}
 	return nil
@@ -211,28 +211,6 @@ func convertInterfaceToMap(con *DBCon, values interface{}, withIgnoredField bool
 		}
 	}
 	return attrs
-}
-
-//using inline advantage
-func newCon(con *DBCon) *DBCon {
-	clone := DBCon{
-		sqli:     con.sqli,
-		parent:   con.parent,
-		logger:   con.logger,
-		logMode:  con.logMode,
-		settings: map[uint64]interface{}{},
-		Error:    con.Error,
-	}
-	return &clone
-}
-
-//using inline advantage
-// New create a new Scope without search information
-func newScope(con *DBCon, value interface{}) *Scope {
-	return &Scope{
-		con:    newCon(con),
-		Search: &Search{Conditions: make(SqlConditions)},
-		Value:  value}
 }
 
 //using inline advantage

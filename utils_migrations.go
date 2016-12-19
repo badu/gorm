@@ -91,7 +91,7 @@ func createJoinTable(scope *Scope, field *StructField) {
 			primaryKeys,
 			tableOptions,
 		)
-		scope.Err(newCon(scope.con).Exec(creationSQL).Error)
+		scope.Err(scope.con.empty().Exec(creationSQL).Error)
 	} else {
 		//TODO : make update - see below
 		/**
@@ -285,11 +285,11 @@ func autoIndex(scope *Scope) {
 	}
 
 	for name, columns := range indexes {
-		addIndex(newCon(scope.con).Unscoped().NewScope(scope.Value), false, name, columns...)
+		addIndex(scope.con.empty().Unscoped().NewScope(scope.Value), false, name, columns...)
 
 	}
 
 	for name, columns := range uniqueIndexes {
-		addIndex(newCon(scope.con).Unscoped().NewScope(scope.Value), true, name, columns...)
+		addIndex(scope.con.empty().Unscoped().NewScope(scope.Value), true, name, columns...)
 	}
 }

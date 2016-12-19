@@ -10,7 +10,7 @@ import (
 )
 
 func (con *DBCon) set(settintType uint64, value interface{}) *DBCon {
-	return con.clone().localSet(settintType, value)
+	return con.clone(nil).localSet(settintType, value)
 }
 
 // InstantSet instant set setting, will affect current db
@@ -26,7 +26,7 @@ func (con *DBCon) get(settingType uint64) (interface{}, bool) {
 
 // Set set setting by name, which could be used in callbacks, will clone a new db, and update its setting
 func (con *DBCon) Set(name string, value interface{}) *DBCon {
-	clone := con.clone()
+	clone := con.clone(nil)
 	settingType, ok := gormSettingsMap[name]
 	if ok {
 		clone.localSet(settingType, value)
@@ -60,7 +60,7 @@ func (con *DBCon) KnownNames(name string) string {
 // Where return a new relation, filter records with given conditions, accepts `map`, `struct` or `string` as conditions
 // Note : no scope
 func (con *DBCon) Where(query interface{}, args ...interface{}) *DBCon {
-	clone := con.clone()
+	clone := con.clone(nil)
 	clone.search.Where(query, args...)
 	return clone
 }
@@ -68,7 +68,7 @@ func (con *DBCon) Where(query interface{}, args ...interface{}) *DBCon {
 // Or filter records that match before conditions or this one, similar to `Where`
 // Note : no scope
 func (con *DBCon) Or(query interface{}, args ...interface{}) *DBCon {
-	clone := con.clone()
+	clone := con.clone(nil)
 	clone.search.Or(query, args...)
 	return clone
 }
@@ -76,7 +76,7 @@ func (con *DBCon) Or(query interface{}, args ...interface{}) *DBCon {
 // Not filter records that don't match current conditions, similar to `Where`
 // Note : no scope
 func (con *DBCon) Not(query interface{}, args ...interface{}) *DBCon {
-	clone := con.clone()
+	clone := con.clone(nil)
 	clone.search.Not(query, args...)
 	return clone
 }
@@ -84,7 +84,7 @@ func (con *DBCon) Not(query interface{}, args ...interface{}) *DBCon {
 // Limit specify the number of records to be retrieved
 //Note : no scope
 func (con *DBCon) Limit(limit interface{}) *DBCon {
-	clone := con.clone()
+	clone := con.clone(nil)
 	clone.search.Limit(limit)
 	return clone
 }
@@ -92,7 +92,7 @@ func (con *DBCon) Limit(limit interface{}) *DBCon {
 // Offset specify the number of records to skip before starting to return the records
 // Note : no scope
 func (con *DBCon) Offset(offset interface{}) *DBCon {
-	clone := con.clone()
+	clone := con.clone(nil)
 	clone.search.Offset(offset)
 	return clone
 }
@@ -103,7 +103,7 @@ func (con *DBCon) Offset(offset interface{}) *DBCon {
 //     db.Order(gorm.Expr("name = ? DESC", "first")) // sql expression
 // Note : no scope
 func (con *DBCon) Order(value interface{}, reorder ...bool) *DBCon {
-	clone := con.clone()
+	clone := con.clone(nil)
 	clone.search.Order(value, reorder...)
 	return clone
 }
@@ -112,7 +112,7 @@ func (con *DBCon) Order(value interface{}, reorder ...bool) *DBCon {
 // When creating/updating, specify fields that you want to save to database
 // Note : no scope
 func (con *DBCon) Select(query string, args ...interface{}) *DBCon {
-	clone := con.clone()
+	clone := con.clone(nil)
 	clone.search.Select(query, args...)
 	return clone
 }
@@ -120,7 +120,7 @@ func (con *DBCon) Select(query string, args ...interface{}) *DBCon {
 // Omit specify fields that you want to ignore when saving to database for creating, updating
 // Note : no scope
 func (con *DBCon) Omit(columns ...string) *DBCon {
-	clone := con.clone()
+	clone := con.clone(nil)
 	clone.search.Omit(columns...)
 	return clone
 }
@@ -128,7 +128,7 @@ func (con *DBCon) Omit(columns ...string) *DBCon {
 // Group specify the group method on the find
 // Note : no scope
 func (con *DBCon) Group(query string) *DBCon {
-	clone := con.clone()
+	clone := con.clone(nil)
 	clone.search.Group(query)
 	return clone
 }
@@ -136,7 +136,7 @@ func (con *DBCon) Group(query string) *DBCon {
 // Having specify HAVING conditions for GROUP BY
 // Note : no scope
 func (con *DBCon) Having(query string, values ...interface{}) *DBCon {
-	clone := con.clone()
+	clone := con.clone(nil)
 	clone.search.Having(query, values...)
 	return clone
 }
@@ -145,7 +145,7 @@ func (con *DBCon) Having(query string, values ...interface{}) *DBCon {
 //     db.Joins("JOIN emails ON emails.user_id = users.id AND emails.email = ?", "user@example.org").Find(&user)
 //Note:no scope
 func (con *DBCon) Joins(query string, args ...interface{}) *DBCon {
-	clone := con.clone()
+	clone := con.clone(nil)
 	clone.search.Joins(query, args...)
 	return clone
 }
@@ -153,7 +153,7 @@ func (con *DBCon) Joins(query string, args ...interface{}) *DBCon {
 // Unscoped return all record including deleted record, refer Soft Delete
 // Note : no scope (as the name says)
 func (con *DBCon) Unscoped() *DBCon {
-	clone := con.clone()
+	clone := con.clone(nil)
 	clone.search.setUnscoped()
 	return clone
 }
@@ -161,7 +161,7 @@ func (con *DBCon) Unscoped() *DBCon {
 // Attrs initialize struct with argument if record not found with `FirstOrInit` or `FirstOrCreate`
 // Note : no scope
 func (con *DBCon) Attrs(attrs ...interface{}) *DBCon {
-	clone := con.clone()
+	clone := con.clone(nil)
 	clone.search.Attrs(attrs...)
 	return clone
 }
@@ -169,7 +169,7 @@ func (con *DBCon) Attrs(attrs ...interface{}) *DBCon {
 // Assign assign result with argument regardless it is found or not with `FirstOrInit` or `FirstOrCreate`
 // Note : no scope
 func (con *DBCon) Assign(attrs ...interface{}) *DBCon {
-	clone := con.clone()
+	clone := con.clone(nil)
 	clone.search.Assign(attrs...)
 	return clone
 }
@@ -178,7 +178,7 @@ func (con *DBCon) Assign(attrs ...interface{}) *DBCon {
 //    db.Raw("SELECT name, age FROM users WHERE name = ?", 3).Scan(&result)
 // Note : no scope
 func (con *DBCon) Raw(sql string, values ...interface{}) *DBCon {
-	clone := con.clone()
+	clone := con.clone(nil)
 	clone.search.SetRaw().Where(sql, values...)
 	return clone
 }
@@ -187,7 +187,7 @@ func (con *DBCon) Raw(sql string, values ...interface{}) *DBCon {
 //    db.Preload("Orders", "state NOT IN (?)", "cancelled").Find(&users)
 // Note : no scope
 func (con *DBCon) Preload(column string, conditions ...interface{}) *DBCon {
-	clone := con.clone()
+	clone := con.clone(nil)
 	clone.search.Preload(column, conditions...)
 	return clone
 }
@@ -208,48 +208,6 @@ func (con *DBCon) DB() *sql.DB {
 // Dialect get dialect
 func (con *DBCon) Dialect() Dialect {
 	return con.parent.dialect
-}
-
-// NewScope create a scope for current operation
-func (con *DBCon) NewScope(value interface{}) *Scope {
-	clone := &DBCon{
-		sqli:     con.sqli,
-		parent:   con.parent,
-		logger:   con.logger,
-		logMode:  con.logMode,
-		settings: map[uint64]interface{}{},
-		Error:    con.Error,
-	}
-	for key, value := range con.settings {
-		clone.settings[key] = value
-	}
-	/**
-	&Scope{
-		con:    newCon(con),
-		Search: &Search{Conditions: make(SqlConditions)},
-		Value:  value}
-	*/
-
-	if value != nil {
-		if con.search == nil {
-			clone.search = &Search{Conditions: make(SqlConditions), Value: value}
-		} else {
-			clone.search = con.search.CloneWithValue(value)
-		}
-		return &Scope{con: clone,
-			Search:       clone.search.Clone(),
-			Value:        value,
-			rValue: IndirectValue(value)}
-	}
-	//value is nil
-	if con.search == nil {
-		clone.search = &Search{Conditions: make(SqlConditions)}
-	} else {
-		clone.search = con.search.Clone()
-	}
-	//Important note : this is the point where connection passes over the search to scope
-	//Observation : for some reason the cloned search needs to be cloned again ... do not interfere
-	return &Scope{con: clone, Search: clone.search.Clone()}
 }
 
 // CommonDB return the underlying `*sql.DB` or `*sql.Tx` instance, mainly intended to allow coexistence with legacy non-GORM code.
@@ -394,7 +352,7 @@ func (con *DBCon) Rows() (*sql.Rows, error) {
 // ScanRows scan `*sql.Rows` to give struct
 func (con *DBCon) ScanRows(rows *sql.Rows, result interface{}) error {
 	var (
-		clone        = con.clone()
+		clone        = con.clone(nil)
 		scope        = clone.NewScope(result)
 		columns, err = rows.Columns()
 	)
@@ -425,7 +383,7 @@ func (con *DBCon) Related(value interface{}, foreignKeys ...string) *DBCon {
 
 // FirstOrInit find first matched record or initialize a new one with given conditions (only works with struct, map conditions)
 func (con *DBCon) FirstOrInit(out interface{}, where ...interface{}) *DBCon {
-	conClone := con.clone()
+	conClone := con.clone(nil)
 	if result := conClone.First(out, where...); result.Error != nil {
 		if !result.RecordNotFound() {
 			return result
@@ -444,7 +402,7 @@ func (con *DBCon) FirstOrInit(out interface{}, where ...interface{}) *DBCon {
 
 // FirstOrCreate find first matched record or create a new one with given conditions (only works with struct, map conditions)
 func (con *DBCon) FirstOrCreate(out interface{}, where ...interface{}) *DBCon {
-	conClone := con.clone()
+	conClone := con.clone(nil)
 	if result := con.First(out, where...); result.Error != nil {
 		if !result.RecordNotFound() {
 			return result
@@ -514,7 +472,7 @@ func (con *DBCon) Save(value interface{}) *DBCon {
 			scope.callCallbacks(con.parent.callbacks.updates)
 		}
 		if scope.con.Error == nil && scope.con.RowsAffected == 0 {
-			return newCon(con).FirstOrCreate(value)
+			return con.empty().FirstOrCreate(value)
 		}
 		return scope.con
 	}
@@ -558,14 +516,14 @@ func (con *DBCon) Exec(sql string, values ...interface{}) *DBCon {
 //    // if user's primary key is non-blank, will use it as condition, then will only update the user's name to `hello`
 //    db.Model(&user).Update("name", "hello")
 func (con *DBCon) Model(value interface{}) *DBCon {
-	c := con.clone()
+	c := con.clone(nil)
 	c.search.Value = value
 	return c
 }
 
 // Table specify the table you would like to run db operations
 func (con *DBCon) Table(name string) *DBCon {
-	clone := con.clone()
+	clone := con.clone(nil)
 	clone.search.tableName = name
 	//reseting the value
 	clone.search.Value = nil
@@ -574,12 +532,12 @@ func (con *DBCon) Table(name string) *DBCon {
 
 // Debug start debug mode
 func (con *DBCon) Debug() *DBCon {
-	return con.clone().LogMode(true)
+	return con.clone(nil).LogMode(true)
 }
 
 // Begin begin a transaction
 func (con *DBCon) Begin() *DBCon {
-	c := con.clone()
+	c := con.clone(nil)
 	if db, ok := c.sqli.(sqlDb); ok {
 		//clone.db implements Begin() -> call Begin()
 		tx, err := db.Begin()
@@ -641,7 +599,7 @@ func (con *DBCon) CreateTable(models ...interface{}) *DBCon {
 
 // DropTable drop table for models
 func (con *DBCon) DropTable(values ...interface{}) *DBCon {
-	conn := con.clone()
+	conn := con.clone(nil)
 	for _, value := range values {
 		if tableName, ok := value.(string); ok {
 			conn = conn.Table(tableName)
@@ -660,7 +618,7 @@ func (con *DBCon) DropTable(values ...interface{}) *DBCon {
 
 // DropTableIfExists drop table if it is exist
 func (con *DBCon) DropTableIfExists(values ...interface{}) *DBCon {
-	db := con.clone()
+	db := con.clone(nil)
 	for _, value := range values {
 		if con.HasTable(value) {
 			db.AddError(con.DropTable(value).Error)
@@ -872,20 +830,42 @@ func (con *DBCon) Log(v ...interface{}) {
 	con.toLog(append([]interface{}{"info", fileWithLineNum()}, v...)...)
 }
 
+// NewScope create a scope for current operation
+func (con *DBCon) NewScope(value interface{}) *Scope {
+	clone := con.clone(value)
+	//Important note : this is the point where connection passes over the search to scope
+	//Observation : for some reason the cloned search needs to be cloned again ... do not interfere
+	if value == nil {
+		return &Scope{con: clone, Search: clone.search.Clone()}
+	}
+	return &Scope{con: clone,
+		Search: clone.search.Clone(),
+		Value:  value,
+		rValue: IndirectValue(value)}
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private Methods For *gorm.DBCon
 ////////////////////////////////////////////////////////////////////////////////
-//cached names for speed
-func (con DBCon) quote(name string) string {
-	if con.parent.quotedNames.get(name) == "" {
-		q := con.parent.dialect.GetQuoter()
-		con.parent.quotedNames.set(name, q+regExpPeriod.ReplaceAllString(name, q+"."+q)+q)
+
+// create a new Scope without search information
+func (con *DBCon) emptyScope(value interface{}) *Scope {
+	if value == nil {
+		return &Scope{
+			con:    con.empty(),
+			Search: &Search{Conditions: make(SqlConditions)},
+			Value:  value}
 	}
-	return con.parent.quotedNames.get(name)
+	return &Scope{
+		con:    con.empty(),
+		Search: &Search{Conditions: make(SqlConditions)},
+		Value:  value,
+		rValue: IndirectValue(value)}
 }
 
-//returns a cloned connection - with extradata included
-func (con *DBCon) clone() *DBCon {
+
+//doesn't clone extra informations
+func (con *DBCon) empty() *DBCon {
 	clone := DBCon{
 		sqli:     con.sqli,
 		parent:   con.parent,
@@ -894,15 +874,38 @@ func (con *DBCon) clone() *DBCon {
 		settings: map[uint64]interface{}{},
 		Error:    con.Error,
 	}
+	return &clone
+}
+
+//returns a cloned connection - with extradata included
+func (con *DBCon) clone(value interface{}) *DBCon {
+	clone := con.empty()
 	for key, value := range con.settings {
 		clone.settings[key] = value
 	}
 	if con.search == nil {
-		clone.search = &Search{Conditions: make(SqlConditions)}
+		if value == nil {
+			clone.search = &Search{Conditions: make(SqlConditions)}
+		} else {
+			clone.search = &Search{Conditions: make(SqlConditions), Value: value}
+		}
 	} else {
-		clone.search = con.search.Clone()
+		if value == nil {
+			clone.search = con.search.Clone()
+		} else {
+			clone.search = con.search.CloneWithValue(value)
+		}
 	}
-	return &clone
+	return clone
+}
+
+//cached names for speed
+func (con DBCon) quote(name string) string {
+	if con.parent.quotedNames.get(name) == "" {
+		q := con.parent.dialect.GetQuoter()
+		con.parent.quotedNames.set(name, q+regExpPeriod.ReplaceAllString(name, q+"."+q)+q)
+	}
+	return con.parent.quotedNames.get(name)
 }
 
 func (con *DBCon) toLog(v ...interface{}) {

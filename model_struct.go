@@ -81,7 +81,7 @@ func (modelStruct *ModelStruct) Create(reflectType reflect.Type, scope *Scope) {
 				fieldValue := field.Value.Interface()
 				if !field.IsScanner() && !field.IsTime() && field.IsEmbedOrAnon() {
 					// is embedded struct
-					for _, subField := range newScope(scope.con, fieldValue).GetModelStruct().StructFields() {
+					for _, subField := range scope.con.emptyScope(fieldValue).GetModelStruct().StructFields() {
 						subField = subField.clone()
 						subField.Names = append([]string{fieldStruct.Name}, subField.Names...)
 
@@ -133,7 +133,7 @@ func (modelStruct *ModelStruct) noOfPKs() int {
 func (modelStruct *ModelStruct) processRelations(scope *Scope) {
 	for _, field := range modelStruct.StructFields() {
 		if field.WillCheckRelations() {
-			toScope := newScope(scope.con, field.Interface())
+			toScope := scope.con.emptyScope(field.Interface())
 			toModelStruct := toScope.GetModelStruct()
 			//ATTN : order matters, since it can be both slice and struct
 			if field.IsSlice() {
