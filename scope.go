@@ -9,9 +9,6 @@ import (
 	"time"
 )
 
-
-
-
 // Set set value by name
 func (scope *Scope) Set(settingType uint64, value interface{}) *Scope {
 	scope.con.localSet(settingType, value)
@@ -1112,7 +1109,7 @@ func (scope *Scope) saveAfterAssociationsCallback() *Scope {
 				}
 			default:
 				elem := value.Addr().Interface()
-				newScope := newScope(scope.con,elem)
+				newScope := newScope(scope.con, elem)
 
 				if ForeignFieldNames.len() != 0 {
 					for idx, fieldName := range ForeignFieldNames {

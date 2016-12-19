@@ -223,15 +223,33 @@ func (con *DBCon) NewScope(value interface{}) *Scope {
 	for key, value := range con.settings {
 		clone.settings[key] = value
 	}
-	if con.search == nil {
-		clone.search = &Search{Conditions: make(SqlConditions), Value: value}
-	} else {
-		clone.search = con.search.CloneWithValue(value)
-	}
+	/**
+	&Scope{
+		con:    newCon(con),
+		Search: &Search{Conditions: make(SqlConditions)},
+		Value:  value}
+	*/
 
+	if value != nil {
+		if con.search == nil {
+			clone.search = &Search{Conditions: make(SqlConditions), Value: value}
+		} else {
+			clone.search = con.search.CloneWithValue(value)
+		}
+		return &Scope{con: clone,
+			Search:       clone.search.Clone(),
+			Value:        value,
+			rValue: IndirectValue(value)}
+	}
+	//value is nil
+	if con.search == nil {
+		clone.search = &Search{Conditions: make(SqlConditions)}
+	} else {
+		clone.search = con.search.Clone()
+	}
 	//Important note : this is the point where connection passes over the search to scope
 	//Observation : for some reason the cloned search needs to be cloned again ... do not interfere
-	return &Scope{con: clone, Search: clone.search.Clone(), Value: value}
+	return &Scope{con: clone, Search: clone.search.Clone()}
 }
 
 // CommonDB return the underlying `*sql.DB` or `*sql.Tx` instance, mainly intended to allow coexistence with legacy non-GORM code.
@@ -793,10 +811,8 @@ func (con *DBCon) SetJoinTableHandler(source interface{}, column string, handler
 	for _, field := range scope.GetModelStruct().StructFields() {
 		if field.StructName == column || field.DBName == column {
 			if field.HasSetting(set_many2many_name) {
-				//TODO : use scope.NewScope
-				src := (&Scope{Value: source, con: con}).GetModelStruct().ModelType
-				//TODO : use scope.NewScope
-				destination := (&Scope{Value: field.Interface(), con: con}).GetModelStruct().ModelType
+				src := con.NewScope(source).GetModelStruct().ModelType
+				destination := con.NewScope(field.Interface()).GetModelStruct().ModelType
 				handler.SetTable(field.GetStrSetting(set_many2many_name))
 				handler.Setup(field, src, destination)
 				field.SetTagSetting(set_join_table_handler, handler)

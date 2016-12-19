@@ -253,7 +253,7 @@ type (
 		Search *Search
 		fields *StructFields //cached version of cloned struct fields
 		Value  interface{}
-		//TODO : @Badu - add Type of Value here to avoid "so much reflection" effect
+		rValue reflect.Value
 
 		//added to get rid of UPDATE_ATTRS_SETTING - since it's accessible only in that instance
 		updateMaps map[string]interface{}

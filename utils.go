@@ -203,8 +203,7 @@ func convertInterfaceToMap(con *DBCon, values interface{}, withIgnoredField bool
 				attrs[con.parent.namesMap.toDBName(key.Interface().(string))] = reflectValue.MapIndex(key).Interface()
 			}
 		default:
-			//TODO : use con.NewScope
-			for _, field := range (&Scope{Value: values, con: con}).Fields() {
+			for _, field := range con.NewScope(values).Fields() {
 				if !field.IsBlank() && (withIgnoredField || !field.IsIgnored()) {
 					attrs[field.DBName] = field.Value.Interface()
 				}
