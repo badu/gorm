@@ -39,7 +39,9 @@
 - [ ] Documentation for tests and build examples
 - [ ] Generated SQL let's the SQL engine cast : SELECT * FROM aTable WHERE id = '1' (id being int). I think it's a bad practice and it should be fixed
 - [ ] convertInterfaceToMap in utils it's terrible : simplify
-- [ ] unify DBCon NewScope and Scope NewScope!!!
+
+## 19.12.2016
+- [x] removed Scope NewScope - inlined into utils
 
 ## 18.12.2016
 - [x] Quote fields are now cached and DBCon is holding them

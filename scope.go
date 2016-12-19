@@ -9,13 +9,8 @@ import (
 	"time"
 )
 
-// New create a new Scope without search information
-func (scope *Scope) NewScope(value interface{}) *Scope {
-	return &Scope{
-		con:    newCon(scope.con),
-		Search: &Search{Conditions: make(SqlConditions)},
-		Value:  value}
-}
+
+
 
 // Set set value by name
 func (scope *Scope) Set(settingType uint64, value interface{}) *Scope {
@@ -74,6 +69,42 @@ func (scope *Scope) Fields() StructFields {
 		scope.fields = &result
 	}
 	return *scope.fields
+}
+
+// GetModelStruct get value's model struct, relationships based on struct and tag definition
+func (scope *Scope) GetModelStruct() *ModelStruct {
+	var modelStruct ModelStruct
+	// Scope value can't be nil
+	//TODO : @Badu - why can't be nil and why we are not returning an warning/error?
+	if scope.Value == nil {
+		return &modelStruct
+	}
+
+	reflectType := GetTType(scope.Value)
+
+	if reflectType.Kind() != reflect.Struct {
+		//TODO : @Badu - why we are not returning an error?
+		// Scope value need to be a struct
+		return &modelStruct
+	}
+
+	// Get Cached model struct
+	if value := scope.con.parent.modelsStructMap.get(reflectType); value != nil {
+		return value
+	}
+
+	modelStruct.Create(reflectType, scope)
+
+	//set cached ModelStruc
+	scope.con.parent.modelsStructMap.set(reflectType, &modelStruct)
+	// ATTN : first we add it to cache map, otherwise will infinite cycle
+	// build relationships
+	modelStruct.processRelations(scope)
+
+	//optimisation : once we've build the model struct, we're building the scope fields as well
+	scope.Fields()
+
+	return &modelStruct
 }
 
 //deprecated
@@ -233,39 +264,6 @@ func (scope *Scope) Exec() *Scope {
 	}
 	scope.Search.Exec(scope)
 	return scope
-}
-
-// GetModelStruct get value's model struct, relationships based on struct and tag definition
-func (scope *Scope) GetModelStruct() *ModelStruct {
-	var modelStruct ModelStruct
-	// Scope value can't be nil
-	//TODO : @Badu - why can't be nil and why we are not returning an warning/error?
-	if scope.Value == nil {
-		return &modelStruct
-	}
-
-	reflectType := GetTType(scope.Value)
-
-	if reflectType.Kind() != reflect.Struct {
-		//TODO : @Badu - why we are not returning an error?
-		// Scope value need to be a struct
-		return &modelStruct
-	}
-
-	// Get Cached model struct
-	if value := scope.con.parent.modelsStructMap.get(reflectType); value != nil {
-		return value
-	}
-
-	modelStruct.Create(reflectType, scope)
-
-	//set cached ModelStruc
-	scope.con.parent.modelsStructMap.set(reflectType, &modelStruct)
-	// ATTN : first we add it to cache map, otherwise will infinite cycle
-	// build relationships
-	modelStruct.processRelations(scope)
-
-	return &modelStruct
 }
 
 // CallMethod call scope value's method, if it is a slice, will call its element's method one by one
@@ -655,7 +653,7 @@ func (scope *Scope) postQuery(dest interface{}) *Scope {
 					elem = reflect.New(queryResultType).Elem()
 				}
 
-				scope.scan(rows, columns, scope.NewScope(elem.Addr().Interface()).Fields())
+				scope.scan(rows, columns, newScope(scope.con, elem.Addr().Interface()).Fields())
 
 				if isSlice {
 					if isPtr {
@@ -1060,7 +1058,7 @@ func (scope *Scope) saveBeforeAssociationsCallback() *Scope {
 				// set value's foreign key
 				for idx, fieldName := range ForeignFieldNames {
 					associationForeignName := AssociationForeignDBNames[idx]
-					if foreignField, ok := scope.NewScope(fieldValue).FieldByName(associationForeignName); ok {
+					if foreignField, ok := newScope(scope.con, fieldValue).FieldByName(associationForeignName); ok {
 						scope.Err(scope.SetColumn(fieldName, foreignField.Value.Interface()))
 					}
 				}
@@ -1114,7 +1112,7 @@ func (scope *Scope) saveAfterAssociationsCallback() *Scope {
 				}
 			default:
 				elem := value.Addr().Interface()
-				newScope := scope.NewScope(elem)
+				newScope := newScope(scope.con,elem)
 
 				if ForeignFieldNames.len() != 0 {
 					for idx, fieldName := range ForeignFieldNames {

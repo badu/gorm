@@ -453,11 +453,16 @@ func (field *StructField) Set(value interface{}) error {
 	} else {
 		//set is blank
 		field.setFlag(ff_is_blank)
-		//it's not valid
-		field.Value.Set(reflect.Zero(field.Value.Type()))
+		//it's not valid : set empty
+		field.setZeroValue()
+		//field.Value.Set(reflect.Zero(field.Value.Type()))
 	}
 
 	return err
+}
+
+func (field *StructField) setZeroValue() {
+	field.Value.Set(reflect.Zero(field.Value.Type()))
 }
 
 // ParseFieldStructForDialect parse field struct for dialect
@@ -581,6 +586,10 @@ func (field *StructField) parseTagSettings(tag reflect.StructTag) error {
 		}
 	}
 	return nil
+}
+
+func (field *StructField) isZeroValue(){
+	//if reflect.DeepEqual(field.Value.Interface(), reflect.Zero(field.Value.Type()).Interface())
 }
 
 //TODO : @Badu - seems expensive to be called everytime. Maybe a good solution would be to

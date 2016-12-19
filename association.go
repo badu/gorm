@@ -40,7 +40,8 @@ func (association *Association) Replace(values ...interface{}) *Association {
 	)
 
 	// Append new values
-	field.Set(reflect.Zero(field.Value.Type()))
+	//field.Set(reflect.Zero(field.Value.Type()))
+	field.setZeroValue()
 	association.saveAssociations(values...)
 
 	switch field.RelKind() {
@@ -74,7 +75,7 @@ func (association *Association) Replace(values ...interface{}) *Association {
 				var associationForeignFieldNames, associationForeignDBNames StrSlice
 				AssociationForeignDBNames := field.GetAssociationDBNames()
 				// if many to many relations, get association fields name from association foreign keys
-				associationScope := scope.NewScope(fieldValue.Interface())
+				associationScope := newScope(conn, fieldValue.Interface())
 				for idx, dbName := range AssociationForeignFieldNames {
 					if field, ok := associationScope.FieldByName(dbName); ok {
 						associationForeignFieldNames.add(field.StructName)
@@ -121,7 +122,7 @@ func (association *Association) Replace(values ...interface{}) *Association {
 				var assocFKNames, assocDBNames StrSlice
 
 				// If has one/many relations, use primary keys
-				for _, field := range scope.NewScope(fieldValue.Interface()).PKs() {
+				for _, field := range newScope(conn, fieldValue.Interface()).PKs() {
 					assocFKNames.add(field.StructName)
 					assocDBNames.add(field.DBName)
 				}
@@ -176,7 +177,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 	}
 
 	var deletingResourcePrimaryFieldNames, deletingResourcePrimaryDBNames StrSlice
-	for _, field := range scope.NewScope(fieldValue.Interface()).PKs() {
+	for _, field := range newScope(conn, fieldValue.Interface()).PKs() {
 		deletingResourcePrimaryFieldNames.add(field.StructName)
 		deletingResourcePrimaryDBNames.add(field.DBName)
 	}
@@ -200,7 +201,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 		}
 
 		// get association's foreign fields name
-		var associationScope = scope.NewScope(fieldValue.Interface())
+		var associationScope = newScope(conn, fieldValue.Interface())
 		var associationForeignFieldNames StrSlice
 		for _, associationDBName := range AssociationForeignFieldNames {
 			if field, ok := associationScope.FieldByName(associationDBName); ok {
@@ -365,7 +366,7 @@ func (association *Association) Count() int {
 		conn = conn.Where(
 			fmt.Sprintf(
 				"%v.%v = ?",
-				scope.NewScope(fieldValue).quotedTableName(),
+				newScope(conn, fieldValue).quotedTableName(),
 				conn.quote(field.GetStrSetting(set_polymorphic_dbname)),
 			),
 			field.GetStrSetting(set_polymorphic_value),
@@ -392,7 +393,7 @@ func (association *Association) reflect(reflectValue reflect.Value) {
 
 	// value has to been saved for many2many
 	if field.RelationIsMany2Many() {
-		if scope.NewScope(reflectValue.Interface()).PrimaryKeyZero() {
+		if newScope(scope.con, reflectValue.Interface()).PrimaryKeyZero() {
 			association.setErr(newCon(scope.con).Save(reflectValue.Interface()).Error)
 		}
 	}

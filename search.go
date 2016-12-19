@@ -542,7 +542,7 @@ func (s *Search) buildWhereCondition(fromPair SqlPair, scope *Scope) string {
 		return strings.Join(sqls, " AND ")
 	case interface{}:
 		var sqls []string
-		newScope := scope.NewScope(expType)
+		newScope := newScope(scope.con,expType)
 		for _, field := range newScope.Fields() {
 			if !field.IsIgnored() && !field.IsBlank() {
 				sqls = append(sqls,
@@ -658,7 +658,7 @@ func (s *Search) buildNotCondition(fromPair SqlPair, scope *Scope) string {
 		}
 		return strings.Join(sqls, " AND ")
 	case interface{}:
-		var newScope = scope.NewScope(exprType)
+		var newScope = newScope(scope.con, exprType)
 		for _, field := range newScope.Fields() {
 			if !field.IsBlank() {
 				sqls = append(sqls,
