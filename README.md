@@ -44,7 +44,8 @@
 - [x] removed Scope NewScope - inlined into utils
 - [x] Scope holds rValue (prepare removal of IndirectValue calls)
 - [x] unified DBCon NewScope with newScope
-- [ ] replace IndirectValue calls
+- [x] replace IndirectValue calls
+- [ ] replace fields access (where possible) via modelstruct instead of scope fields
 
 ## 18.12.2016
 - [x] Quote fields are now cached and DBCon is holding them

@@ -751,12 +751,12 @@ func (con *DBCon) Association(column string) *Association {
 		if field, ok := scope.FieldByName(column); ok {
 			ForeignFieldNames := field.GetForeignFieldNames()
 			if !field.HasRelations() || ForeignFieldNames.len() == 0 {
-				err = fmt.Errorf("invalid association %v for %v", column, IndirectValue(scope.Value).Type())
+				err = fmt.Errorf("invalid association %v for %v", column, scope.rValue.Type())
 			} else {
 				return &Association{scope: scope, column: column, field: field}
 			}
 		} else {
-			err = fmt.Errorf("%v doesn't have column %v", IndirectValue(scope.Value).Type(), column)
+			err = fmt.Errorf("%v doesn't have column %v", scope.rValue.Type(), column)
 		}
 	}
 

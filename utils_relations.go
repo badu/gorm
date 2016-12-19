@@ -435,7 +435,7 @@ func collectFKsAndAFKs(field *StructField,
 // handleRelationPreload to preload has one, has many and belongs to associations
 func handleRelationPreload(scope *Scope, field *StructField, conditions []interface{}) {
 	var (
-		indirectScopeValue = IndirectValue(scope.Value)
+		//indirectScopeValue = IndirectValue(scope.Value)
 
 		query       = ""
 		primaryKeys [][]interface{}
@@ -488,13 +488,13 @@ func handleRelationPreload(scope *Scope, field *StructField, conditions []interf
 
 	switch field.RelKind() {
 	case rel_has_one:
-		switch indirectScopeValue.Kind() {
+		switch scope.rValue.Kind() {
 		case reflect.Slice:
-			for j := 0; j < indirectScopeValue.Len(); j++ {
+			for j := 0; j < scope.rValue.Len(); j++ {
 				for i := 0; i < resultsValue.Len(); i++ {
 					result := resultsValue.Index(i)
 					foreignValues := getValueFromFields(ForeignFieldNames, result)
-					indirectValue := FieldValue(indirectScopeValue, j)
+					indirectValue := FieldValue(scope.rValue, j)
 					if equalAsString(
 						getValueFromFields(
 							AssociationForeignFieldNames,
@@ -514,7 +514,7 @@ func handleRelationPreload(scope *Scope, field *StructField, conditions []interf
 			}
 		}
 	case rel_has_many:
-		switch indirectScopeValue.Kind() {
+		switch scope.rValue.Kind() {
 		case reflect.Slice:
 			preloadMap := make(map[string][]reflect.Value)
 			for i := 0; i < resultsValue.Len(); i++ {
@@ -523,8 +523,8 @@ func handleRelationPreload(scope *Scope, field *StructField, conditions []interf
 				preloadMap[toString(foreignValues)] = append(preloadMap[toString(foreignValues)], result)
 			}
 
-			for j := 0; j < indirectScopeValue.Len(); j++ {
-				reflectValue := FieldValue(indirectScopeValue, j)
+			for j := 0; j < scope.rValue.Len(); j++ {
+				reflectValue := FieldValue(scope.rValue, j)
 				objectRealValue := getValueFromFields(AssociationForeignFieldNames, reflectValue)
 				f := reflectValue.FieldByName(field.StructName)
 				if results, ok := preloadMap[toString(objectRealValue)]; ok {
@@ -540,10 +540,10 @@ func handleRelationPreload(scope *Scope, field *StructField, conditions []interf
 	case rel_belongs_to:
 		for i := 0; i < resultsValue.Len(); i++ {
 			result := resultsValue.Index(i)
-			if indirectScopeValue.Kind() == reflect.Slice {
+			if scope.rValue.Kind() == reflect.Slice {
 				value := getValueFromFields(AssociationForeignFieldNames, result)
-				for j := 0; j < indirectScopeValue.Len(); j++ {
-					reflectValue := FieldValue(indirectScopeValue, j)
+				for j := 0; j < scope.rValue.Len(); j++ {
+					reflectValue := FieldValue(scope.rValue, j)
 					if equalAsString(
 						getValueFromFields(
 							ForeignFieldNames,
@@ -569,7 +569,7 @@ func handleManyToManyPreload(scope *Scope, field *StructField, conditions []inte
 		foreignKeyValue    interface{}
 		foreignKeyType     = reflect.ValueOf(&foreignKeyValue).Type()
 		linkHash           = map[string][]reflect.Value{}
-		indirectScopeValue = IndirectValue(scope.Value)
+		//indirectScopeValue = IndirectValue(scope.Value)
 		fieldsSourceMap    = map[string][]reflect.Value{}
 		foreignFieldNames  = StrSlice{}
 		ForeignFieldNames  = field.GetForeignFieldNames()
@@ -640,17 +640,17 @@ func handleManyToManyPreload(scope *Scope, field *StructField, conditions []inte
 		}
 	}
 
-	switch indirectScopeValue.Kind() {
+	switch scope.rValue.Kind() {
 	case reflect.Slice:
-		for j := 0; j < indirectScopeValue.Len(); j++ {
-			reflectValue := FieldValue(indirectScopeValue, j)
+		for j := 0; j < scope.rValue.Len(); j++ {
+			reflectValue := FieldValue(scope.rValue, j)
 			key := toString(getValueFromFields(foreignFieldNames, reflectValue))
 			fieldsSourceMap[key] = append(fieldsSourceMap[key], reflectValue.FieldByName(field.StructName))
 		}
 	default:
-		if indirectScopeValue.IsValid() {
-			key := toString(getValueFromFields(foreignFieldNames, indirectScopeValue))
-			fieldsSourceMap[key] = append(fieldsSourceMap[key], indirectScopeValue.FieldByName(field.StructName))
+		if scope.rValue.IsValid() {
+			key := toString(getValueFromFields(foreignFieldNames, scope.rValue))
+			fieldsSourceMap[key] = append(fieldsSourceMap[key], scope.rValue.FieldByName(field.StructName))
 		}
 	}
 

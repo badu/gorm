@@ -143,9 +143,9 @@ func getColumnAsArray(columns StrSlice, values ...interface{}) [][]interface{} {
 //using inline advantage
 //returns the scope of a slice or struct column
 func getColumnAsScope(column string, scope *Scope) *Scope {
-	indirectScopeValue := IndirectValue(scope.Value)
+	//indirectScopeValue := IndirectValue(scope.Value)
 
-	switch indirectScopeValue.Kind() {
+	switch scope.rValue.Kind() {
 	case reflect.Slice:
 		if fieldStruct, ok := scope.GetModelStruct().ModelType.FieldByName(column); ok {
 			fieldType := fieldStruct.Type
@@ -156,8 +156,8 @@ func getColumnAsScope(column string, scope *Scope) *Scope {
 			resultsMap := map[interface{}]bool{}
 			results := reflect.New(reflect.SliceOf(reflect.PtrTo(fieldType))).Elem()
 
-			for i := 0; i < indirectScopeValue.Len(); i++ {
-				reflectValue := FieldValue(indirectScopeValue, i)
+			for i := 0; i < scope.rValue.Len(); i++ {
+				reflectValue := FieldValue(scope.rValue, i)
 				fieldRef := FieldColumn(reflectValue, column)
 				if fieldRef.Kind() == reflect.Slice {
 					for j := 0; j < fieldRef.Len(); j++ {
@@ -174,7 +174,7 @@ func getColumnAsScope(column string, scope *Scope) *Scope {
 			return scope.con.emptyScope(results.Interface())
 		}
 	case reflect.Struct:
-		if field := indirectScopeValue.FieldByName(column); field.CanAddr() {
+		if field := scope.rValue.FieldByName(column); field.CanAddr() {
 			return scope.con.emptyScope(field.Addr().Interface())
 		}
 	}
@@ -233,7 +233,7 @@ func argsToInterface(args ...interface{}) interface{} {
 
 //using inline advantage
 func updatedAttrsWithValues(scope *Scope, value interface{}) (map[string]interface{}, bool) {
-	if IndirectValue(scope.Value).Kind() != reflect.Struct {
+	if scope.rValue.Kind() != reflect.Struct {
 		return convertInterfaceToMap(scope.con, value, false), true
 	}
 	var (

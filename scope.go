@@ -46,12 +46,12 @@ func (scope *Scope) Fields() StructFields {
 		var (
 			result        StructFields
 			modelStruct   = scope.GetModelStruct()
-			scopeValue    = IndirectValue(scope.Value)
-			scopeIsStruct = scopeValue.Kind() == reflect.Struct
+			//scopeValue    = IndirectValue(scope.Value)
+			scopeIsStruct = scope.rValue.Kind() == reflect.Struct
 		)
 		for _, field := range modelStruct.fieldsMap.fields {
 			if scopeIsStruct {
-				fieldValue := scopeValue
+				fieldValue := scope.rValue
 				for _, name := range field.Names {
 					fieldValue = reflect.Indirect(fieldValue).FieldByName(name)
 				}
@@ -268,13 +268,12 @@ func (scope *Scope) CallMethod(methodName string) {
 	if scope.Value == nil {
 		return
 	}
-	reflectValue := IndirectValue(scope.Value)
-	if reflectValue.Kind() == reflect.Slice {
-		for i := 0; i < reflectValue.Len(); i++ {
-			scope.callMethod(methodName, reflectValue.Index(i))
+	if scope.rValue.Kind() == reflect.Slice {
+		for i := 0; i < scope.rValue.Len(); i++ {
+			scope.callMethod(methodName, scope.rValue.Index(i))
 		}
 	} else {
-		scope.callMethod(methodName, reflectValue)
+		scope.callMethod(methodName, scope.rValue)
 	}
 }
 
@@ -608,7 +607,7 @@ func (scope *Scope) postQuery(dest interface{}) *Scope {
 	var (
 		isSlice, isPtr  bool
 		queryResultType reflect.Type
-		queryResults    = IndirectValue(scope.Value)
+		queryResults    = scope.rValue
 	)
 
 	if dest != nil {
