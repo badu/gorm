@@ -45,6 +45,7 @@
 - [x] Scope holds rValue (prepare removal of IndirectValue calls)
 - [x] unified DBCon NewScope with newScope
 - [x] replace IndirectValue calls
+- [x] removed GetType from utils, renamed GetTType to GetType
 - [ ] replace fields access (where possible) via modelstruct instead of scope fields
 
 ## 18.12.2016

@@ -77,7 +77,7 @@ func (scope *Scope) GetModelStruct() *ModelStruct {
 		return &modelStruct
 	}
 
-	reflectType := GetTType(scope.Value)
+	reflectType := GetType(scope.Value)
 
 	if reflectType.Kind() != reflect.Struct {
 		//TODO : @Badu - why we are not returning an error?
@@ -483,7 +483,15 @@ func (scope *Scope) related(value interface{}, foreignKeys ...string) *Scope {
 	toScope := scope.con.NewScope(value)
 	tx := scope.con.set(gorm_setting_association_source, scope.Value)
 
-	allKeys := append(foreignKeys, GetType(toScope.Value).Name()+field_Id_name, GetType(scope.Value).Name()+field_Id_name)
+	dest := toScope.rValue.Type()
+	for dest.Kind() == reflect.Slice || dest.Kind() == reflect.Ptr {
+		dest = dest.Elem()
+	}
+	src := scope.rValue.Type()
+	for src.Kind() == reflect.Slice || src.Kind() == reflect.Ptr {
+		src = src.Elem()
+	}
+	allKeys := append(foreignKeys, dest.Name()+field_Id_name, src.Name()+field_Id_name)
 
 	for _, foreignKey := range allKeys {
 		fromField, _ := scope.FieldByName(foreignKey)

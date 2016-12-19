@@ -315,16 +315,6 @@ func FieldColumn(value reflect.Value, name string) reflect.Value {
 }
 
 func GetType(value interface{}) reflect.Type {
-	result := IndirectValue(value).Type()
-
-	for result.Kind() == reflect.Slice || result.Kind() == reflect.Ptr {
-		result = result.Elem()
-	}
-
-	return result
-}
-
-func GetTType(value interface{}) reflect.Type {
 	result := reflect.ValueOf(value).Type()
 
 	for result.Kind() == reflect.Slice || result.Kind() == reflect.Ptr {
