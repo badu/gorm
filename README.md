@@ -45,6 +45,7 @@
 - [x] SetZero, IsZero in utils
 - [x] Scope has getColumnAsArray instead of generic getColumnAsArray in utils
 - [x] added field not found error
+- [x] removed errors.New() - replaced with fmt.Errorf
 
 ## 19.12.2016
 - [x] removed Scope NewScope - inlined into utils

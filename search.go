@@ -3,7 +3,6 @@ package gorm
 import (
 	"database/sql"
 	"database/sql/driver"
-	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -72,8 +71,6 @@ func (s *Search) Preload(schema string, values ...interface{}) *Search {
 }
 
 func (s *Search) addSqlCondition(condType sqlConditionType, query interface{}, values ...interface{}) {
-	//TODO : @Badu - VERY IMPORTANT : check in which condition we clone the search,
-	//otherwise slice will grow indefinitely ( causing memory leak :) )
 	s.checkInit(condType)
 	//create a new condition pair
 	newPair := SqlPair{expression: query}
@@ -95,7 +92,7 @@ func (s *Search) Clone() *Search {
 	return &clone
 }
 
-func (s *Search) CloneWithValue(value interface{}) *Search {
+func (s *Search) clone(value interface{}) *Search {
 	clone := Search{}
 	clone.flags = s.flags
 	//clone conditions
@@ -371,7 +368,6 @@ func (s *Search) checkFieldOmitted(field *StructField) bool {
 	}
 	for _, attr := range pair.args {
 		if field.StructName == attr || field.DBName == attr {
-			//fmt.Printf("Field %q omitted\n", attr.(string))
 			return true
 		}
 	}
@@ -844,13 +840,13 @@ func (s *Search) prepareQuerySQL(scope *Scope) {
 	}
 }
 
-func (s *Search) doPreload(scope *Scope) {
+func (srch *Search) doPreload(scope *Scope) {
 	var (
 		preloadedMap = map[string]bool{}
 		fields       = scope.Fields()
 	)
 
-	for _, sqlPair := range s.Conditions[cond_preload_query] {
+	for _, sqlPair := range srch.Conditions[cond_preload_query] {
 		var (
 			preloadFields = strings.Split(sqlPair.strExpr(), ".")
 			currentScope  = scope
@@ -883,7 +879,7 @@ func (s *Search) doPreload(scope *Scope) {
 					case rel_many2many:
 						handleManyToManyPreload(currentScope, field, currentPreloadConditions)
 					default:
-						scope.Err(errors.New("SCOPE : unsupported relation"))
+						scope.Err(fmt.Errorf(err_unsupported_relation, field.RelKind()))
 					}
 
 					preloadedMap[preloadKey] = true
@@ -892,7 +888,7 @@ func (s *Search) doPreload(scope *Scope) {
 
 				if !preloadedMap[preloadKey] {
 					scope.Err(
-						fmt.Errorf("can't preload field %s for %s",
+						fmt.Errorf(err_cant_preload,
 							preloadField,
 							currentScope.GetModelStruct().ModelType))
 					return

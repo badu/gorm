@@ -176,7 +176,6 @@ func TempTestFailure(t *testing.T) {
 	//TestDB.SetLogMode(gorm.LOG_DEBUG)
 	t.Run("1) RunMigration", RunMigration)
 
-	//t.Run("ManyToManyWithMultiPrimaryKeys", ManyToManyWithMultiPrimaryKeys)
 }
 
 func TempTestListModels(t *testing.T) {

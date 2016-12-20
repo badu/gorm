@@ -46,15 +46,11 @@ func createJoinTable(scope *Scope, field *StructField) {
 					sqlTypes += scope.con.quote(fk.DBName) + " " + dialect.DataTypeOf(clone)
 					primaryKeys += scope.con.quote(fk.DBName)
 				} else {
-					errMsg := fmt.Errorf("ERROR : %q doesn't have a field named %q", destinationValue.ModelType.Name(), fk.AssociationDBName)
-					fmt.Println(errMsg)
-					scope.Err(errMsg)
+					scope.Err(fmt.Errorf("ERROR : %q doesn't have a field named %q", destinationValue.ModelType.Name(), fk.AssociationDBName))
 				}
 			}
 		} else {
-			errMsg := fmt.Errorf("ERROR : Could not find %s in ModelStructsMap", handler.Destination.ModelType.Name())
-			fmt.Println(errMsg)
-			scope.Err(errMsg)
+			scope.Err(fmt.Errorf("ERROR : Could not find %s in ModelStructsMap", handler.Destination.ModelType.Name()))
 		}
 		sourceValue := scope.con.parent.modelsStructMap.get(handler.Source.ModelType)
 		if sourceValue != nil {
@@ -74,15 +70,11 @@ func createJoinTable(scope *Scope, field *StructField) {
 					sqlTypes += scope.con.quote(fk.DBName) + " " + dialect.DataTypeOf(clone)
 					primaryKeys += scope.con.quote(fk.DBName)
 				} else {
-					errMsg := fmt.Errorf("ERROR : %q doesn't have a field named %q", sourceValue.ModelType.Name(), fk.AssociationDBName)
-					fmt.Println(errMsg)
-					scope.Err(errMsg)
+					scope.Err(fmt.Errorf("ERROR : %q doesn't have a field named %q", sourceValue.ModelType.Name(), fk.AssociationDBName))
 				}
 			}
 		} else {
-			errMsg := fmt.Errorf("ERROR : Could not find %s in ModelStructsMap", handler.Source.ModelType.Name())
-			fmt.Println(errMsg)
-			scope.Err(errMsg)
+			scope.Err(fmt.Errorf("ERROR : Could not find %s in ModelStructsMap", handler.Source.ModelType.Name()))
 		}
 		creationSQL := fmt.Sprintf(
 			"CREATE TABLE %v (%v, PRIMARY KEY (%v)) %s",
@@ -190,10 +182,9 @@ func createTable(scope *Scope) {
 func addIndex(scope *Scope, unique bool, indexName string, column ...string) {
 	var (
 		columns string
-		dialect = scope.con.parent.dialect
 	)
 
-	if dialect.HasIndex(scope.TableName(), indexName) {
+	if scope.con.parent.dialect.HasIndex(scope.TableName(), indexName) {
 		return
 	}
 

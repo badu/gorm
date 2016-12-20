@@ -1,7 +1,6 @@
 package gorm
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -424,7 +423,7 @@ func collectFKsAndAFKs(field *StructField,
 				scope.Warn(fmt.Errorf(warn_has_no_association_key, str_collectfks))
 			}
 			if foreignKeys.len() != associationForeignKeys.len() {
-				scope.Err(errors.New(err_fk_length_not_equal))
+				scope.Err(fmt.Errorf(err_fk_length_not_equal, str_collectfks))
 				return nil, nil
 			}
 		}
@@ -435,11 +434,8 @@ func collectFKsAndAFKs(field *StructField,
 // handleRelationPreload to preload has one, has many and belongs to associations
 func handleRelationPreload(scope *Scope, field *StructField, conditions []interface{}) {
 	var (
-		//indirectScopeValue = IndirectValue(scope.Value)
-
-		query       = ""
-		primaryKeys [][]interface{}
-
+		query                        = ""
+		primaryKeys                  [][]interface{}
 		ForeignDBNames               = field.GetForeignDBNames()
 		ForeignFieldNames            = field.GetForeignFieldNames()
 		AssociationForeignFieldNames = field.GetAssociationForeignFieldNames()
@@ -565,11 +561,10 @@ func handleRelationPreload(scope *Scope, field *StructField, conditions []interf
 // handleManyToManyPreload used to preload many to many associations
 func handleManyToManyPreload(scope *Scope, field *StructField, conditions []interface{}) {
 	var (
-		fieldType, isPtr = field.Type, field.IsPointer()
-		foreignKeyValue  interface{}
-		foreignKeyType   = reflect.ValueOf(&foreignKeyValue).Type()
-		linkHash         = map[string][]reflect.Value{}
-		//indirectScopeValue = IndirectValue(scope.Value)
+		fieldType, isPtr  = field.Type, field.IsPointer()
+		foreignKeyValue   interface{}
+		foreignKeyType    = reflect.ValueOf(&foreignKeyValue).Type()
+		linkHash          = map[string][]reflect.Value{}
 		fieldsSourceMap   = map[string][]reflect.Value{}
 		foreignFieldNames = StrSlice{}
 		ForeignFieldNames = field.GetForeignFieldNames()

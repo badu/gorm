@@ -2,7 +2,6 @@ package gorm
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -44,9 +43,8 @@ func (scope *Scope) Warn(v ...interface{}) {
 func (scope *Scope) Fields() StructFields {
 	if scope.fields == nil {
 		var (
-			result      StructFields
-			modelStruct = scope.GetModelStruct()
-			//scopeValue    = IndirectValue(scope.Value)
+			result        StructFields
+			modelStruct   = scope.GetModelStruct()
 			scopeIsStruct = scope.rValue.Kind() == reflect.Struct
 		)
 		for _, field := range modelStruct.fieldsMap.fields {
@@ -221,8 +219,7 @@ func (scope *Scope) SetColumn(column interface{}, value interface{}) error {
 			return mostMatchedField.Set(value)
 		}
 	}
-	//TODO : @Badu - make this error more explicit : what's column name
-	return errors.New("SCOPE : could not convert column to field")
+	return fmt.Errorf("SCOPE : could not convert column %q to field %v", column, value)
 }
 
 // TableName return table name
@@ -671,7 +668,7 @@ func (scope *Scope) postQuery(dest interface{}) *Scope {
 		}
 	case reflect.Struct:
 	default:
-		scope.Err(errors.New("SCOPE : unsupported destination, should be slice or struct"))
+		scope.Err(fmt.Errorf("SCOPE : unsupported destination, should be slice or struct : %v", scope))
 		return scope
 	}
 
@@ -754,7 +751,6 @@ func (scope *Scope) postCreate() *Scope {
 	//Was "createCallback" method
 	if !result.HasError() {
 		var (
-			//columns, placeholders        StrSlice
 			//because we're using it in a for, we're getting it once
 			dialect                            = result.con.parent.dialect
 			returningColumn                    = str_everything
@@ -930,7 +926,7 @@ func (scope *Scope) postUpdate(attrs interface{}) *Scope {
 	if !result.HasError() {
 		var (
 			//because we're using it in a for, we're getting it once
-			scopeDialect     = result.con.parent.dialect
+			dialect          = result.con.parent.dialect
 			extraOption, sql string
 		)
 
@@ -942,7 +938,7 @@ func (scope *Scope) postUpdate(attrs interface{}) *Scope {
 				sql += fmt.Sprintf(
 					"%v = %v",
 					scope.con.quote(column),
-					result.Search.addToVars(value, scopeDialect),
+					result.Search.addToVars(value, dialect),
 				)
 
 			}
@@ -958,7 +954,7 @@ func (scope *Scope) postUpdate(attrs interface{}) *Scope {
 					sql += fmt.Sprintf(
 						"%v = %v",
 						scope.con.quote(field.DBName),
-						result.Search.addToVars(field.Value.Interface(), scopeDialect),
+						result.Search.addToVars(field.Value.Interface(), dialect),
 					)
 				} else {
 					if field.HasRelations() && field.RelationIsBelongsTo() {
@@ -974,7 +970,7 @@ func (scope *Scope) postUpdate(attrs interface{}) *Scope {
 									scope.con.quote(foreignField.DBName),
 									result.Search.addToVars(
 										foreignField.Value.Interface(),
-										scopeDialect,
+										dialect,
 									),
 								)
 							}

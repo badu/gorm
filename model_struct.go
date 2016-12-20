@@ -1,7 +1,6 @@
 package gorm
 
 import (
-	"errors"
 	"fmt"
 	"github.com/jinzhu/inflection"
 	"go/ast"
@@ -72,7 +71,7 @@ func (modelStruct *ModelStruct) Create(reflectType reflect.Type, scope *Scope) {
 		if fieldStruct := reflectType.Field(i); ast.IsExported(fieldStruct.Name) {
 			field, err := NewStructField(fieldStruct, scope.con.parent.namesMap.toDBName(fieldStruct.Name))
 			if err != nil {
-				scope.Err(errors.New(fmt.Sprintf(err_processing_tags, modelStruct.ModelType.Name(), err)))
+				scope.Err(fmt.Errorf(err_processing_tags, modelStruct.ModelType.Name(), err))
 				return
 			}
 
@@ -91,7 +90,7 @@ func (modelStruct *ModelStruct) Create(reflectType reflect.Type, scope *Scope) {
 
 						err = modelStruct.fieldsMap.add(subField)
 						if err != nil {
-							scope.Err(errors.New(fmt.Sprintf(err_adding_field, modelStruct.ModelType.Name(), err)))
+							scope.Err(fmt.Errorf(err_adding_field, modelStruct.ModelType.Name(), err))
 							return
 						}
 					}
@@ -101,7 +100,7 @@ func (modelStruct *ModelStruct) Create(reflectType reflect.Type, scope *Scope) {
 
 			err = modelStruct.fieldsMap.add(field)
 			if err != nil {
-				scope.Err(errors.New(fmt.Sprintf(err_adding_field, modelStruct.ModelType.Name(), err)))
+				scope.Err(fmt.Errorf(err_adding_field, modelStruct.ModelType.Name(), err))
 				return
 			}
 		}

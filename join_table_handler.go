@@ -1,7 +1,6 @@
 package gorm
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 )
@@ -117,7 +116,6 @@ func (jth JoinTableHandler) Add(handler JoinTableHandlerInterface, con *DBCon, s
 		con.quote(handler.Table(con)),
 		conditions,
 	)
-	//fmt.Printf("\nSQL : %s\n", sql)
 	return con.Exec(sql, values...).Error
 }
 
@@ -195,7 +193,7 @@ func (jth JoinTableHandler) JoinWith(handler JoinTableHandlerInterface, con *DBC
 			)
 	}
 
-	con.Error = errors.New("JOIN : wrong source type for join table handler")
+	con.Error = fmt.Errorf("JOIN : wrong source type for join table handler for %v", jth.Source.ModelType)
 	return con
 }
 

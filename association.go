@@ -1,7 +1,6 @@
 package gorm
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 )
@@ -280,6 +279,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 
 			for i := 0; i < fieldValue.Len(); i++ {
 				reflectValue := fieldValue.Index(i)
+				//TODO : check if len is ok
 				primaryKey := getColumnAsArray(deletingResourcePrimaryFieldNames, reflectValue.Interface())[0]
 				var isDeleted = false
 				for _, pk := range deletingPrimaryKeys {
@@ -447,7 +447,7 @@ func (association *Association) saveAssociations(values ...interface{}) *Associa
 				association.reflect(indirectReflectValue.Index(i))
 			}
 		} else {
-			association.setErr(errors.New("ASSOCIATION : invalid value type"))
+			association.setErr(fmt.Errorf("ASSOCIATION : invalid value type %v", indirectReflectValue.Kind()))
 		}
 	}
 	return association

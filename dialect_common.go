@@ -110,6 +110,7 @@ func (commonDialect) HasForeignKey(tableName string, foreignKeyName string) bool
 	return false
 }
 
+//TODO : cache tables and provide cached response (faster init)
 func (dialect commonDialect) HasTable(tableName string) bool {
 	var count int
 	dialect.db.QueryRow(COMMON_HASTABLE_SQL, dialect.CurrentDatabase(), tableName).Scan(&count)

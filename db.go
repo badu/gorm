@@ -2,7 +2,6 @@ package gorm
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	"reflect"
 	"sync"
@@ -743,10 +742,10 @@ func (con *DBCon) Association(column string) *Association {
 	scope := con.set(gorm_setting_association_source, con.search.Value).NewScope(con.search.Value)
 	primaryField := scope.PK()
 	if primaryField == nil {
-		err = errors.New("SCOPE : primary field is NIL")
+		err = fmt.Errorf("SCOPE : primary field is NIL - %v", scope)
 	}
 	if primaryField.IsBlank() {
-		err = errors.New("primary key can't be nil")
+		err = fmt.Errorf("primary key can't be nil - %v", scope)
 	} else {
 		if field, ok := scope.FieldByName(column); ok {
 			ForeignFieldNames := field.GetForeignFieldNames()
@@ -892,7 +891,7 @@ func (con *DBCon) clone(value interface{}) *DBCon {
 		if value == nil {
 			clone.search = con.search.Clone()
 		} else {
-			clone.search = con.search.CloneWithValue(value)
+			clone.search = con.search.clone(value)
 		}
 	}
 	return clone
