@@ -112,7 +112,7 @@ func getColumnAsArray(columns StrSlice, values ...interface{}) [][]interface{} {
 				var hasValue = false
 				for _, column := range columns {
 					field := object.FieldByName(column)
-					if hasValue || !reflect.DeepEqual(field.Interface(), reflect.Zero(field.Type()).Interface()) {
+					if !IsZero(field) {
 						hasValue = true
 					}
 					result = append(result, field.Interface())
@@ -127,7 +127,7 @@ func getColumnAsArray(columns StrSlice, values ...interface{}) [][]interface{} {
 			var hasValue = false
 			for _, column := range columns {
 				field := indirectValue.FieldByName(column)
-				if hasValue || !reflect.DeepEqual(field.Interface(), reflect.Zero(field.Type()).Interface()) {
+				if !IsZero(field) {
 					hasValue = true
 				}
 				result = append(result, field.Interface())
@@ -143,8 +143,6 @@ func getColumnAsArray(columns StrSlice, values ...interface{}) [][]interface{} {
 //using inline advantage
 //returns the scope of a slice or struct column
 func getColumnAsScope(column string, scope *Scope) *Scope {
-	//indirectScopeValue := IndirectValue(scope.Value)
-
 	switch scope.rValue.Kind() {
 	case reflect.Slice:
 		if fieldStruct, ok := scope.GetModelStruct().ModelType.FieldByName(column); ok {
@@ -172,6 +170,8 @@ func getColumnAsScope(column string, scope *Scope) *Scope {
 				}
 			}
 			return scope.con.emptyScope(results.Interface())
+		} else {
+			scope.Err(fmt.Errorf(err_field_not_found, column, scope.GetModelStruct().ModelType))
 		}
 	case reflect.Struct:
 		if field := scope.rValue.FieldByName(column); field.CanAddr() {
@@ -243,7 +243,7 @@ func updatedAttrsWithValues(scope *Scope, value interface{}) (map[string]interfa
 	for key, value := range convertInterfaceToMap(scope.con, value, true) {
 		field, ok := scope.FieldByName(key)
 		if !ok {
-			fmt.Printf("Field %q NOT found!\n", key)
+			scope.Err(fmt.Errorf(err_field_not_found, key, scope.GetModelStruct().ModelType))
 		}
 		if ok && scope.Search.changeableField(field) {
 			if _, ok := value.(*SqlPair); ok {
@@ -322,6 +322,14 @@ func GetType(value interface{}) reflect.Type {
 	}
 
 	return result
+}
+
+func SetZero(value reflect.Value) reflect.Value {
+	return reflect.Zero(value.Type())
+}
+
+func IsZero(value reflect.Value) bool {
+	return reflect.DeepEqual(value.Interface(), SetZero(value).Interface())
 }
 
 func fullFileWithLineNum() string {

@@ -155,7 +155,7 @@ const (
 	err_processing_tags        string = "ModelStruct %q processing tags error : %v"
 	err_adding_field           string = "ModelStruct %q add field error : %v"
 	err_no_belong_or_hasone    string = "%q (%q [%q]) is HAS ONE / BELONG TO missing"
-
+	err_field_not_found        string = "Field %q not found on %q"
 	//Warnings
 	warn_poly_field_not_found   string = "\nrel : polymorphic field %q not found on model struct %q"
 	warn_fk_field_not_found     string = "\nrel [%q]: foreign key field %q not found on model struct %q pointed by %q [%q]"

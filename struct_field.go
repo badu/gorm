@@ -455,14 +455,13 @@ func (field *StructField) Set(value interface{}) error {
 		field.setFlag(ff_is_blank)
 		//it's not valid : set empty
 		field.setZeroValue()
-		//field.Value.Set(reflect.Zero(field.Value.Type()))
 	}
 
 	return err
 }
 
 func (field *StructField) setZeroValue() {
-	field.Value.Set(reflect.Zero(field.Value.Type()))
+	field.Value.Set(SetZero(field.Value))
 }
 
 // ParseFieldStructForDialect parse field struct for dialect
@@ -588,15 +587,11 @@ func (field *StructField) parseTagSettings(tag reflect.StructTag) error {
 	return nil
 }
 
-func (field *StructField) isZeroValue() {
-	//if reflect.DeepEqual(field.Value.Interface(), reflect.Zero(field.Value.Type()).Interface())
-}
-
 //TODO : @Badu - seems expensive to be called everytime. Maybe a good solution would be to
 //change isBlank = true by default and modify the code to change it to false only when we have a value
 //to make this less expensive
 func (field *StructField) checkIsBlank() {
-	if reflect.DeepEqual(field.Value.Interface(), reflect.Zero(field.Value.Type()).Interface()) {
+	if IsZero(field.Value) {
 		field.setFlag(ff_is_blank)
 	} else {
 		field.unsetFlag(ff_is_blank)

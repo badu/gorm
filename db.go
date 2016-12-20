@@ -769,10 +769,10 @@ func (con *DBCon) SetJoinTableHandler(source interface{}, column string, handler
 	for _, field := range scope.GetModelStruct().StructFields() {
 		if field.StructName == column || field.DBName == column {
 			if field.HasSetting(set_many2many_name) {
-				src := con.NewScope(source).GetModelStruct().ModelType
+				//src := con.NewScope(source).GetModelStruct().ModelType
 				destination := con.NewScope(field.Interface()).GetModelStruct().ModelType
 				handler.SetTable(field.GetStrSetting(set_many2many_name))
-				handler.Setup(field, src, destination)
+				handler.Setup(field, scope.GetModelStruct().ModelType, destination)
 				field.SetTagSetting(set_join_table_handler, handler)
 				table := handler.Table(con)
 				createJoinTable(con.Table(table).Unscoped().NewScope(field), field)
@@ -862,7 +862,6 @@ func (con *DBCon) emptyScope(value interface{}) *Scope {
 		Value:  value,
 		rValue: IndirectValue(value)}
 }
-
 
 //doesn't clone extra informations
 func (con *DBCon) empty() *DBCon {

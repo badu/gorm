@@ -40,7 +40,6 @@ func (association *Association) Replace(values ...interface{}) *Association {
 	)
 
 	// Append new values
-	//field.Set(reflect.Zero(field.Value.Type()))
 	field.setZeroValue()
 	association.saveAssociations(values...)
 
@@ -104,7 +103,7 @@ func (association *Association) Replace(values ...interface{}) *Association {
 				}
 			}
 
-			if sourcePrimaryKeys := getColumnAsArray(sourceForeignFieldNames, scope.Value); len(sourcePrimaryKeys) > 0 {
+			if sourcePrimaryKeys := scope.getColumnAsArray(sourceForeignFieldNames); len(sourcePrimaryKeys) > 0 {
 				conn = conn.Where(
 					fmt.Sprintf(
 						"%v IN (%v)",
@@ -248,7 +247,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 			}
 		case rel_has_one, rel_has_many:
 			// find all relations
-			primaryKeys := getColumnAsArray(AssociationForeignFieldNames, scope.Value)
+			primaryKeys := scope.getColumnAsArray(AssociationForeignFieldNames)
 			conn = conn.Where(
 				fmt.Sprintf(
 					"%v IN (%v)",
@@ -277,7 +276,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 	// Remove deleted records from source's field
 	if association.Error == nil {
 		if fieldValue.Kind() == reflect.Slice {
-			leftValues := reflect.Zero(fieldValue.Type())
+			leftValues := SetZero(fieldValue)
 
 			for i := 0; i < fieldValue.Len(); i++ {
 				reflectValue := fieldValue.Index(i)
@@ -299,7 +298,7 @@ func (association *Association) Delete(values ...interface{}) *Association {
 			primaryKey := getColumnAsArray(deletingResourcePrimaryFieldNames, fieldValue.Interface())[0]
 			for _, pk := range deletingPrimaryKeys {
 				if equalAsString(primaryKey, pk) {
-					field.Set(reflect.Zero(fieldValue.Type()))
+					field.Set(SetZero(fieldValue))
 					break
 				}
 			}
@@ -330,7 +329,7 @@ func (association *Association) Count() int {
 		conn = joinTableHandler.JoinWith(joinTableHandler, conn, scope.Value)
 	case rel_has_many, rel_has_one:
 		AssociationForeignFieldNames := field.GetAssociationForeignFieldNames()
-		primaryKeys := getColumnAsArray(AssociationForeignFieldNames, scope.Value)
+		primaryKeys := scope.getColumnAsArray(AssociationForeignFieldNames)
 		if len(primaryKeys) == 0 {
 			//fix where %v IN (%v) is empty
 			return 0
@@ -346,7 +345,7 @@ func (association *Association) Count() int {
 		)
 	case rel_belongs_to:
 		ForeignFieldNames := field.GetForeignFieldNames()
-		primaryKeys := getColumnAsArray(ForeignFieldNames, scope.Value)
+		primaryKeys := scope.getColumnAsArray(ForeignFieldNames)
 		if len(primaryKeys) == 0 {
 			//fix where %v IN (%v) is empty
 			return 0

@@ -44,8 +44,8 @@ func (scope *Scope) Warn(v ...interface{}) {
 func (scope *Scope) Fields() StructFields {
 	if scope.fields == nil {
 		var (
-			result        StructFields
-			modelStruct   = scope.GetModelStruct()
+			result      StructFields
+			modelStruct = scope.GetModelStruct()
 			//scopeValue    = IndirectValue(scope.Value)
 			scopeIsStruct = scope.rValue.Kind() == reflect.Struct
 		)
@@ -280,6 +280,44 @@ func (scope *Scope) CallMethod(methodName string) {
 ////////////////////////////////////////////////////////////////////////////////
 // Private Methods For *gorm.Scope
 ////////////////////////////////////////////////////////////////////////////////
+
+func (scope *Scope) getColumnAsArray(columns StrSlice) [][]interface{} {
+	var results [][]interface{}
+	switch scope.rValue.Kind() {
+	case reflect.Slice:
+		for i := 0; i < scope.rValue.Len(); i++ {
+			var result []interface{}
+			object := FieldValue(scope.rValue, i)
+			var hasValue = false
+			for _, column := range columns {
+				field := object.FieldByName(column)
+				if !IsZero(field) {
+					hasValue = true
+				}
+				result = append(result, field.Interface())
+			}
+
+			if hasValue {
+				results = append(results, result)
+			}
+		}
+	case reflect.Struct:
+		var result []interface{}
+		var hasValue = false
+		for _, column := range columns {
+			field := scope.rValue.FieldByName(column)
+			if !IsZero(field) {
+				hasValue = true
+			}
+			result = append(result, field.Interface())
+		}
+		if hasValue {
+			results = append(results, result)
+		}
+	}
+
+	return results
+}
 
 func (scope *Scope) callMethod(methodName string, reflectValue reflect.Value) {
 	// Only get address from non-pointer

@@ -40,13 +40,18 @@
 - [ ] Generated SQL let's the SQL engine cast : SELECT * FROM aTable WHERE id = '1' (id being int). I think it's a bad practice and it should be fixed
 - [ ] convertInterfaceToMap in utils it's terrible : simplify
 
+## 20.12.2016
+- [ ] replace fields access (where possible) via modelstruct instead of scope fields
+- [x] SetZero, IsZero in utils
+- [x] Scope has getColumnAsArray instead of generic getColumnAsArray in utils
+- [x] added field not found error
+
 ## 19.12.2016
 - [x] removed Scope NewScope - inlined into utils
 - [x] Scope holds rValue (prepare removal of IndirectValue calls)
 - [x] unified DBCon NewScope with newScope
 - [x] replace IndirectValue calls
 - [x] removed GetType from utils, renamed GetTType to GetType
-- [ ] replace fields access (where possible) via modelstruct instead of scope fields
 
 ## 18.12.2016
 - [x] Quote fields are now cached and DBCon is holding them

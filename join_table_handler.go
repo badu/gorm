@@ -169,7 +169,7 @@ func (jth JoinTableHandler) JoinWith(handler JoinTableHandlerInterface, con *DBC
 			}
 		}
 
-		foreignFieldValues := getColumnAsArray(foreignFieldNames, scope.Value)
+		foreignFieldValues := scope.getColumnAsArray(foreignFieldNames)
 
 		var condString string
 		if len(foreignFieldValues) > 0 {
