@@ -52,7 +52,6 @@ func (con *DBCon) KnownModelStructs() map[reflect.Type]*ModelStruct {
 func (con *DBCon) KnownNames(name string) string {
 	return con.parent.namesMap.toDBName(name)
 }
-
 ////////////////////////////////////////////////////////////////////////////////
 // "unscoped" methods
 ////////////////////////////////////////////////////////////////////////////////
@@ -442,8 +441,7 @@ func (con *DBCon) Updates(values interface{}, ignoreProtectedAttrs ...bool) *DBC
 
 // Update update attributes with callbacks
 func (con *DBCon) Update(attrs ...interface{}) *DBCon {
-	result := argsToInterface(attrs...)
-	return con.Updates(result, true)
+	return con.Updates(argsToInterface(attrs...), true)
 }
 
 // UpdateColumns update attributes without callbacks
@@ -837,10 +835,14 @@ func (con *DBCon) NewScope(value interface{}) *Scope {
 	if value == nil {
 		return &Scope{con: clone, Search: clone.search.Clone()}
 	}
-	return &Scope{con: clone,
+	result := &Scope{
+		con:    clone,
 		Search: clone.search.Clone(),
 		Value:  value,
-		rValue: IndirectValue(value)}
+		rValue: IndirectValue(value),
+		rType:  GetType(value),
+	}
+	return result
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -853,13 +855,16 @@ func (con *DBCon) emptyScope(value interface{}) *Scope {
 		return &Scope{
 			con:    con.empty(),
 			Search: &Search{Conditions: make(SqlConditions)},
-			Value:  value}
+		}
 	}
-	return &Scope{
+	result := &Scope{
 		con:    con.empty(),
 		Search: &Search{Conditions: make(SqlConditions)},
 		Value:  value,
-		rValue: IndirectValue(value)}
+		rValue: IndirectValue(value),
+		rType:  GetType(value),
+	}
+	return result
 }
 
 //doesn't clone extra informations

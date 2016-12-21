@@ -28,7 +28,7 @@ func Create(t *testing.T) {
 	TestDB.First(&newUser, user.Id)
 
 	if !reflect.DeepEqual(newUser.PasswordHash, []byte{'f', 'a', 'k', '4'}) {
-		t.Errorf("[Create] User's PasswordHash should be saved ([]byte), but is %v", newUser.PasswordHash)
+		t.Errorf("[Create] User's PasswordHash should be saved ([]byte), but is `%v`", newUser.PasswordHash)
 	}
 
 	if newUser.Age != 18 {

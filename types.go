@@ -256,7 +256,7 @@ type (
 		fields *StructFields //cached version of cloned struct fields
 		Value  interface{}
 		rValue reflect.Value
-
+		rType  reflect.Type
 		//added to get rid of UPDATE_ATTRS_SETTING - since it's accessible only in that instance
 		updateMaps map[string]interface{}
 	}

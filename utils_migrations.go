@@ -84,34 +84,51 @@ func createJoinTable(scope *Scope, field *StructField) {
 			tableOptions,
 		)
 		scope.Err(scope.con.empty().Exec(creationSQL).Error)
+	} /**
 	} else {
-		//TODO : make update - see below
-		/**
-		var (
-			quotedTableName = QuotedTableName(scope)
-		)
-
-		for _, field := range scope.GetModelStruct().StructFields() {
-			if !dialect.HasColumn(tableName, field.DBName) {
-				if field.IsNormal() {
-					sqlTag := dialect.DataTypeOf(field)
-					scope.Raw(
-						fmt.Sprintf(
-							"ALTER TABLE %v ADD %v %v;",
-							quotedTableName,
-							Quote(field.DBName, dialect),
-							sqlTag),
-					).Exec()
+		destinationValue := scope.con.parent.modelsStructMap.get(handler.Destination.ModelType)
+		if destinationValue != nil {
+			for _, fk := range handler.Destination.ForeignKeys {
+				theField, ok := destinationValue.FieldByName(fk.AssociationDBName, scope.con.parent)
+				if ok {
+					sqlTag := dialect.DataTypeOf(theField)
+					if !dialect.HasColumn(tableName, theField.DBName) {
+						scope.Warn(fmt.Printf(
+							"ALTER TABLE %v ADD %v %v;\n",
+							scope.quotedTableName(),
+							scope.con.quote(field.DBName),
+							sqlTag))
+					}
+				} else {
+					scope.Err(fmt.Errorf("ERROR : %q doesn't have a field named %q", destinationValue.ModelType.Name(), fk.AssociationDBName))
 				}
 			}
-			if field.HasRelations() {
-				createJoinTable(scope, field)
-			}
+		} else {
+			scope.Err(fmt.Errorf("ERROR : Could not find %s in ModelStructsMap", handler.Destination.ModelType.Name()))
 		}
-		autoIndex(scope)
-		*/
-	}
+		sourceValue := scope.con.parent.modelsStructMap.get(handler.Source.ModelType)
+		if sourceValue != nil {
+			for _, fk := range handler.Source.ForeignKeys {
+				theField, ok := sourceValue.FieldByName(fk.AssociationDBName, scope.con.parent)
+				if ok {
+					sqlTag := dialect.DataTypeOf(theField)
+					if !dialect.HasColumn(tableName, theField.DBName) {
+						scope.Warn(fmt.Printf(
+							"ALTER TABLE %v ADD %v %v;\n",
+							scope.quotedTableName(),
+							scope.con.quote(field.DBName),
+							sqlTag))
+					}
+				} else {
+					scope.Err(fmt.Errorf("ERROR : %q doesn't have a field named %q", sourceValue.ModelType.Name(), fk.AssociationDBName))
+				}
+			}
+		} else {
+			scope.Err(fmt.Errorf("ERROR : Could not find %s in ModelStructsMap", handler.Source.ModelType.Name()))
+		}
 
+	}
+	**/
 }
 
 //used in db.CreateTable and autoMigrate

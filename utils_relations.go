@@ -172,18 +172,8 @@ func makeHasMany(field *StructField,
 					),
 				)
 			}
-		} else {
-			toScope.Warn(
-				fmt.Errorf(
-					warn_fk_field_not_found,
-					str_hasmany,
-					foreignKey,
-					fromModel.ModelType.Name(),
-					field.StructName,
-					toModel.ModelType.Name(),
-				),
-			)
 		}
+		//if field not found, means that was added as "suspicious"
 	}
 
 	if ForeignFieldNames.len() != 0 {
@@ -241,18 +231,8 @@ func makeHasOne(field *StructField,
 					),
 				)
 			}
-		} else {
-			toScope.Warn(
-				fmt.Errorf(
-					warn_fk_field_not_found,
-					str_hasone,
-					foreignKey,
-					toModel.ModelType.Name(),
-					field.StructName,
-					toModel.ModelType.Name(),
-				),
-			)
 		}
+		//if field not found, means that was added as "suspicious"
 	}
 
 	if ForeignFieldNames.len() != 0 {
@@ -305,18 +285,8 @@ func makeBelongTo(field *StructField,
 					),
 				)
 			}
-		} else {
-			toScope.Warn(
-				fmt.Errorf(
-					warn_fk_field_not_found,
-					str_belongsto,
-					foreignKey,
-					toModel.ModelType.Name(),
-					field.StructName,
-					fromModel.ModelType.Name(),
-				),
-			)
 		}
+		//if field not found, means that was added as "suspicious"
 	}
 
 	if ForeignFieldNames.len() != 0 {

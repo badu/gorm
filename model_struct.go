@@ -47,28 +47,28 @@ func (modelStruct *ModelStruct) FieldByName(column string, con *DBCon) (*StructF
 	return field, ok
 }
 
-func (modelStruct *ModelStruct) Create(reflectType reflect.Type, scope *Scope) {
-	modelStruct.ModelType = reflectType
+func (modelStruct *ModelStruct) Create(scope *Scope) {
+	modelStruct.ModelType = scope.rType
 	modelStruct.fieldsMap = fieldsMap{
 		aliases: make(map[string]*StructField),
 		l:       new(sync.RWMutex),
 	}
 
 	//implements tabler?
-	tabler, ok := reflect.New(reflectType).Interface().(tabler)
+	tabler, ok := reflect.New(scope.rType).Interface().(tabler)
 	// Set default table name
 	if ok {
 		modelStruct.defaultTableName = tabler.TableName()
 	} else {
-		tableName := scope.con.parent.namesMap.toDBName(reflectType.Name())
+		tableName := scope.con.parent.namesMap.toDBName(scope.rType.Name())
 		if scope.con == nil || !scope.con.parent.singularTable {
 			tableName = inflection.Plural(tableName)
 		}
 		modelStruct.defaultTableName = tableName
 	}
 	// Get all fields
-	for i := 0; i < reflectType.NumField(); i++ {
-		if fieldStruct := reflectType.Field(i); ast.IsExported(fieldStruct.Name) {
+	for i := 0; i < scope.rType.NumField(); i++ {
+		if fieldStruct := scope.rType.Field(i); ast.IsExported(fieldStruct.Name) {
 			field, err := NewStructField(fieldStruct, scope.con.parent.namesMap.toDBName(fieldStruct.Name))
 			if err != nil {
 				scope.Err(fmt.Errorf(err_processing_tags, modelStruct.ModelType.Name(), err))
@@ -156,11 +156,11 @@ func (modelStruct *ModelStruct) processRelations(scope *Scope) {
 					//attempt to check if belongs to
 					if !makeBelongTo(field, modelStruct, toModelStruct, scope, toScope) {
 						//Oops, neither
-						errMsg := fmt.Errorf(err_no_belong_or_hasone, modelStruct.ModelType.Name(), field.DBName, field.StructName)
-						scope.Warn(errMsg)
+						scope.Warn(fmt.Errorf(err_no_belong_or_hasone, modelStruct.ModelType.Name(), field.DBName, field.StructName))
 					}
 				}
 			}
+
 			field.UnsetCheckRelations()
 		}
 	}

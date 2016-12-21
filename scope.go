@@ -36,7 +36,7 @@ func (scope *Scope) HasError() bool {
 }
 
 func (scope *Scope) Warn(v ...interface{}) {
-	//scope.con.warnLog(v...)
+	scope.con.warnLog(v...)
 }
 
 // Fields get value's fields from ModelStruct
@@ -70,34 +70,26 @@ func (scope *Scope) Fields() StructFields {
 func (scope *Scope) GetModelStruct() *ModelStruct {
 	var modelStruct ModelStruct
 	// Scope value can't be nil
-	//TODO : @Badu - why can't be nil and why we are not returning an warning/error?
 	if scope.Value == nil {
 		return &modelStruct
 	}
-
-	reflectType := GetType(scope.Value)
-
-	if reflectType.Kind() != reflect.Struct {
-		//TODO : @Badu - why we are not returning an error?
+	if scope.rType.Kind() != reflect.Struct {
 		// Scope value need to be a struct
 		return &modelStruct
 	}
 
 	// Get Cached model struct
-	if value := scope.con.parent.modelsStructMap.get(reflectType); value != nil {
+	if value := scope.con.parent.modelsStructMap.get(scope.rType); value != nil {
 		return value
 	}
 
-	modelStruct.Create(reflectType, scope)
+	modelStruct.Create(scope)
 
 	//set cached ModelStruc
-	scope.con.parent.modelsStructMap.set(reflectType, &modelStruct)
+	scope.con.parent.modelsStructMap.set(scope.rType, &modelStruct)
 	// ATTN : first we add it to cache map, otherwise will infinite cycle
 	// build relationships
 	modelStruct.processRelations(scope)
-
-	//optimisation : once we've build the model struct, we're building the scope fields as well
-	scope.Fields()
 
 	return &modelStruct
 }
@@ -135,8 +127,6 @@ func (scope *Scope) PK() *StructField {
 		//and return the first one
 		return scope.PKs()[0]
 	}
-
-	//TODO : @Badu - investigate where this is called and gets the nil
 	return nil
 }
 
@@ -150,7 +140,6 @@ func (scope *Scope) PKName() string {
 	if field := scope.PK(); field != nil {
 		return field.DBName
 	}
-	//TODO : @Badu - investigate where this is called and gets the empty string
 	return ""
 }
 

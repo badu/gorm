@@ -40,8 +40,11 @@
 - [ ] Generated SQL let's the SQL engine cast : SELECT * FROM aTable WHERE id = '1' (id being int). I think it's a bad practice and it should be fixed
 - [ ] convertInterfaceToMap in utils it's terrible : simplify
 
-## 20.12.2016
+## 21.12.2016
 - [ ] replace fields access (where possible) via modelstruct instead of scope fields
+- [x] Scope rType property holds reflect.Type of the Value (on clone) 
+
+## 20.12.2016
 - [x] SetZero, IsZero in utils
 - [x] Scope has getColumnAsArray instead of generic getColumnAsArray in utils
 - [x] added field not found error
