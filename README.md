@@ -40,6 +40,9 @@
 - [ ] Generated SQL let's the SQL engine cast : SELECT * FROM aTable WHERE id = '1' (id being int). I think it's a bad practice and it should be fixed
 - [ ] convertInterfaceToMap in utils it's terrible : simplify
 
+## 28.01.2017
+- [x] update IsZero as in last original gorm commit
+
 ## 21.12.2016
 - [ ] replace fields access (where possible) via modelstruct instead of scope fields
 - [x] Scope rType property holds reflect.Type of the Value (on clone) 
@@ -137,7 +140,7 @@ TestDB.SetJoinTableHandler(&Person{}, "Addresses", &PersonAddress{})
 - [x] Search Select is using only first select clause - now it's overriding existing select clauses 
 - [x] Scope createCallback was adding BLANK_COLS_DEFAULT_SETTING inside a for loop (since it was a map, was not malfunctioning, but was bad logic)
 - [x] BLANK_COLS_DEFAULT_SETTING is now storing a string, not a StrSlice
-- [ ] Add gorm:association:source for association operations for plugins to extend GORM commit
+- [x] Add gorm:association:source for association operations for plugins to extend GORM commit
 
 ## 05.12.2016
 - [x] removed getTableOptions from Scope : was used in creation operations, so we don't need it there
