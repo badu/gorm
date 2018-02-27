@@ -1,7 +1,7 @@
 package tests
 
 import (
-	"gorm"
+	. "github.com/badu/reGorm"
 	"testing"
 	"time"
 )
@@ -48,23 +48,23 @@ func Update(t *testing.T) {
 		t.Errorf("Product should not be changed to 789")
 	}
 
-	if TestDB.Model(product2).Update(gorm.Field_created_at, time.Now().Add(time.Hour)).Error != nil {
+	if TestDB.Model(product2).Update(Field_created_at, time.Now().Add(time.Hour)).Error != nil {
 		t.Error("No error should raise when update with CamelCase")
 	}
 
-	if TestDB.Model(&product2).UpdateColumn(gorm.Field_created_at, time.Now().Add(time.Hour)).Error != nil {
+	if TestDB.Model(&product2).UpdateColumn(Field_created_at, time.Now().Add(time.Hour)).Error != nil {
 		t.Error("No error should raise when update_column with CamelCase")
 	}
 
 	var products []Product
 	TestDB.Find(&products)
-	if count := TestDB.Model(Product{}).Update(gorm.Field_created_at, time.Now().Add(2*time.Hour)).RowsAffected; count != int64(len(products)) {
+	if count := TestDB.Model(Product{}).Update(Field_created_at, time.Now().Add(2*time.Hour)).RowsAffected; count != int64(len(products)) {
 		t.Error("RowsAffected should be correct when do batch update")
 	}
 
 	TestDB.First(&product4, product4.Id)
 	updatedAt4 := product4.UpdatedAt
-	TestDB.Model(&product4).Update("price", gorm.SqlExpr("price + ? - ?", 100, 50))
+	TestDB.Model(&product4).Update("price", SqlExpr("price + ? - ?", 100, 50))
 	var product5 Product
 	TestDB.First(&product5, product4.Id)
 	if product5.Price != product4.Price+100-50 {
@@ -88,7 +88,7 @@ func UpdateWithNoStdPrimaryKeyAndDefaultValues(t *testing.T) {
 
 	var animals []Animal
 	TestDB.Find(&animals)
-	if count := TestDB.Model(Animal{}).Update(gorm.Field_created_at, time.Now().Add(2*time.Hour)).RowsAffected; count != int64(len(animals)) {
+	if count := TestDB.Model(Animal{}).Update(Field_created_at, time.Now().Add(2*time.Hour)).RowsAffected; count != int64(len(animals)) {
 		t.Error("RowsAffected should be correct when do batch update")
 	}
 
@@ -153,7 +153,7 @@ func Updates(t *testing.T) {
 	}
 
 	updatedAt4 := product4.UpdatedAt
-	TestDB.Model(&product4).Updates(map[string]interface{}{"price": gorm.SqlExpr("price + ?", 100)})
+	TestDB.Model(&product4).Updates(map[string]interface{}{"price": SqlExpr("price + ?", 100)})
 	var product5 Product
 	TestDB.First(&product5, product4.Id)
 	if product5.Price != product4.Price+100 {
@@ -188,7 +188,7 @@ func UpdateColumn(t *testing.T) {
 		t.Errorf("updatedAt should not be updated with update column")
 	}
 
-	TestDB.Model(&product4).UpdateColumn("price", gorm.SqlExpr("price + 100 - 50"))
+	TestDB.Model(&product4).UpdateColumn("price", SqlExpr("price + 100 - 50"))
 	var product5 Product
 	TestDB.First(&product5, product4.Id)
 	if product5.Price != product4.Price+100-50 {

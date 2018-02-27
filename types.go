@@ -2,7 +2,7 @@ package gorm
 
 import (
 	"database/sql"
-	"github.com/adrg/errors"
+	"errors"
 	"log"
 	"os"
 	"reflect"

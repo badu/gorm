@@ -6,9 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"gorm"
-	_ "gorm/dialects/mysql"
-	_ "gorm/dialects/sqlite"
+	. "github.com/badu/reGorm"
+	_ "github.com/badu/reGorm/dialects/mysql"
+	_ "github.com/badu/reGorm/dialects/sqlite"
 	"reflect"
 	"runtime"
 	"sort"
@@ -18,7 +18,7 @@ import (
 )
 
 var (
-	TestDB      *gorm.DBCon
+	TestDB      *DBCon
 	TestDBErr   error
 	compareToys = func(toys []Toy, contents []string) bool {
 		var toyContents []string
@@ -267,7 +267,7 @@ type (
 	}
 
 	Language struct {
-		gorm.Model
+		Model
 		Name  string
 		Users []User `gorm:"many2many:user_languages;"`
 	}
@@ -327,7 +327,7 @@ type (
 	}
 
 	Category struct {
-		gorm.Model
+		Model
 		Name string
 
 		Categories []Category
@@ -335,7 +335,7 @@ type (
 	}
 
 	Comment struct {
-		gorm.Model
+		Model
 		PostId  int64
 		Content string
 		Post    Post
@@ -382,7 +382,7 @@ type (
 	}
 
 	PersonAddress struct {
-		gorm.JoinTableHandler
+		JoinTableHandler
 		PersonID  int
 		AddressID int
 		DeletedAt *time.Time
@@ -390,7 +390,7 @@ type (
 	}
 
 	CalculateField struct {
-		gorm.Model
+		Model
 		Name     string
 		Children []CalculateFieldChild
 		Category CalculateFieldCategory
@@ -402,13 +402,13 @@ type (
 	}
 
 	CalculateFieldChild struct {
-		gorm.Model
+		Model
 		CalculateFieldID uint
 		Name             string
 	}
 
 	CalculateFieldCategory struct {
-		gorm.Model
+		Model
 		CalculateFieldID uint
 		Name             string
 	}
@@ -437,18 +437,18 @@ type (
 	}
 
 	CustomizeUser struct {
-		gorm.Model
+		Model
 		Email string `sql:"column:email_address"`
 	}
 
 	CustomizeInvitation struct {
-		gorm.Model
+		Model
 		Address string         `sql:"column:invitation"`
 		Person  *CustomizeUser `gorm:"foreignkey:Email;associationforeignkey:invitation"`
 	}
 
 	PromotionDiscount struct {
-		gorm.Model
+		Model
 		Name     string
 		Coupons  []*PromotionCoupon `gorm:"ForeignKey:discount_id"`
 		Rule     *PromotionRule     `gorm:"ForeignKey:discount_id"`
@@ -456,21 +456,21 @@ type (
 	}
 
 	PromotionBenefit struct {
-		gorm.Model
+		Model
 		Name        string
 		PromotionID uint
 		Discount    PromotionDiscount `gorm:"ForeignKey:promotion_id"`
 	}
 
 	PromotionCoupon struct {
-		gorm.Model
+		Model
 		Code       string
 		DiscountID uint
 		Discount   PromotionDiscount
 	}
 
 	PromotionRule struct {
-		gorm.Model
+		Model
 		Name       string
 		Begin      *time.Time
 		End        *time.Time
@@ -557,7 +557,7 @@ func getPreparedUser(name string, role string) *User {
 	}
 }
 
-func equalFuncs(funcs gorm.ScopedFuncs, fnames []string) bool {
+func equalFuncs(funcs ScopedFuncs, fnames []string) bool {
 	var names []string
 	for _, f := range funcs {
 		fnames := strings.Split(runtime.FuncForPC(reflect.ValueOf(*f).Pointer()).Name(), ".")
@@ -566,26 +566,26 @@ func equalFuncs(funcs gorm.ScopedFuncs, fnames []string) bool {
 	return reflect.DeepEqual(names, fnames)
 }
 
-func NameIn1And2(d *gorm.DBCon) *gorm.DBCon {
+func NameIn1And2(d *DBCon) *DBCon {
 	return d.Where("name in (?)", []string{"ScopeUser1", "ScopeUser2"})
 }
 
-func NameIn2And3(d *gorm.DBCon) *gorm.DBCon {
+func NameIn2And3(d *DBCon) *DBCon {
 	return d.Where("name in (?)", []string{"ScopeUser2", "ScopeUser3"})
 }
 
-func NameIn(names []string) func(d *gorm.DBCon) *gorm.DBCon {
-	return func(d *gorm.DBCon) *gorm.DBCon {
+func NameIn(names []string) func(d *DBCon) *DBCon {
+	return func(d *DBCon) *DBCon {
 		return d.Where("name in (?)", names)
 	}
 }
 
-func create(s *gorm.Scope)        {}
-func beforeCreate1(s *gorm.Scope) {}
-func beforeCreate2(s *gorm.Scope) {}
-func afterCreate1(s *gorm.Scope)  {}
-func afterCreate2(s *gorm.Scope)  {}
-func replaceCreate(s *gorm.Scope) {}
+func create(s *Scope)        {}
+func beforeCreate1(s *Scope) {}
+func beforeCreate2(s *Scope) {}
+func afterCreate1(s *Scope)  {}
+func afterCreate2(s *Scope)  {}
+func replaceCreate(s *Scope) {}
 
 func (e ElementWithIgnoredField) TableName() string {
 	return "element_with_ignored_field"
@@ -619,7 +619,7 @@ func (s *Product) AfterFind() {
 	s.AfterFindCallTimes = s.AfterFindCallTimes + 1
 }
 
-func (s *Product) AfterCreate(tx *gorm.DBCon) {
+func (s *Product) AfterCreate(tx *DBCon) {
 	tx.Model(s).UpdateColumn(Product{AfterCreateCallTimes: s.AfterCreateCallTimes + 1})
 }
 
@@ -703,22 +703,22 @@ func (p Person) String() string {
 	return fmt.Sprint(optionals)
 }
 
-func (*PersonAddress) Add(handler gorm.JoinTableHandlerInterface, db *gorm.DBCon, foreignValue interface{}, associationValue interface{}) error {
+func (*PersonAddress) Add(handler JoinTableHandlerInterface, db *DBCon, foreignValue interface{}, associationValue interface{}) error {
 	return db.Where(map[string]interface{}{
 		"person_id":  db.NewScope(foreignValue).PrimaryKeyValue(),
 		"address_id": db.NewScope(associationValue).PrimaryKeyValue(),
 	}).Assign(map[string]interface{}{
 		"person_id":  foreignValue,
 		"address_id": associationValue,
-		"deleted_at": gorm.SqlExpr("NULL"),
+		"deleted_at": SqlExpr("NULL"),
 	}).FirstOrCreate(&PersonAddress{}).Error
 }
 
-func (*PersonAddress) Delete(handler gorm.JoinTableHandlerInterface, db *gorm.DBCon) error {
+func (*PersonAddress) Delete(handler JoinTableHandlerInterface, db *DBCon) error {
 	return db.Delete(&PersonAddress{}).Error
 }
 
-func (pa *PersonAddress) JoinWith(handler gorm.JoinTableHandlerInterface, db *gorm.DBCon, source interface{}) *gorm.DBCon {
+func (pa *PersonAddress) JoinWith(handler JoinTableHandlerInterface, db *DBCon, source interface{}) *DBCon {
 	table := pa.Table(db)
 	return db.Joins("INNER JOIN person_addresses ON person_addresses.address_id = addresses.id").Where(fmt.Sprintf("%v.deleted_at IS NULL OR %v.deleted_at <= '0001-01-02'", table, table))
 }

@@ -2,7 +2,7 @@ package tests
 
 import (
 	"fmt"
-	"gorm"
+	. "github.com/badu/reGorm"
 	"os"
 	"reflect"
 	"sort"
@@ -11,12 +11,12 @@ import (
 
 func SkipSaveAssociation(t *testing.T) {
 	type Company struct {
-		gorm.Model
+		Model
 		Name string
 	}
 
 	type User struct {
-		gorm.Model
+		Model
 		Name      string
 		CompanyID uint
 		Company   Company `gorm:"save_associations:false"`
@@ -202,12 +202,12 @@ func BelongsTo(t *testing.T) {
 
 func BelongsToOverrideForeignKey1(t *testing.T) {
 	type Profile struct {
-		gorm.Model
+		Model
 		Name string
 	}
 
 	type User struct {
-		gorm.Model
+		Model
 		Profile      Profile `gorm:"ForeignKey:ProfileRefer"`
 		ProfileRefer int
 	}
@@ -218,8 +218,8 @@ func BelongsToOverrideForeignKey1(t *testing.T) {
 		AssociationForeignFieldNames := field.GetAssociationForeignFieldNames()
 
 		if !field.RelationIsBelongsTo() ||
-			!reflect.DeepEqual(ForeignFieldNames, gorm.StrSlice{"ProfileRefer"}) ||
-			!reflect.DeepEqual(AssociationForeignFieldNames, gorm.StrSlice{"ID"}) {
+			!reflect.DeepEqual(ForeignFieldNames, StrSlice{"ProfileRefer"}) ||
+			!reflect.DeepEqual(AssociationForeignFieldNames, StrSlice{"ID"}) {
 			t.Errorf("Override belongs to foreign key with tag")
 		}
 	}
@@ -227,13 +227,13 @@ func BelongsToOverrideForeignKey1(t *testing.T) {
 
 func BelongsToOverrideForeignKey2(t *testing.T) {
 	type Profile struct {
-		gorm.Model
+		Model
 		Refer string
 		Name  string
 	}
 
 	type User struct {
-		gorm.Model
+		Model
 		Profile   Profile `gorm:"ForeignKey:ProfileID;AssociationForeignKey:Refer"`
 		ProfileID int
 	}
@@ -244,8 +244,8 @@ func BelongsToOverrideForeignKey2(t *testing.T) {
 		AssociationForeignFieldNames := field.GetAssociationForeignFieldNames()
 
 		if !field.RelationIsBelongsTo() ||
-			!reflect.DeepEqual(ForeignFieldNames, gorm.StrSlice{"ProfileID"}) ||
-			!reflect.DeepEqual(AssociationForeignFieldNames, gorm.StrSlice{"Refer"}) {
+			!reflect.DeepEqual(ForeignFieldNames, StrSlice{"ProfileID"}) ||
+			!reflect.DeepEqual(AssociationForeignFieldNames, StrSlice{"Refer"}) {
 			t.Errorf("Override belongs to foreign key with tag")
 		}
 	}
@@ -399,13 +399,13 @@ func HasOne(t *testing.T) {
 
 func HasOneOverrideForeignKey1(t *testing.T) {
 	type Profile struct {
-		gorm.Model
+		Model
 		Name      string
 		UserRefer uint
 	}
 
 	type User struct {
-		gorm.Model
+		Model
 		Profile Profile `gorm:"ForeignKey:UserRefer"`
 	}
 
@@ -415,8 +415,8 @@ func HasOneOverrideForeignKey1(t *testing.T) {
 		AssociationForeignFieldNames := field.GetAssociationForeignFieldNames()
 
 		if !field.RelationIsHasOne() ||
-			!reflect.DeepEqual(ForeignFieldNames, gorm.StrSlice{"UserRefer"}) ||
-			!reflect.DeepEqual(AssociationForeignFieldNames, gorm.StrSlice{"ID"}) {
+			!reflect.DeepEqual(ForeignFieldNames, StrSlice{"UserRefer"}) ||
+			!reflect.DeepEqual(AssociationForeignFieldNames, StrSlice{"ID"}) {
 			t.Errorf("Override belongs to foreign key with tag")
 		}
 	}
@@ -424,13 +424,13 @@ func HasOneOverrideForeignKey1(t *testing.T) {
 
 func HasOneOverrideForeignKey2(t *testing.T) {
 	type Profile struct {
-		gorm.Model
+		Model
 		Name   string
 		UserID uint
 	}
 
 	type User struct {
-		gorm.Model
+		Model
 		Refer   string
 		Profile Profile `gorm:"ForeignKey:UserID;AssociationForeignKey:Refer"`
 	}
@@ -441,8 +441,8 @@ func HasOneOverrideForeignKey2(t *testing.T) {
 		AssociationForeignFieldNames := field.GetAssociationForeignFieldNames()
 
 		if !field.RelationIsHasOne() ||
-			!reflect.DeepEqual(ForeignFieldNames, gorm.StrSlice{"UserID"}) ||
-			!reflect.DeepEqual(AssociationForeignFieldNames, gorm.StrSlice{"Refer"}) {
+			!reflect.DeepEqual(ForeignFieldNames, StrSlice{"UserID"}) ||
+			!reflect.DeepEqual(AssociationForeignFieldNames, StrSlice{"Refer"}) {
 			t.Errorf("Override belongs to foreign key with tag")
 		}
 	}
@@ -590,13 +590,13 @@ func HasMany(t *testing.T) {
 
 func HasManyOverrideForeignKey1(t *testing.T) {
 	type Profile struct {
-		gorm.Model
+		Model
 		Name      string
 		UserRefer uint
 	}
 
 	type User struct {
-		gorm.Model
+		Model
 		Profile []Profile `gorm:"ForeignKey:UserRefer"`
 	}
 
@@ -606,8 +606,8 @@ func HasManyOverrideForeignKey1(t *testing.T) {
 		AssociationForeignFieldNames := field.GetAssociationForeignFieldNames()
 
 		if !field.RelationIsHasMany() ||
-			!reflect.DeepEqual(ForeignFieldNames, gorm.StrSlice{"UserRefer"}) ||
-			!reflect.DeepEqual(AssociationForeignFieldNames, gorm.StrSlice{"ID"}) {
+			!reflect.DeepEqual(ForeignFieldNames, StrSlice{"UserRefer"}) ||
+			!reflect.DeepEqual(AssociationForeignFieldNames, StrSlice{"ID"}) {
 			t.Errorf("Override belongs to foreign key with tag")
 		}
 	}
@@ -615,13 +615,13 @@ func HasManyOverrideForeignKey1(t *testing.T) {
 
 func HasManyOverrideForeignKey2(t *testing.T) {
 	type Profile struct {
-		gorm.Model
+		Model
 		Name   string
 		UserID uint
 	}
 
 	type User struct {
-		gorm.Model
+		Model
 		Refer   string
 		Profile []Profile `gorm:"ForeignKey:UserID;AssociationForeignKey:Refer"`
 	}
@@ -632,8 +632,8 @@ func HasManyOverrideForeignKey2(t *testing.T) {
 		AssociationForeignFieldNames := field.GetAssociationForeignFieldNames()
 
 		if !field.RelationIsHasMany() ||
-			!reflect.DeepEqual(ForeignFieldNames, gorm.StrSlice{"UserID"}) ||
-			!reflect.DeepEqual(AssociationForeignFieldNames, gorm.StrSlice{"Refer"}) {
+			!reflect.DeepEqual(ForeignFieldNames, StrSlice{"UserID"}) ||
+			!reflect.DeepEqual(AssociationForeignFieldNames, StrSlice{"Refer"}) {
 			t.Errorf("Override belongs to foreign key with tag")
 		}
 	}

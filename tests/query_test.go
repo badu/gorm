@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"gorm"
+	. "github.com/badu/reGorm"
 	"testing"
 	"time"
 )
@@ -326,7 +326,7 @@ func OrderAndPluck(t *testing.T) {
 	scopedb := TestDB.Model(&User{}).Where("name like ?", "%OrderPluckUser%")
 
 	var user User
-	scopedb.Order(gorm.SqlExpr("name = ? DESC", "OrderPluckUser2")).First(&user)
+	scopedb.Order(SqlExpr("name = ? DESC", "OrderPluckUser2")).First(&user)
 	if user.Name != "OrderPluckUser2" {
 		t.Errorf("Order with sql expression")
 	}
@@ -648,7 +648,7 @@ func SelectWithEscapedFieldName(t *testing.T) {
 func SelectWithVariables(t *testing.T) {
 	TestDB.Save(&User{Name: "jinzhu"})
 
-	rows, _ := TestDB.Table("users").Select("? as fake", gorm.SqlExpr("name")).Rows()
+	rows, _ := TestDB.Table("users").Select("? as fake", SqlExpr("name")).Rows()
 
 	if !rows.Next() {
 		t.Errorf("Should have returned at least one row")

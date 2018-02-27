@@ -1,8 +1,8 @@
 package tests
 
 import (
-	_ "gorm/dialects/mysql"
-	_ "gorm/dialects/sqlite"
+	_ "github.com/badu/reGorm/dialects/mysql"
+	_ "github.com/badu/reGorm/dialects/sqlite"
 	"runtime"
 	"sort"
 	"testing"
@@ -37,7 +37,7 @@ func measureAndRun(t *testing.T, name string, f func(t *testing.T)) bool {
 	return result
 }
 
-func TempTestEverything(t *testing.T) {
+func TestEverything(t *testing.T) {
 	measureAndRun(t, "0) Open connection", OpenTestConnection)
 	if TestDBErr != nil {
 		t.Fatalf("No error should happen when connecting to test database, but got err=%+v", TestDBErr)

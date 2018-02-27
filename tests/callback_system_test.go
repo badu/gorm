@@ -1,12 +1,12 @@
 package tests
 
 import (
-	"gorm"
+	. "github.com/badu/reGorm"
 	"testing"
 )
 
 func RegisterCallback(t *testing.T) {
-	var callback = &gorm.Callbacks{}
+	var callback = &Callbacks{}
 
 	callback.Create().Register("before_create1", beforeCreate1)
 	callback.Create().Register("before_create2", beforeCreate2)
@@ -20,7 +20,7 @@ func RegisterCallback(t *testing.T) {
 }
 
 func RegisterCallbackWithOrder(t *testing.T) {
-	var callback1 = &gorm.Callbacks{}
+	var callback1 = &Callbacks{}
 	callback1.Create().Register("before_create1", beforeCreate1)
 	callback1.Create().Register("create", create)
 	callback1.Create().Register("after_create1", afterCreate1)
@@ -29,7 +29,7 @@ func RegisterCallbackWithOrder(t *testing.T) {
 		t.Errorf("register callback with order")
 	}
 
-	var callback2 = &gorm.Callbacks{}
+	var callback2 = &Callbacks{}
 
 	callback2.Update().Register("create", create)
 	callback2.Update().Before("create").Register("before_create1", beforeCreate1)
@@ -43,7 +43,7 @@ func RegisterCallbackWithOrder(t *testing.T) {
 }
 
 func RegisterCallbackWithComplexOrder(t *testing.T) {
-	var callback1 = &gorm.Callbacks{}
+	var callback1 = &Callbacks{}
 
 	callback1.Query().Before("after_create1").After("before_create1").Register("create", create)
 	callback1.Query().Register("before_create1", beforeCreate1)
@@ -53,7 +53,7 @@ func RegisterCallbackWithComplexOrder(t *testing.T) {
 		t.Errorf("register callback with order")
 	}
 
-	var callback2 = &gorm.Callbacks{}
+	var callback2 = &Callbacks{}
 
 	callback2.Delete().Before("after_create1").After("before_create1").Register("create", create)
 	callback2.Delete().Before("create").Register("before_create1", beforeCreate1)
@@ -67,7 +67,7 @@ func RegisterCallbackWithComplexOrder(t *testing.T) {
 }
 
 func ReplaceCallback(t *testing.T) {
-	var callback = &gorm.Callbacks{}
+	var callback = &Callbacks{}
 
 	callback.Create().Before("after_create1").After("before_create1").Register("create", create)
 	callback.Create().Register("before_create1", beforeCreate1)
@@ -80,7 +80,7 @@ func ReplaceCallback(t *testing.T) {
 }
 
 func RemoveCallback(t *testing.T) {
-	var callback = &gorm.Callbacks{}
+	var callback = &Callbacks{}
 
 	callback.Create().Before("after_create1").After("before_create1").Register("create", create)
 	callback.Create().Register("before_create1", beforeCreate1)

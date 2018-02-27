@@ -1,12 +1,12 @@
 package tests
 
 import (
-	"gorm"
+	. "github.com/badu/reGorm"
 	"testing"
 )
 
 func CloneSearch(t *testing.T) {
-	s := &gorm.Search{Conditions: make(gorm.SqlConditions)}
+	s := &Search{Conditions: make(SqlConditions)}
 	s.Where("name = ?", "jinzhu").Order("name").Attrs("name", "jinzhu").Select("name, age")
 
 	s1 := s.Clone()
