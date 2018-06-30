@@ -5,33 +5,33 @@ import (
 )
 
 // GetErrors get all happened errors
-func (errs GormErrors) GetErrors() []error {
-	return errs
+func (e GormErrors) GetErrors() []error {
+	return e
 }
 
-func (errs GormErrors) Add(newErrors ...error) GormErrors {
+func (e GormErrors) Add(newErrors ...error) GormErrors {
 	for _, err := range newErrors {
 		if errors, ok := err.(GormErrors); ok {
-			errs = errs.Add(errors...)
+			e = e.Add(errors...)
 		} else {
 			ok = true
-			for _, e := range errs {
+			for _, e := range e {
 				if err == e {
 					ok = false
 				}
 			}
 			if ok {
-				errs = append(errs, err)
+				e = append(e, err)
 			}
 		}
 	}
-	return errs
+	return e
 }
 
 // Add add an error
-func (errs GormErrors) Error() string {
-	var errors = []string{}
-	for _, e := range errs {
+func (e GormErrors) Error() string {
+	var errors []string
+	for _, e := range e {
 		errors = append(errors, e.Error())
 	}
 	return strings.Join(errors, "; ")

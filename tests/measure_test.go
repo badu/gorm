@@ -221,7 +221,7 @@ type (
 )
 
 var (
-	measuresData MeasureData = make(MeasureData, 0, 0)
+	measuresData = make(MeasureData, 0, 0)
 )
 
 //implementation of Sort

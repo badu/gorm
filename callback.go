@@ -25,28 +25,28 @@ func (c *Callbacks) reorder() {
 //       scope.Err(errors.New("error"))
 //     })
 func (c *Callbacks) Create() *CallbacksProcessor {
-	return &CallbacksProcessor{kind: cb_create, parent: c}
+	return &CallbacksProcessor{kind: createCallback, parent: c}
 }
 
 // Update could be used to register callbacks for updating object, refer `Create` for usage
 func (c *Callbacks) Update() *CallbacksProcessor {
-	return &CallbacksProcessor{kind: cb_update, parent: c}
+	return &CallbacksProcessor{kind: updateCallback, parent: c}
 }
 
 // Delete could be used to register callbacks for deleting object, refer `Create` for usage
 func (c *Callbacks) Delete() *CallbacksProcessor {
-	return &CallbacksProcessor{kind: cb_delete, parent: c}
+	return &CallbacksProcessor{kind: deleteCallback, parent: c}
 }
 
 // Query could be used to register callbacks for querying objects with query methods like `Find`, `First`, `Related`, `Association`...
 // Refer `Create` for usage
 func (c *Callbacks) Query() *CallbacksProcessor {
-	return &CallbacksProcessor{kind: cb_query, parent: c}
+	return &CallbacksProcessor{kind: queryCallback, parent: c}
 }
 
 // RowQuery could be used to register callbacks for querying objects with `Row`, `Rows`, refer `Create` for usage
 func (c *Callbacks) RowQuery() *CallbacksProcessor {
-	return &CallbacksProcessor{kind: cb_row, parent: c}
+	return &CallbacksProcessor{kind: rowCallback, parent: c}
 }
 
 //Added for tests : DO NOT USE DIRECTLY

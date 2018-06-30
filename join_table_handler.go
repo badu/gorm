@@ -7,19 +7,19 @@ import (
 
 //implementation of JoinTableHandlerInterface
 // SourceForeignKeys return source foreign keys
-func (jth *JoinTableHandler) SourceForeignKeys() []JoinTableForeignKey {
-	return jth.Source.ForeignKeys
+func (h *JoinTableHandler) SourceForeignKeys() []JoinTableForeignKey {
+	return h.Source.ForeignKeys
 }
 
 //implementation of JoinTableHandlerInterface
 // DestinationForeignKeys return destination foreign keys
-func (jth *JoinTableHandler) DestinationForeignKeys() []JoinTableForeignKey {
-	return jth.Destination.ForeignKeys
+func (h *JoinTableHandler) DestinationForeignKeys() []JoinTableForeignKey {
+	return h.Destination.ForeignKeys
 }
 
 //implementation of JoinTableHandlerInterface
 // Setup initialize a default join table handler
-func (jth *JoinTableHandler) Setup(
+func (h *JoinTableHandler) Setup(
 	field *StructField,
 	source reflect.Type,
 	destination reflect.Type) {
@@ -31,9 +31,9 @@ func (jth *JoinTableHandler) Setup(
 		AssociationForeignDBNames    = field.GetAssociationDBNames()
 	)
 
-	jth.Source = JoinTableInfo{ModelType: source}
+	h.Source = JoinTableInfo{ModelType: source}
 	for idx, dbName := range ForeignFieldNames {
-		jth.Source.ForeignKeys = append(jth.Source.ForeignKeys,
+		h.Source.ForeignKeys = append(h.Source.ForeignKeys,
 			JoinTableForeignKey{
 				DBName:            ForeignDBNames[idx],
 				AssociationDBName: dbName,
@@ -41,10 +41,10 @@ func (jth *JoinTableHandler) Setup(
 		)
 	}
 
-	jth.Destination = JoinTableInfo{ModelType: destination}
+	h.Destination = JoinTableInfo{ModelType: destination}
 	for idx, dbName := range AssociationForeignFieldNames {
-		jth.Destination.ForeignKeys = append(
-			jth.Destination.ForeignKeys,
+		h.Destination.ForeignKeys = append(
+			h.Destination.ForeignKeys,
 			JoinTableForeignKey{
 				DBName:            AssociationForeignDBNames[idx],
 				AssociationDBName: dbName,
@@ -55,13 +55,13 @@ func (jth *JoinTableHandler) Setup(
 
 //implementation of JoinTableHandlerInterface
 // Table return join table's table name
-func (jth JoinTableHandler) Table(db *DBCon) string {
-	return jth.TableName
+func (h JoinTableHandler) Table(db *DBCon) string {
+	return h.TableName
 }
 
 //implementation of JoinTableHandlerInterface
 // Add create relationship in join table for source and destination
-func (jth JoinTableHandler) Add(handler JoinTableHandlerInterface, con *DBCon, source interface{}, destination interface{}) error {
+func (h JoinTableHandler) Add(handler JoinTableHandlerInterface, con *DBCon, source interface{}, destination interface{}) error {
 	var (
 		dialect                            = con.parent.dialect
 		searchMap                          = map[string]interface{}{}
@@ -71,14 +71,14 @@ func (jth JoinTableHandler) Add(handler JoinTableHandlerInterface, con *DBCon, s
 
 	for _, src := range []interface{}{source, destination} {
 		scp := con.NewScope(src)
-		if jth.Source.ModelType == scp.GetModelStruct().ModelType {
-			for _, foreignKey := range jth.Source.ForeignKeys {
+		if h.Source.ModelType == scp.GetModelStruct().ModelType {
+			for _, foreignKey := range h.Source.ForeignKeys {
 				if field, ok := scp.FieldByName(foreignKey.AssociationDBName); ok {
 					searchMap[foreignKey.DBName] = field.Value.Interface()
 				}
 			}
-		} else if jth.Destination.ModelType == scp.GetModelStruct().ModelType {
-			for _, foreignKey := range jth.Destination.ForeignKeys {
+		} else if h.Destination.ModelType == scp.GetModelStruct().ModelType {
+			for _, foreignKey := range h.Destination.ForeignKeys {
 				if field, ok := scp.FieldByName(foreignKey.AssociationDBName); ok {
 					searchMap[foreignKey.DBName] = field.Value.Interface()
 				}
@@ -120,19 +120,19 @@ func (jth JoinTableHandler) Add(handler JoinTableHandlerInterface, con *DBCon, s
 }
 
 //implementation of JoinTableHandlerInterface
-func (jth *JoinTableHandler) SetTable(name string) {
-	jth.TableName = name
+func (h *JoinTableHandler) SetTable(name string) {
+	h.TableName = name
 }
 
 //implementation of JoinTableHandlerInterface
 // Delete delete relationship in join table for sources
-func (jth JoinTableHandler) Delete(handler JoinTableHandlerInterface, con *DBCon) error {
+func (h JoinTableHandler) Delete(handler JoinTableHandlerInterface, con *DBCon) error {
 	return con.Table(handler.Table(con)).Delete("").Error
 }
 
 //implementation of JoinTableHandlerInterface
 // JoinWith query with `Join` conditions
-func (jth JoinTableHandler) JoinWith(handler JoinTableHandlerInterface, con *DBCon, source interface{}) *DBCon {
+func (h JoinTableHandler) JoinWith(handler JoinTableHandlerInterface, con *DBCon, source interface{}) *DBCon {
 	var (
 		scope           = con.NewScope(source)
 		tableName       = handler.Table(con)
@@ -140,10 +140,10 @@ func (jth JoinTableHandler) JoinWith(handler JoinTableHandlerInterface, con *DBC
 		joinConditions  string
 	)
 
-	if jth.Source.ModelType == scope.GetModelStruct().ModelType {
-		destinationTableName := con.NewScope(reflect.New(jth.Destination.ModelType).Interface()).quotedTableName()
+	if h.Source.ModelType == scope.GetModelStruct().ModelType {
+		destinationTableName := con.NewScope(reflect.New(h.Destination.ModelType).Interface()).quotedTableName()
 
-		for _, foreignKey := range jth.Destination.ForeignKeys {
+		for _, foreignKey := range h.Destination.ForeignKeys {
 			if joinConditions != "" {
 				joinConditions += " AND "
 			}
@@ -160,7 +160,7 @@ func (jth JoinTableHandler) JoinWith(handler JoinTableHandlerInterface, con *DBC
 		var foreignDBNames StrSlice
 		var foreignFieldNames StrSlice
 
-		for _, foreignKey := range jth.Source.ForeignKeys {
+		for _, foreignKey := range h.Source.ForeignKeys {
 			foreignDBNames = append(foreignDBNames, foreignKey.DBName)
 			if field, ok := scope.FieldByName(foreignKey.AssociationDBName); ok {
 				foreignFieldNames.add(field.StructName)
@@ -193,26 +193,26 @@ func (jth JoinTableHandler) JoinWith(handler JoinTableHandlerInterface, con *DBC
 			)
 	}
 
-	con.Error = fmt.Errorf("JOIN : wrong source type for join table handler for %v", jth.Source.ModelType)
+	con.Error = fmt.Errorf("JOIN : wrong source type for join table handler for %v", h.Source.ModelType)
 	return con
 }
 
 //for debugging
-func (jth *JoinTableHandler) GetHandlerStruct() *JoinTableHandler {
-	return jth
+func (h *JoinTableHandler) GetHandlerStruct() *JoinTableHandler {
+	return h
 }
 
 //implementation of Stringer
-func (jth JoinTableHandler) String() string {
+func (h JoinTableHandler) String() string {
 	var collector Collector
 
-	collector.add("\tTable name : %s\n", jth.TableName)
-	collector.add("\t\tDestination model type : %v\n", jth.Destination.ModelType)
-	for _, fk := range jth.Destination.ForeignKeys {
+	collector.add("\tTable name : %s\n", h.TableName)
+	collector.add("\t\tDestination model type : %v\n", h.Destination.ModelType)
+	for _, fk := range h.Destination.ForeignKeys {
 		collector.add("\t\t\tDestination FK : %s -> %s\n", fk.DBName, fk.AssociationDBName)
 	}
-	collector.add("\t\tSource model type : %v\n", jth.Source.ModelType)
-	for _, fk := range jth.Source.ForeignKeys {
+	collector.add("\t\tSource model type : %v\n", h.Source.ModelType)
+	for _, fk := range h.Source.ForeignKeys {
 		collector.add("\t\t\tSource FK : %s -> %s\n", fk.DBName, fk.AssociationDBName)
 	}
 

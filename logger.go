@@ -9,13 +9,13 @@ import (
 )
 
 // Print format & print log
-func (logger Logger) Print(values ...interface{}) {
+func (l Logger) Print(values ...interface{}) {
 	if len(values) > 1 {
 		currentTime := "\n\033[33m[" + NowFunc().Format("2006-01-02 15:04:05") + "]\033[0m"
 		source := fmt.Sprintf("\033[35m %v \033[0m", values[1])
 		messages := []interface{}{source, currentTime}
 
-		if values[0] == str_tag_sql {
+		if values[0] == strTagSql {
 			//error
 			if values[4] != nil {
 				messages = append(messages, fmt.Sprintf("ERROR: %q\n", values[4]))
@@ -76,6 +76,6 @@ func (logger Logger) Print(values ...interface{}) {
 			messages = append(messages, values[2:]...)
 			messages = append(messages, "\033[0m")
 		}
-		logger.Println(messages...)
+		l.Println(messages...)
 	}
 }

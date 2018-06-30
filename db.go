@@ -30,7 +30,7 @@ func (con *DBCon) Set(name string, value interface{}) *DBCon {
 	if ok {
 		clone.localSet(settingType, value)
 	} else {
-		clone.AddError(fmt.Errorf("Setting %q not declared. Can't set!", name))
+		clone.AddError(fmt.Errorf("setting %q not declared : can't set", name))
 	}
 	return clone
 }
@@ -229,9 +229,9 @@ func (con *DBCon) SetLogger(log logger) {
 // LogMode set log mode, `true` for detailed logs, `false` for no log, default, will only print error logs
 func (con *DBCon) LogMode(enable bool) *DBCon {
 	if enable {
-		con.logMode = LOG_VERBOSE
+		con.logMode = LogVerbose
 	} else {
-		con.logMode = LOG_OFF
+		con.logMode = LogOff
 	}
 	return con
 }
@@ -276,7 +276,7 @@ func (con *DBCon) First(entity interface{}, where ...interface{}) *DBCon {
 				"%v.%v %v",
 				newScope.quotedTableName(),
 				con.quote(primaryField.DBName),
-				str_ascendent),
+				strAscendent),
 		)
 	}
 
@@ -301,7 +301,7 @@ func (con *DBCon) Last(entity interface{}, where ...interface{}) *DBCon {
 				"%v.%v %v",
 				newScope.quotedTableName(),
 				con.quote(primaryField.DBName),
-				str_descendent),
+				strDescendent),
 		)
 	}
 
@@ -391,7 +391,7 @@ func (con *DBCon) FirstOrInit(out interface{}, where ...interface{}) *DBCon {
 		newScope.Search.Wheres(where...).initialize(newScope)
 	} else {
 		scope := conClone.NewScope(out)
-		args := scope.Search.getFirst(cond_assign_attrs)
+		args := scope.Search.getFirst(condAssignAttrs)
 		if args != nil {
 			updatedAttrsWithValues(scope, args.args)
 		}
@@ -415,7 +415,7 @@ func (con *DBCon) FirstOrCreate(out interface{}, where ...interface{}) *DBCon {
 		return newScope.con
 	} else if conClone.search.hasAssign() {
 		scope := conClone.NewScope(out)
-		args := scope.Search.getFirst(cond_assign_attrs)
+		args := scope.Search.getFirst(condAssignAttrs)
 		if args != nil {
 			scope = scope.postUpdate(args.args)
 		} else {
@@ -448,7 +448,7 @@ func (con *DBCon) Update(attrs ...interface{}) *DBCon {
 // UpdateColumns update attributes without callbacks
 func (con *DBCon) UpdateColumns(values interface{}) *DBCon {
 	newScope := con.NewScope(con.search.Value)
-	newScope = newScope.Set(gorm_setting_update_column, true).Set(gorm_setting_save_assoc, false).postUpdate(values)
+	newScope = newScope.Set(gormSettingUpdateColumn, true).Set(gormSettingSaveAssoc, false).postUpdate(values)
 	if con.parent.callbacks.updates.len() > 0 {
 		newScope.callCallbacks(con.parent.callbacks.updates)
 	}
@@ -738,7 +738,7 @@ func (con *DBCon) AddForeignKey(field string, dest string, onDelete string, onUp
 func (con *DBCon) Association(column string) *Association {
 	var err error
 	//ASSOCIATION_SOURCE_SETTING for plugins to extend gorm (original commit of 05.12.2016)
-	scope := con.set(gorm_setting_association_source, con.search.Value).NewScope(con.search.Value)
+	scope := con.set(gormSettingAssociationSource, con.search.Value).NewScope(con.search.Value)
 	primaryField := scope.PK()
 	if primaryField == nil {
 		err = fmt.Errorf("SCOPE : primary field is NIL - %v", scope)
@@ -766,12 +766,12 @@ func (con *DBCon) SetJoinTableHandler(source interface{}, column string, handler
 	scope := con.NewScope(source)
 	for _, field := range scope.GetModelStruct().StructFields() {
 		if field.StructName == column || field.DBName == column {
-			if field.HasSetting(set_many2many_name) {
+			if field.HasSetting(setMany2manyName) {
 				//src := con.NewScope(source).GetModelStruct().ModelType
 				destination := con.NewScope(field.Interface()).GetModelStruct().ModelType
-				handler.SetTable(field.GetStrSetting(set_many2many_name))
+				handler.SetTable(field.GetStrSetting(setMany2manyName))
 				handler.Setup(field, scope.GetModelStruct().ModelType, destination)
-				field.SetTagSetting(set_join_table_handler, handler)
+				field.SetTagSetting(setJoinTableHandler, handler)
 				table := handler.Table(con)
 				createJoinTable(con.Table(table).Unscoped().NewScope(field), field)
 			}
@@ -787,17 +787,17 @@ func (con *DBCon) AddError(err error) error {
 	if err != nil {
 		if err != ErrRecordNotFound {
 			switch con.logMode {
-			case LOG_VERBOSE:
+			case LogVerbose:
 				con.log(err)
-			case LOG_OFF:
+			case LogOff:
 				if con.search != nil {
-					go con.toLog(str_tag_sql, fileWithLineNum(), time.Duration(0), con.search.SQL, err, con.search.SQLVars)
+					go con.toLog(strTagSql, fileWithLineNum(), time.Duration(0), con.search.SQL, err, con.search.SQLVars)
 				} else {
 					go con.toLog(fileWithLineNum(), err)
 				}
-			case LOG_DEBUG:
+			case LogDebug:
 				if con.search != nil {
-					con.toLog(str_tag_sql, fullFileWithLineNum(), time.Duration(0), con.search.SQL, err, con.search.SQLVars)
+					con.toLog(strTagSql, fullFileWithLineNum(), time.Duration(0), con.search.SQL, err, con.search.SQLVars)
 				} else {
 					fmt.Printf("ERROR : %v\n%s\n", err, fullFileWithLineNum())
 				}
@@ -931,5 +931,5 @@ func (con *DBCon) log(v ...interface{}) {
 }
 
 func (con *DBCon) slog(sql string, t time.Time, vars ...interface{}) {
-	con.toLog(str_tag_sql, fileWithLineNum(), NowFunc().Sub(t), sql, nil, vars)
+	con.toLog(strTagSql, fileWithLineNum(), NowFunc().Sub(t), sql, nil, vars)
 }

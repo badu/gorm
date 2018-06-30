@@ -53,20 +53,20 @@ func (s *Search) checkInit(condType sqlConditionType) {
 func (s *Search) Preload(schema string, values ...interface{}) *Search {
 	//Note to self : order matters here : if you attempt to replace the existing item,
 	//logic will break - as in many many places
-	s.checkInit(cond_preload_query)
+	s.checkInit(condPreloadQuery)
 	//overriding sql pairs within the same schema
-	for i, pair := range s.Conditions[cond_preload_query] {
+	for i, pair := range s.Conditions[condPreloadQuery] {
 		if pair.strExpr() == schema {
 			//delete from slice
-			s.Conditions[cond_preload_query] = append(s.Conditions[cond_preload_query][:i], s.Conditions[cond_preload_query][i+1:]...)
+			s.Conditions[condPreloadQuery] = append(s.Conditions[condPreloadQuery][:i], s.Conditions[condPreloadQuery][i+1:]...)
 		}
 	}
 	//add preload
 	newPair := SqlPair{expression: schema}
 	newPair.addExpressions(values...)
 	//add the condition pair to the slice
-	s.Conditions[cond_preload_query] = append(s.Conditions[cond_preload_query], newPair)
-	s.setFlag(srch_has_preload)
+	s.Conditions[condPreloadQuery] = append(s.Conditions[condPreloadQuery], newPair)
+	s.setFlag(srchHasPreload)
 	return s
 }
 
@@ -107,101 +107,101 @@ func (s *Search) clone(value interface{}) *Search {
 
 func (s *Search) Wheres(wheres ...interface{}) *Search {
 	if len(wheres) > 0 {
-		s.addSqlCondition(cond_where_query, wheres[0], wheres[1:]...)
-		s.setFlag(srch_has_where)
+		s.addSqlCondition(condWhereQuery, wheres[0], wheres[1:]...)
+		s.setFlag(srchHasWhere)
 	}
 	return s
 }
 
 func (s *Search) initialize(scope *Scope) {
-	for _, pair := range s.Conditions[cond_where_query] {
+	for _, pair := range s.Conditions[condWhereQuery] {
 		updatedAttrsWithValues(scope, pair.expression)
 	}
-	initArgs := s.getFirst(cond_init_attrs)
+	initArgs := s.getFirst(condInitAttrs)
 	if initArgs != nil {
 		updatedAttrsWithValues(scope, initArgs.args)
 	}
-	args := s.getFirst(cond_assign_attrs)
+	args := s.getFirst(condAssignAttrs)
 	if args != nil {
 		updatedAttrsWithValues(scope, args.args)
 	}
 }
 
 func (s *Search) Where(query interface{}, values ...interface{}) *Search {
-	s.addSqlCondition(cond_where_query, query, values...)
+	s.addSqlCondition(condWhereQuery, query, values...)
 	//fmt.Printf(fullFileWithLineNum())
 	//fmt.Printf("WHERE %v %#v\n", query, values)
-	s.setFlag(srch_has_where)
+	s.setFlag(srchHasWhere)
 	return s
 }
 
 func (s *Search) Not(query interface{}, values ...interface{}) *Search {
-	s.addSqlCondition(cond_not_query, query, values...)
-	s.setFlag(srch_has_not)
+	s.addSqlCondition(condNotQuery, query, values...)
+	s.setFlag(srchHasNot)
 	return s
 }
 
 func (s *Search) Or(query interface{}, values ...interface{}) *Search {
-	s.addSqlCondition(cond_or_query, query, values...)
-	s.setFlag(srch_has_or)
+	s.addSqlCondition(condOrQuery, query, values...)
+	s.setFlag(srchHasOr)
 	return s
 }
 
 func (s *Search) Having(query string, values ...interface{}) *Search {
-	s.addSqlCondition(cond_having_query, query, values...)
-	s.setFlag(srch_has_having)
+	s.addSqlCondition(condHavingQuery, query, values...)
+	s.setFlag(srchHasHaving)
 	return s
 }
 
 func (s *Search) Joins(query string, values ...interface{}) *Search {
-	s.addSqlCondition(cond_joins_query, query, values...)
-	s.setFlag(srch_has_joins)
+	s.addSqlCondition(condJoinsQuery, query, values...)
+	s.setFlag(srchHasJoins)
 	return s
 }
 
 func (s *Search) Select(query string, args ...interface{}) *Search {
-	s.Conditions[cond_select_query] = make([]SqlPair, 0, 0)
+	s.Conditions[condSelectQuery] = make([]SqlPair, 0, 0)
 	newPair := SqlPair{expression: query}
 	newPair.addExpressions(args...)
-	s.Conditions[cond_select_query] = append(s.Conditions[cond_select_query], newPair)
+	s.Conditions[condSelectQuery] = append(s.Conditions[condSelectQuery], newPair)
 	if distinctSQLRegexp.MatchString(query) {
 		s.setIsOrderIgnored()
 	}
-	s.setFlag(srch_has_select)
+	s.setFlag(srchHasSelect)
 	return s
 }
 
 //TODO : @Badu - do the very same where we need only one instance (aka Singleton) - like select... (where getFirst is used)
 func (s *Search) Limit(limit interface{}) *Search {
-	s.Conditions[cond_limit_query] = make([]SqlPair, 0, 0)
+	s.Conditions[condLimitQuery] = make([]SqlPair, 0, 0)
 	newPair := SqlPair{}
 	newPair.addExpressions(limit)
-	s.Conditions[cond_limit_query] = append(s.Conditions[cond_limit_query], newPair)
+	s.Conditions[condLimitQuery] = append(s.Conditions[condLimitQuery], newPair)
 
-	s.setFlag(srch_has_offset_or_limit)
+	s.setFlag(srchHasOffsetOrLimit)
 	return s
 }
 
 func (s *Search) Offset(offset interface{}) *Search {
-	s.Conditions[cond_offset_query] = make([]SqlPair, 0, 0)
+	s.Conditions[condOffsetQuery] = make([]SqlPair, 0, 0)
 	newPair := SqlPair{}
 	newPair.addExpressions(offset)
-	s.Conditions[cond_offset_query] = append(s.Conditions[cond_offset_query], newPair)
-	s.setFlag(srch_has_offset_or_limit)
+	s.Conditions[condOffsetQuery] = append(s.Conditions[condOffsetQuery], newPair)
+	s.setFlag(srchHasOffsetOrLimit)
 	return s
 }
 
 func (s *Search) Group(query string) *Search {
-	s.addSqlCondition(cond_group_query, query, nil)
-	s.setFlag(srch_has_group)
+	s.addSqlCondition(condGroupQuery, query, nil)
+	s.setFlag(srchHasGroup)
 	return s
 }
 
 func (s *Search) Attrs(attrs ...interface{}) *Search {
 	result := argsToInterface(attrs...)
 	if result != nil {
-		s.addSqlCondition(cond_init_attrs, nil, result)
-		s.setFlag(srch_has_init)
+		s.addSqlCondition(condInitAttrs, nil, result)
+		s.setFlag(srchHasInit)
 	}
 	return s
 }
@@ -209,8 +209,8 @@ func (s *Search) Attrs(attrs ...interface{}) *Search {
 func (s *Search) Assign(attrs ...interface{}) *Search {
 	result := argsToInterface(attrs...)
 	if result != nil {
-		s.addSqlCondition(cond_assign_attrs, nil, result)
-		s.setFlag(srch_has_assign)
+		s.addSqlCondition(condAssignAttrs, nil, result)
+		s.setFlag(srchHasAssign)
 	}
 	return s
 }
@@ -218,17 +218,17 @@ func (s *Search) Assign(attrs ...interface{}) *Search {
 func (s *Search) Order(value interface{}, reorder ...bool) *Search {
 	if len(reorder) > 0 && reorder[0] {
 		//reseting existing entry
-		s.Conditions[cond_order_query] = make([]SqlPair, 0, 0)
+		s.Conditions[condOrderQuery] = make([]SqlPair, 0, 0)
 	}
 	if value != nil {
-		s.addSqlCondition(cond_order_query, nil, value)
-		s.setFlag(srch_has_order)
+		s.addSqlCondition(condOrderQuery, nil, value)
+		s.setFlag(srchHasOrder)
 	}
 	return s
 }
 
 func (s *Search) Omit(columns ...string) *Search {
-	s.checkInit(cond_omits_query)
+	s.checkInit(condOmitsQuery)
 	//add omit
 	newPair := SqlPair{}
 	//transfer slices (copy) - strings to interface
@@ -237,9 +237,9 @@ func (s *Search) Omit(columns ...string) *Search {
 		newPair.args[i] = v
 	}
 	//add the condition pair to the slice
-	s.Conditions[cond_omits_query] = append(s.Conditions[cond_omits_query], newPair)
+	s.Conditions[condOmitsQuery] = append(s.Conditions[condOmitsQuery], newPair)
 	//fmt.Printf("Omit %d elements\n", s.numConditions(omits_query))
-	s.setFlag(srch_has_omits)
+	s.setFlag(srchHasOmits)
 	return s
 }
 
@@ -285,66 +285,66 @@ func (s *Search) unsetFlag(value uint16) {
 }
 
 func (s *Search) isOrderIgnored() bool {
-	return s.flags&(1<<srch_is_order_ignored) != 0
+	return s.flags&(1<<srchIsOrderIgnored) != 0
 }
 
 func (s *Search) hasSelect() bool {
-	return s.flags&(1<<srch_has_select) != 0
+	return s.flags&(1<<srchHasSelect) != 0
 }
 
 func (s *Search) hasJoins() bool {
-	return s.flags&(1<<srch_has_joins) != 0
+	return s.flags&(1<<srchHasJoins) != 0
 }
 
 func (s *Search) hasOrder() bool {
-	return s.flags&(1<<srch_has_order) != 0
+	return s.flags&(1<<srchHasOrder) != 0
 }
 
 func (s *Search) hasAssign() bool {
-	return s.flags&(1<<srch_has_assign) != 0
+	return s.flags&(1<<srchHasAssign) != 0
 }
 
 func (s *Search) hasPreload() bool {
-	return s.flags&(1<<srch_has_preload) != 0
+	return s.flags&(1<<srchHasPreload) != 0
 }
 
 func (s *Search) hasHaving() bool {
-	return s.flags&(1<<srch_has_having) != 0
+	return s.flags&(1<<srchHasHaving) != 0
 }
 
 func (s *Search) hasGroup() bool {
-	return s.flags&(1<<srch_has_group) != 0
+	return s.flags&(1<<srchHasGroup) != 0
 }
 
 func (s *Search) hasOffsetOrLimit() bool {
-	return s.flags&(1<<srch_has_offset_or_limit) != 0
+	return s.flags&(1<<srchHasOffsetOrLimit) != 0
 }
 
 func (s *Search) setIsOrderIgnored() *Search {
-	s.flags = s.flags | (1 << srch_is_order_ignored)
+	s.flags = s.flags | (1 << srchIsOrderIgnored)
 	return s
 }
 
 func (s *Search) IsRaw() bool {
-	return s.flags&(1<<srch_is_raw) != 0
+	return s.flags&(1<<srchIsRaw) != 0
 }
 
 func (s *Search) SetRaw() *Search {
-	s.flags = s.flags | (1 << srch_is_raw)
+	s.flags = s.flags | (1 << srchIsRaw)
 	return s
 }
 
 func (s *Search) isUnscoped() bool {
-	return s.flags&(1<<srch_is_unscoped) != 0
+	return s.flags&(1<<srchIsUnscoped) != 0
 }
 
 func (s *Search) setUnscoped() *Search {
-	s.flags = s.flags | (1 << srch_is_unscoped)
+	s.flags = s.flags | (1 << srchIsUnscoped)
 	return s
 }
 
 func (s *Search) checkFieldIncluded(field *StructField) bool {
-	fromPair := s.getFirst(cond_select_query)
+	fromPair := s.getFirst(condSelectQuery)
 	if fromPair != nil {
 		strs := fromPair.strExpr()
 		if field.StructName == strs || field.DBName == strs {
@@ -362,7 +362,7 @@ func (s *Search) checkFieldIncluded(field *StructField) bool {
 }
 
 func (s *Search) checkFieldOmitted(field *StructField) bool {
-	pair := s.getFirst(cond_omits_query)
+	pair := s.getFirst(condOmitsQuery)
 	if pair == nil {
 		return false
 	}
@@ -396,12 +396,12 @@ func (s *Search) whereSQL(scope *Scope) string {
 		quotedTableName                = scope.quotedTableName()
 	)
 
-	if !s.isUnscoped() && scope.GetModelStruct().HasColumn(field_deleted_at_name) {
+	if !s.isUnscoped() && scope.GetModelStruct().HasColumn(fieldDeletedAtName) {
 
 		if primarySQL != "" {
 			primarySQL += " AND "
 		}
-		primarySQL += fmt.Sprintf("%v.%s IS NULL", quotedTableName, field_deleted_at_name)
+		primarySQL += fmt.Sprintf("%v.%s IS NULL", quotedTableName, fieldDeletedAtName)
 	}
 
 	if !scope.PrimaryKeyZero() {
@@ -419,7 +419,7 @@ func (s *Search) whereSQL(scope *Scope) string {
 		}
 	}
 
-	for _, pair := range s.Conditions[cond_where_query] {
+	for _, pair := range s.Conditions[condWhereQuery] {
 		if aStr := s.buildWhereCondition(pair, scope); aStr != "" {
 			if andSQL != "" {
 				andSQL += " AND "
@@ -428,7 +428,7 @@ func (s *Search) whereSQL(scope *Scope) string {
 		}
 	}
 
-	for _, pair := range s.Conditions[cond_not_query] {
+	for _, pair := range s.Conditions[condNotQuery] {
 		if aStr := s.buildNotCondition(pair, scope); aStr != "" {
 			if andSQL != "" {
 				andSQL += " AND "
@@ -437,7 +437,7 @@ func (s *Search) whereSQL(scope *Scope) string {
 		}
 	}
 
-	for _, pair := range s.Conditions[cond_or_query] {
+	for _, pair := range s.Conditions[condOrQuery] {
 		if aStr := s.buildWhereCondition(pair, scope); aStr != "" {
 			if orSQL != "" {
 				orSQL += " OR "
@@ -699,7 +699,7 @@ func (s *Search) combinedConditionSql(scope *Scope) string {
 	//Attention : if we don't build joinSql first, joins will fail (it's mixing up the where clauses of the joins)
 	//-= creating Joins =-
 	SQL := ""
-	for _, pair := range s.Conditions[cond_joins_query] {
+	for _, pair := range s.Conditions[condJoinsQuery] {
 		if aStr := s.buildWhereCondition(pair, scope); aStr != "" {
 			if SQL != "" {
 				SQL += " "
@@ -722,14 +722,14 @@ func (s *Search) combinedConditionSql(scope *Scope) string {
 
 	//-= creating Group =-
 	if s.hasGroup() {
-		SQL += " GROUP BY " + s.Conditions[cond_group_query][0].expression.(string)
+		SQL += " GROUP BY " + s.Conditions[condGroupQuery][0].expression.(string)
 	}
 	//-= end creating Group =-
 
 	//-= creating Having =-
 	if s.hasHaving() {
 		combinedSQL := ""
-		for _, pair := range s.Conditions[cond_having_query] {
+		for _, pair := range s.Conditions[condHavingQuery] {
 			if aStr := s.buildWhereCondition(pair, scope); aStr != "" {
 				if combinedSQL != "" {
 					combinedSQL += " AND "
@@ -747,7 +747,7 @@ func (s *Search) combinedConditionSql(scope *Scope) string {
 	if s.hasOrder() && !s.isOrderIgnored() {
 		dialect := scope.con.parent.dialect
 		orderSQL := ""
-		for _, orderPair := range s.Conditions[cond_order_query] {
+		for _, orderPair := range s.Conditions[condOrderQuery] {
 			if str, ok := orderPair.args[0].(string); ok {
 				if orderSQL != "" {
 					orderSQL += ","
@@ -774,12 +774,12 @@ func (s *Search) combinedConditionSql(scope *Scope) string {
 		limitValue := -1
 		offsetValue := -1
 
-		if len(s.Conditions[cond_limit_query]) > 0 {
-			limitValue = s.Conditions[cond_limit_query][0].args[0].(int)
+		if len(s.Conditions[condLimitQuery]) > 0 {
+			limitValue = s.Conditions[condLimitQuery][0].args[0].(int)
 		}
 
-		if len(s.Conditions[cond_offset_query]) > 0 {
-			offsetValue = s.Conditions[cond_offset_query][0].args[0].(int)
+		if len(s.Conditions[condOffsetQuery]) > 0 {
+			offsetValue = s.Conditions[condOffsetQuery][0].args[0].(int)
 
 		}
 		limitAndOffsetSQL := scope.con.parent.dialect.LimitAndOffsetSQL(limitValue, offsetValue)
@@ -795,10 +795,10 @@ func (s *Search) prepareQuerySQL(scope *Scope) {
 	} else {
 		selectSQL := ""
 		if s.hasSelect() {
-			fromPair := s.getFirst(cond_select_query)
+			fromPair := s.getFirst(condSelectQuery)
 			if fromPair == nil {
 				//error has occurred in getting first item in slice
-				scope.Warn(fmt.Errorf("Error : error has occurred in getting first item in slice for SELECT"))
+				scope.Warn(fmt.Errorf("error has occurred in getting first item in slice for SELECT"))
 				selectSQL = ""
 			} else {
 				switch value := fromPair.expression.(type) {
@@ -833,20 +833,20 @@ func (s *Search) prepareQuerySQL(scope *Scope) {
 		} else if s.hasJoins() {
 			selectSQL = fmt.Sprintf("%v.*", scope.quotedTableName())
 		} else {
-			selectSQL = str_everything
+			selectSQL = strEverything
 		}
 
 		scope.Raw(fmt.Sprintf("SELECT %v FROM %v %v", selectSQL, scope.quotedTableName(), s.combinedConditionSql(scope)))
 	}
 }
 
-func (srch *Search) doPreload(scope *Scope) {
+func (s *Search) doPreload(scope *Scope) {
 	var (
 		preloadedMap = map[string]bool{}
 		fields       = scope.Fields()
 	)
 
-	for _, sqlPair := range srch.Conditions[cond_preload_query] {
+	for _, sqlPair := range s.Conditions[condPreloadQuery] {
 		var (
 			preloadFields = strings.Split(sqlPair.strExpr(), ".")
 			currentScope  = scope
@@ -874,12 +874,12 @@ func (srch *Search) doPreload(scope *Scope) {
 					}
 
 					switch field.RelKind() {
-					case rel_has_one, rel_has_many, rel_belongs_to:
+					case relHasOne, relHasMany, relBelongsTo:
 						handleRelationPreload(currentScope, field, currentPreloadConditions)
-					case rel_many2many:
+					case relMany2many:
 						handleManyToManyPreload(currentScope, field, currentPreloadConditions)
 					default:
-						scope.Err(fmt.Errorf(err_unsupported_relation, field.RelKind()))
+						scope.Err(fmt.Errorf(errUnsupportedRelation, field.RelKind()))
 					}
 
 					preloadedMap[preloadKey] = true
@@ -888,7 +888,7 @@ func (srch *Search) doPreload(scope *Scope) {
 
 				if !preloadedMap[preloadKey] {
 					scope.Err(
-						fmt.Errorf(err_cant_preload,
+						fmt.Errorf(errCantPreload,
 							preloadField,
 							currentScope.GetModelStruct().ModelType))
 					return

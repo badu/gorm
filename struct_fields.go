@@ -1,9 +1,9 @@
 package gorm
 
-func (sf *StructFields) add(field *StructField) {
-	*sf = append(*sf, field)
+func (s *StructFields) add(field *StructField) {
+	*s = append(*s, field)
 }
 
-func (sf *StructFields) len() int {
-	return len(*sf)
+func (s *StructFields) len() int {
+	return len(*s)
 }

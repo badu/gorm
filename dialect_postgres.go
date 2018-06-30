@@ -8,29 +8,29 @@ import (
 )
 
 const (
-	PG_DIALECT_NAME = "postgres"
-	PG_BOOLEAN_TYPE = "boolean"
-	PG_INT_TYPE     = "integer"
-	PG_SERIAL       = "serial"
-	PG_BIG_SERIAL   = "bigserial"
-	PG_BIGINT       = "bigint"
-	PG_NUMERIC      = "numeric"
-	PG_TEXT         = "text"
-	PG_TIMESTAMP    = "timestamp with time zone"
-	PG_VARCHAR      = "varchar(%d)"
-	PG_HSTORE       = "hstore"
-	PG_BYTEA        = "bytea"
-	PG_UUID         = "uuid"
+	PgDialectName = "postgres"
+	PgBooleanType = "boolean"
+	PgIntType     = "integer"
+	PgSerial      = "serial"
+	PgBigSerial   = "bigserial"
+	PgBigint      = "bigint"
+	PgNumeric     = "numeric"
+	PgText        = "text"
+	PgTimestamp   = "timestamp with time zone"
+	PgVarchar     = "varchar(%d)"
+	PgHstore      = "hstore"
+	PgBytea       = "bytea"
+	PgUuid        = "uuid"
 
-	PG_HASINDEX_SQL  = "SELECT count(*) FROM pg_indexes WHERE tablename = $1 AND indexname = $2"
-	PG_HASFK_SQL     = "SELECT count(con.conname) FROM pg_constraint con WHERE $1::regclass::oid = con.conrelid AND con.conname = $2 AND con.contype='f'"
-	PG_HASTABLE_SQL  = "SELECT count(*) FROM INFORMATION_SCHEMA.tables WHERE table_name = $1 AND table_type = 'BASE TABLE'"
-	PG_HASCOLUMN_SQL = "SELECT count(*) FROM INFORMATION_SCHEMA.columns WHERE table_name = $1 AND column_name = $2"
-	PG_CURRDB_SQL    = "SELECT CURRENT_DATABASE()"
+	PgHasindexSql  = "SELECT count(*) FROM pg_indexes WHERE tablename = $1 AND indexname = $2"
+	PgHasfkSql     = "SELECT count(con.conname) FROM pg_constraint con WHERE $1::regclass::oid = con.conrelid AND con.conname = $2 AND con.contype='f'"
+	PgHastableSql  = "SELECT count(*) FROM INFORMATION_SCHEMA.tables WHERE table_name = $1 AND table_type = 'BASE TABLE'"
+	PgHascolumnSql = "SELECT count(*) FROM INFORMATION_SCHEMA.columns WHERE table_name = $1 AND column_name = $2"
+	PgCurrdbSql    = "SELECT CURRENT_DATABASE()"
 )
 
 func (postgres) GetName() string {
-	return PG_DIALECT_NAME
+	return PgDialectName
 }
 
 func (postgres) BindVar(i int) string {
@@ -43,53 +43,53 @@ func (postgres) DataTypeOf(field *StructField) string {
 	if sqlType == "" {
 		switch dataValue.Kind() {
 		case reflect.Bool:
-			sqlType = PG_BOOLEAN_TYPE
+			sqlType = PgBooleanType
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uintptr:
 			if field.IsAutoIncrement() || field.IsPrimaryKey() {
 				field.SetIsAutoIncrement()
-				sqlType = PG_SERIAL
+				sqlType = PgSerial
 			} else {
-				sqlType = PG_INT_TYPE
+				sqlType = PgIntType
 			}
 		case reflect.Int64, reflect.Uint64:
 			if field.IsAutoIncrement() || field.IsPrimaryKey() {
 				field.SetIsAutoIncrement()
-				sqlType = PG_BIG_SERIAL
+				sqlType = PgBigSerial
 			} else {
-				sqlType = PG_BIGINT
+				sqlType = PgBigint
 			}
 		case reflect.Float32, reflect.Float64:
-			sqlType = PG_NUMERIC
+			sqlType = PgNumeric
 		case reflect.String:
-			if !field.HasSetting(set_size) {
+			if !field.HasSetting(setSize) {
 				// if SIZE haven't been set, use `text` as the default type, as there are no performance different
 				size = 0
 			}
 
 			if size > 0 && size < 65532 {
-				sqlType = fmt.Sprintf(PG_VARCHAR, size)
+				sqlType = fmt.Sprintf(PgVarchar, size)
 			} else {
-				sqlType = PG_TEXT
+				sqlType = PgText
 			}
 		case reflect.Struct:
 			if _, ok := dataValue.Interface().(time.Time); ok {
-				sqlType = PG_TIMESTAMP
+				sqlType = PgTimestamp
 			}
 		case reflect.Map:
 			if dataValue.Type().Name() == "Hstore" {
-				sqlType = PG_HSTORE
+				sqlType = PgHstore
 			}
 		default:
 			if (dataValue.Kind() == reflect.Array ||
 				dataValue.Kind() == reflect.Slice) &&
 				dataValue.Type().Elem() == reflect.TypeOf(uint8(0)) {
-				sqlType = PG_BYTEA
+				sqlType = PgBytea
 			} else if dataValue.Kind() == reflect.Array &&
 				dataValue.Type().Len() == 16 {
 				typename := dataValue.Type().Name()
 				lower := strings.ToLower(typename)
 				if "uuid" == lower || "guid" == lower {
-					sqlType = PG_UUID
+					sqlType = PgUuid
 				}
 			}
 		}
@@ -105,36 +105,36 @@ func (postgres) DataTypeOf(field *StructField) string {
 	return fmt.Sprintf("%v %v", sqlType, additionalType)
 }
 
-func (dialect postgres) HasIndex(tableName string, indexName string) bool {
+func (p postgres) HasIndex(tableName string, indexName string) bool {
 	var count int
-	dialect.db.QueryRow(PG_HASINDEX_SQL, tableName, indexName).Scan(&count)
+	p.db.QueryRow(PgHasindexSql, tableName, indexName).Scan(&count)
 	return count > 0
 }
 
-func (dialect postgres) HasForeignKey(tableName string, foreignKeyName string) bool {
+func (p postgres) HasForeignKey(tableName string, foreignKeyName string) bool {
 	var count int
-	dialect.db.QueryRow(PG_HASFK_SQL, tableName, foreignKeyName).Scan(&count)
+	p.db.QueryRow(PgHasfkSql, tableName, foreignKeyName).Scan(&count)
 	return count > 0
 }
 
-func (dialect postgres) HasTable(tableName string) bool {
+func (p postgres) HasTable(tableName string) bool {
 	var count int
-	dialect.db.QueryRow(PG_HASTABLE_SQL, tableName).Scan(&count)
+	p.db.QueryRow(PgHastableSql, tableName).Scan(&count)
 	return count > 0
 }
 
-func (dialect postgres) HasColumn(tableName string, columnName string) bool {
+func (p postgres) HasColumn(tableName string, columnName string) bool {
 	var count int
-	dialect.db.QueryRow(PG_HASCOLUMN_SQL, tableName, columnName).Scan(&count)
+	p.db.QueryRow(PgHascolumnSql, tableName, columnName).Scan(&count)
 	return count > 0
 }
 
-func (dialect postgres) CurrentDatabase() (name string) {
-	dialect.db.QueryRow(PG_CURRDB_SQL).Scan(&name)
+func (p postgres) CurrentDatabase() (name string) {
+	p.db.QueryRow(PgCurrdbSql).Scan(&name)
 	return
 }
 
-func (dialect postgres) LastInsertIDReturningSuffix(tableName, key string) string {
+func (p postgres) LastInsertIDReturningSuffix(tableName, key string) string {
 	return fmt.Sprintf("RETURNING %v.%v", tableName, key)
 }
 

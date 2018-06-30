@@ -48,17 +48,17 @@ func Update(t *testing.T) {
 		t.Errorf("Product should not be changed to 789")
 	}
 
-	if TestDB.Model(product2).Update(Field_created_at, time.Now().Add(time.Hour)).Error != nil {
+	if TestDB.Model(product2).Update(FieldCreatedAt, time.Now().Add(time.Hour)).Error != nil {
 		t.Error("No error should raise when update with CamelCase")
 	}
 
-	if TestDB.Model(&product2).UpdateColumn(Field_created_at, time.Now().Add(time.Hour)).Error != nil {
+	if TestDB.Model(&product2).UpdateColumn(FieldCreatedAt, time.Now().Add(time.Hour)).Error != nil {
 		t.Error("No error should raise when update_column with CamelCase")
 	}
 
 	var products []Product
 	TestDB.Find(&products)
-	if count := TestDB.Model(Product{}).Update(Field_created_at, time.Now().Add(2*time.Hour)).RowsAffected; count != int64(len(products)) {
+	if count := TestDB.Model(Product{}).Update(FieldCreatedAt, time.Now().Add(2*time.Hour)).RowsAffected; count != int64(len(products)) {
 		t.Error("RowsAffected should be correct when do batch update")
 	}
 
@@ -88,7 +88,7 @@ func UpdateWithNoStdPrimaryKeyAndDefaultValues(t *testing.T) {
 
 	var animals []Animal
 	TestDB.Find(&animals)
-	if count := TestDB.Model(Animal{}).Update(Field_created_at, time.Now().Add(2*time.Hour)).RowsAffected; count != int64(len(animals)) {
+	if count := TestDB.Model(Animal{}).Update(FieldCreatedAt, time.Now().Add(2*time.Hour)).RowsAffected; count != int64(len(animals)) {
 		t.Error("RowsAffected should be correct when do batch update")
 	}
 

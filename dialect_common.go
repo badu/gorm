@@ -10,29 +10,29 @@ import (
 )
 
 const (
-	COMMON_DIALECT_NAME   = "common"
-	COMMON_BOOLEAN        = "BOOLEAN"
-	COMMON_INTEGER        = "INTEGER"
-	COMMON_AUTO_INCREMENT = "INTEGER AUTO_INCREMENT"
-	COMMON_BIGINT         = "BIGINT"
-	COMMON_FLOAT          = "FLOAT"
-	COMMON_VARCHAR        = "VARCHAR"
-	COMMON_TIMESTAMP      = "TIMESTAMP"
-	COMMON_BINARY         = "BINARY"
+	CommonDialectName   = "common"
+	CommonBoolean       = "BOOLEAN"
+	CommonInteger       = "INTEGER"
+	CommonAutoIncrement = "INTEGER AUTO_INCREMENT"
+	CommonBigint        = "BIGINT"
+	CommonFloat         = "FLOAT"
+	CommonVarchar       = "VARCHAR"
+	CommonTimestamp     = "TIMESTAMP"
+	CommonBinary        = "BINARY"
 
-	COMMON_HASINDEXSQL   = "SELECT count(*) FROM INFORMATION_SCHEMA.STATISTICS WHERE table_schema = ? AND table_name = ? AND index_name = ?"
-	COMMON_DROPINDEX     = "DROP INDEX %v"
-	COMMON_HASTABLE_SQL  = "SELECT count(*) FROM INFORMATION_SCHEMA.TABLES WHERE table_schema = ? AND table_name = ?"
-	COMMON_HASCOLUMN_SQL = "SELECT count(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE table_schema = ? AND table_name = ? AND column_name = ?"
-	COMMON_SELECT_DB     = "SELECT DATABASE()"
+	CommonHasindexsql  = "SELECT count(*) FROM INFORMATION_SCHEMA.STATISTICS WHERE table_schema = ? AND table_name = ? AND index_name = ?"
+	CommonDropindex    = "DROP INDEX %v"
+	CommonHastableSql  = "SELECT count(*) FROM INFORMATION_SCHEMA.TABLES WHERE table_schema = ? AND table_name = ?"
+	CommonHascolumnSql = "SELECT count(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE table_schema = ? AND table_name = ? AND column_name = ?"
+	CommonSelectDb     = "SELECT DATABASE()"
 )
 
 func (commonDialect) GetName() string {
-	return COMMON_DIALECT_NAME
+	return CommonDialectName
 }
 
-func (dialect *commonDialect) SetDB(db *sql.DB) {
-	dialect.db = db
+func (c *commonDialect) SetDB(db *sql.DB) {
+	c.db = db
 }
 
 func (commonDialect) BindVar(i int) string {
@@ -49,37 +49,37 @@ func (commonDialect) DataTypeOf(field *StructField) string {
 	if sqlType == "" {
 		switch dataValue.Kind() {
 		case reflect.Bool:
-			sqlType = COMMON_BOOLEAN
+			sqlType = CommonBoolean
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uintptr:
 			if field.IsAutoIncrement() {
-				sqlType = fmt.Sprintf("%s %s", COMMON_BOOLEAN, COMMON_AUTO_INCREMENT)
+				sqlType = fmt.Sprintf("%s %s", CommonBoolean, CommonAutoIncrement)
 			} else {
-				sqlType = COMMON_INTEGER
+				sqlType = CommonInteger
 			}
 		case reflect.Int64, reflect.Uint64:
 			if field.IsAutoIncrement() {
-				sqlType = fmt.Sprintf("%s %s", COMMON_BIGINT, COMMON_AUTO_INCREMENT)
+				sqlType = fmt.Sprintf("%s %s", CommonBigint, CommonAutoIncrement)
 			} else {
-				sqlType = COMMON_BIGINT
+				sqlType = CommonBigint
 			}
 		case reflect.Float32, reflect.Float64:
-			sqlType = COMMON_FLOAT
+			sqlType = CommonFloat
 		case reflect.String:
 			if size > 0 && size < 65532 {
-				sqlType = fmt.Sprintf("%s(%d)", COMMON_VARCHAR, size)
+				sqlType = fmt.Sprintf("%s(%d)", CommonVarchar, size)
 			} else {
-				sqlType = fmt.Sprintf("%s(%d)", COMMON_VARCHAR, 65532)
+				sqlType = fmt.Sprintf("%s(%d)", CommonVarchar, 65532)
 			}
 		case reflect.Struct:
 			if _, ok := dataValue.Interface().(time.Time); ok {
-				sqlType = COMMON_TIMESTAMP
+				sqlType = CommonTimestamp
 			}
 		default:
 			if _, ok := dataValue.Interface().([]byte); ok {
 				if size > 0 && size < 65532 {
-					sqlType = fmt.Sprintf("%s(%d)", COMMON_BINARY, size)
+					sqlType = fmt.Sprintf("%s(%d)", CommonBinary, size)
 				} else {
-					sqlType = fmt.Sprintf("%s(%d)", COMMON_BINARY, 65532)
+					sqlType = fmt.Sprintf("%s(%d)", CommonBinary, 65532)
 				}
 			}
 		}
@@ -95,14 +95,14 @@ func (commonDialect) DataTypeOf(field *StructField) string {
 	return fmt.Sprintf("%v %v", sqlType, additionalType)
 }
 
-func (dialect commonDialect) HasIndex(tableName string, indexName string) bool {
+func (c commonDialect) HasIndex(tableName string, indexName string) bool {
 	var count int
-	dialect.db.QueryRow(COMMON_HASINDEXSQL, dialect.CurrentDatabase(), tableName, indexName).Scan(&count)
+	c.db.QueryRow(CommonHasindexsql, c.CurrentDatabase(), tableName, indexName).Scan(&count)
 	return count > 0
 }
 
-func (dialect commonDialect) RemoveIndex(tableName string, indexName string) error {
-	_, err := dialect.db.Exec(fmt.Sprintf(COMMON_DROPINDEX, indexName))
+func (c commonDialect) RemoveIndex(tableName string, indexName string) error {
+	_, err := c.db.Exec(fmt.Sprintf(CommonDropindex, indexName))
 	return err
 }
 
@@ -111,20 +111,20 @@ func (commonDialect) HasForeignKey(tableName string, foreignKeyName string) bool
 }
 
 //TODO : cache tables and provide cached response (faster init)
-func (dialect commonDialect) HasTable(tableName string) bool {
+func (c commonDialect) HasTable(tableName string) bool {
 	var count int
-	dialect.db.QueryRow(COMMON_HASTABLE_SQL, dialect.CurrentDatabase(), tableName).Scan(&count)
+	c.db.QueryRow(CommonHastableSql, c.CurrentDatabase(), tableName).Scan(&count)
 	return count > 0
 }
 
-func (dialect commonDialect) HasColumn(tableName string, columnName string) bool {
+func (c commonDialect) HasColumn(tableName string, columnName string) bool {
 	var count int
-	dialect.db.QueryRow(COMMON_HASCOLUMN_SQL, dialect.CurrentDatabase(), tableName, columnName).Scan(&count)
+	c.db.QueryRow(CommonHascolumnSql, c.CurrentDatabase(), tableName, columnName).Scan(&count)
 	return count > 0
 }
 
-func (dialect commonDialect) CurrentDatabase() (name string) {
-	dialect.db.QueryRow(COMMON_SELECT_DB).Scan(&name)
+func (c commonDialect) CurrentDatabase() (name string) {
+	c.db.QueryRow(CommonSelectDb).Scan(&name)
 	return
 }
 

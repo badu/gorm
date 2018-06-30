@@ -52,22 +52,22 @@ func (t TagSettings) String() string {
 
 	for key, value := range t.Uint8Map {
 		switch key {
-		case set_associationforeignkey,
-			set_foreignkey,
-			set_foreign_field_names,
-			set_foreign_db_names,
-			set_association_foreign_field_names,
-			set_association_foreign_db_names:
+		case setAssociationforeignkey,
+			setForeignkey,
+			setForeignFieldNames,
+			setForeignDbNames,
+			setAssociationForeignFieldNames,
+			setAssociationForeignDbNames:
 			slice, ok := value.(StrSlice)
 			if ok {
 				collector.add("\t\t\t%s=%s (%d strings)\n", cachedReverseTagSettingsMap[key], slice, slice.len())
 			}
-		case set_relation_kind:
+		case setRelationKind:
 			kind, ok := value.(uint8)
 			if ok {
 				collector.add("\t\t\t%s=%s\n", cachedReverseTagSettingsMap[key], kindNamesMap[kind])
 			}
-		case set_join_table_handler:
+		case setJoinTableHandler:
 			collector.add("\t\t\tHAS %s\n", cachedReverseTagSettingsMap[key])
 		default:
 			if value == "" {

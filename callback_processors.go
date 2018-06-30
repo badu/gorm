@@ -2,29 +2,29 @@ package gorm
 
 import "fmt"
 
-func (cps *CallbacksProcessors) add(proc ...*CallbacksProcessor) {
-	*cps = append(*cps, proc...)
+func (p *CallbacksProcessors) add(proc ...*CallbacksProcessor) {
+	*p = append(*p, proc...)
 }
 
-func (cps *CallbacksProcessors) len() int {
-	return len(*cps)
+func (p *CallbacksProcessors) len() int {
+	return len(*p)
 }
 
-func (cps *CallbacksProcessors) reorder(ofCallback *Callbacks) {
+func (p *CallbacksProcessors) reorder(ofCallback *Callbacks) {
 	var creates, updates, deletes, queries, rowQueries CallbacksProcessors
 	//collect processors by their kind
-	for _, processor := range *cps {
+	for _, processor := range *p {
 		if processor.name != "" {
 			switch processor.kind {
-			case cb_create:
+			case createCallback:
 				creates.add(processor)
-			case cb_update:
+			case updateCallback:
 				updates.add(processor)
-			case cb_delete:
+			case deleteCallback:
 				deletes.add(processor)
-			case cb_query:
+			case queryCallback:
 				queries.add(processor)
-			case cb_row:
+			case rowCallback:
 				rowQueries.add(processor)
 			}
 		}
@@ -49,24 +49,24 @@ func (cps *CallbacksProcessors) reorder(ofCallback *Callbacks) {
 }
 
 // sortProcessors sort callback processors based on its before, after, remove, replace
-func (cps CallbacksProcessors) sortProcessors() ScopedFuncs {
+func (p CallbacksProcessors) sortProcessors() ScopedFuncs {
 	var allNames, sortedNames StrSlice
 	var sortedFuncs ScopedFuncs
 
-	for _, cp := range cps {
+	for _, cp := range p {
 		// show warning message the callback name already exists
 		if index := allNames.rIndex(cp.name); index > -1 && !cp.replace && !cp.remove {
 			fmt.Printf("[warning] duplicated callback `%v` from %v\n", cp.name, fileWithLineNum())
 		}
 		allNames.add(cp.name)
 	}
-	for _, cp := range cps {
-		cp.sortCallbackProcessor(&allNames, &sortedNames, cps)
+	for _, cp := range p {
+		cp.sortCallbackProcessor(&allNames, &sortedNames, p)
 	}
 
 	for _, name := range sortedNames {
-		if index := allNames.rIndex(name); !cps[index].remove {
-			sortedFuncs.add(cps[index].processor)
+		if index := allNames.rIndex(name); !p[index].remove {
+			sortedFuncs.add(p[index].processor)
 		}
 	}
 	return sortedFuncs

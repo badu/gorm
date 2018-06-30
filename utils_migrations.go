@@ -8,7 +8,7 @@ import (
 //used in autoMigrate and createTable
 func createJoinTable(scope *Scope, field *StructField) {
 	//ignore fields without join table handler
-	if !field.HasSetting(set_join_table_handler) {
+	if !field.HasSetting(setJoinTableHandler) {
 		return
 	}
 	var (
@@ -22,7 +22,7 @@ func createJoinTable(scope *Scope, field *StructField) {
 	if !dialect.HasTable(tableName) {
 		// getTableOptions return the table options string or an empty string if the table options does not exist
 		// It's settable by end user
-		tableOptions, ok := scope.Get(gorm_setting_table_opt)
+		tableOptions, ok := scope.Get(gormSettingTableOpt)
 		if !ok {
 			tableOptions = ""
 		} else {
@@ -149,7 +149,7 @@ func createTable(scope *Scope) {
 			// Check if the primary key constraint was specified as
 			// part of the column type. If so, we can only support
 			// one column as the primary key.
-			if strings.Contains(strings.ToLower(sqlTag), str_primary_key) {
+			if strings.Contains(strings.ToLower(sqlTag), strPrimaryKey) {
 				primaryKeyInColumnType = true
 			}
 			if tags != "" {
@@ -175,7 +175,7 @@ func createTable(scope *Scope) {
 
 	// getTableOptions return the table options string or an empty string if the table options does not exist
 	// It's settable by end user
-	tableOptions, ok := scope.Get(gorm_setting_table_opt)
+	tableOptions, ok := scope.Get(gormSettingTableOpt)
 	if !ok {
 		tableOptions = ""
 	} else {
@@ -271,20 +271,20 @@ func autoIndex(scope *Scope) {
 
 	for _, field := range scope.GetModelStruct().StructFields() {
 
-		if field.HasSetting(set_index) {
-			names := strings.Split(field.GetStrSetting(set_index), ",")
+		if field.HasSetting(setIndex) {
+			names := strings.Split(field.GetStrSetting(setIndex), ",")
 
 			for _, name := range names {
-				if name == tag_index || name == "" {
+				if name == tagIndex || name == "" {
 					name = fmt.Sprintf("idx_%v_%v", scope.TableName(), field.DBName)
 				}
 				indexes[name] = append(indexes[name], field.DBName)
 			}
 		}
-		if field.HasSetting(set_unique_index) {
-			names := strings.Split(field.GetStrSetting(set_unique_index), ",")
+		if field.HasSetting(setUniqueIndex) {
+			names := strings.Split(field.GetStrSetting(setUniqueIndex), ",")
 			for _, name := range names {
-				if name == tag_unique_index || name == "" {
+				if name == tagUniqueIndex || name == "" {
 					name = fmt.Sprintf("uix_%v_%v", scope.TableName(), field.DBName)
 				}
 				uniqueIndexes[name] = append(uniqueIndexes[name], field.DBName)

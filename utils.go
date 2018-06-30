@@ -171,7 +171,7 @@ func getColumnAsScope(column string, scope *Scope) *Scope {
 			}
 			return scope.con.emptyScope(results.Interface())
 		} else {
-			scope.Err(fmt.Errorf(err_field_not_found, column, scope.GetModelStruct().ModelType))
+			scope.Err(fmt.Errorf(errFieldNotFound, column, scope.GetModelStruct().ModelType))
 		}
 	case reflect.Struct:
 		if field := scope.rValue.FieldByName(column); field.CanAddr() {
@@ -243,7 +243,7 @@ func updatedAttrsWithValues(scope *Scope, value interface{}) (map[string]interfa
 	for key, value := range convertInterfaceToMap(scope.con, value, true) {
 		field, ok := scope.FieldByName(key)
 		if !ok {
-			scope.Err(fmt.Errorf(err_field_not_found, key, scope.GetModelStruct().ModelType))
+			scope.Err(fmt.Errorf(errFieldNotFound, key, scope.GetModelStruct().ModelType))
 		}
 		if ok && scope.Search.changeableField(field) {
 			if _, ok := value.(*SqlPair); ok {

@@ -19,9 +19,9 @@ func (s *safeMap) get(key string) string {
 }
 
 // ToDBName convert string to db name
-func (smap *safeMap) toDBName(name string) string {
+func (s *safeMap) toDBName(name string) string {
 	//attempt to retrieve it from map
-	if v := smap.get(name); v != "" {
+	if v := s.get(name); v != "" {
 		return v
 	}
 
@@ -60,8 +60,8 @@ func (smap *safeMap) toDBName(name string) string {
 
 	buf.WriteByte(value[len(value)-1])
 
-	s := strings.ToLower(buf.String())
+	result := strings.ToLower(buf.String())
 	//store it to the map
-	smap.set(name, s)
-	return s
+	s.set(name, result)
+	return result
 }

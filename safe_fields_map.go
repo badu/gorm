@@ -5,11 +5,11 @@ import (
 )
 
 func (s *fieldsMap) add(field *StructField) error {
-	if s.l == nil {
-		return fmt.Errorf("fieldsMap ERROR !!! NOT INITED!")
+	if s.mu == nil {
+		return fmt.Errorf("fieldsMap error. not inited")
 	}
-	s.l.Lock()
-	defer s.l.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	_, hasGetName := s.aliases[field.StructName]
 	_, hasDBName := s.aliases[field.DBName]
 	if hasGetName || hasDBName {
@@ -30,19 +30,19 @@ func (s *fieldsMap) add(field *StructField) error {
 }
 
 func (s *fieldsMap) get(key string) (*StructField, bool) {
-	if s.l == nil {
+	if s.mu == nil {
 		//fmt.Errorf("fieldsMap ERROR : not inited")
 		return nil, false
 	}
-	s.l.RLock()
-	defer s.l.RUnlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	//If the requested key doesn't exist, we get the value type's zero value - avoiding that
 	val, ok := s.aliases[key]
 	return val, ok
 }
 
 func (s fieldsMap) getFields() StructFields {
-	if s.l == nil {
+	if s.mu == nil {
 		//fmt.Errorf("fieldsMap ERROR : not inited")
 		return nil
 	}
@@ -50,12 +50,12 @@ func (s fieldsMap) getFields() StructFields {
 }
 
 func (s fieldsMap) primaryFields() StructFields {
-	if s.l == nil {
+	if s.mu == nil {
 		//fmt.Errorf("fieldsMap ERROR : not inited")
 		return nil
 	}
-	s.l.RLock()
-	defer s.l.RUnlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	var result StructFields
 	for _, field := range s.fields {
 		if field.IsPrimaryKey() {

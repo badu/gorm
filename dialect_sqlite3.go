@@ -8,24 +8,24 @@ import (
 )
 
 const (
-	SQLITE_DIALECT_NAME = "sqlite3"
-	SQLITE_BOOL         = "bool"
-	SQLITE_INTEGER      = "integer"
-	SQLITE_PK           = "integer primary key autoincrement"
-	SQLITE_BIGINT       = "bigint"
-	SQLITE_REAL         = "real"
-	SQLITE_VARCHAR      = "varchar(%d)"
-	SQLITE_DATETIME     = "datetime"
-	SQLITE_BLOB         = "blob"
-	SQLITE_TEXT         = "text"
+	SqliteDialectName = "sqlite3"
+	SqliteBool        = "bool"
+	SqliteInteger     = "integer"
+	SqlitePk          = "integer primary key autoincrement"
+	SqliteBigint      = "bigint"
+	SqliteReal        = "real"
+	SqliteVarchar     = "varchar(%d)"
+	SqliteDatetime    = "datetime"
+	SqliteBlob        = "blob"
+	SqliteText        = "text"
 
-	SQLITE_HASINDEX_SQL  = "SELECT count(*) FROM sqlite_master WHERE tbl_name = ? AND sql LIKE '%%INDEX %v ON%%'"
-	SQLITE_HASTABLE_SQL  = "SELECT count(*) FROM sqlite_master WHERE type='table' AND name=?"
-	SQLITE_HASCOLUMN_SQL = "SELECT count(*) FROM sqlite_master WHERE tbl_name = ? AND (sql LIKE '%%\"%v\" %%' OR sql LIKE '%%%v %%');\n"
+	SqliteHasindexSql  = "SELECT count(*) FROM sqlite_master WHERE tbl_name = ? AND sql LIKE '%%INDEX %v ON%%'"
+	SqliteHastableSql  = "SELECT count(*) FROM sqlite_master WHERE type='table' AND name=?"
+	SqliteHascolumnSql = "SELECT count(*) FROM sqlite_master WHERE tbl_name = ? AND (sql LIKE '%%\"%v\" %%' OR sql LIKE '%%%v %%');\n"
 )
 
 func (sqlite3) GetName() string {
-	return SQLITE_DIALECT_NAME
+	return SqliteDialectName
 }
 
 // Get Data Type for Sqlite Dialect
@@ -36,7 +36,7 @@ func (sqlite3) DataTypeOf(field *StructField) string {
 
 		switch dataValue.Kind() {
 		case reflect.Bool:
-			sqlType = SQLITE_BOOL
+			sqlType = SqliteBool
 		case reflect.Int,
 			reflect.Int8,
 			reflect.Int16,
@@ -48,35 +48,35 @@ func (sqlite3) DataTypeOf(field *StructField) string {
 			reflect.Uintptr:
 			if field.IsPrimaryKey() {
 				field.SetIsAutoIncrement()
-				sqlType = SQLITE_PK
+				sqlType = SqlitePk
 			} else {
 
-				sqlType = SQLITE_INTEGER
+				sqlType = SqliteInteger
 			}
 		case reflect.Int64,
 			reflect.Uint64:
 			if field.IsPrimaryKey() {
 				field.SetIsAutoIncrement()
-				sqlType = SQLITE_PK
+				sqlType = SqlitePk
 			} else {
-				sqlType = SQLITE_BIGINT
+				sqlType = SqliteBigint
 			}
 		case reflect.Float32,
 			reflect.Float64:
-			sqlType = SQLITE_REAL
+			sqlType = SqliteReal
 		case reflect.String:
 			if size > 0 && size < 65532 {
-				sqlType = fmt.Sprintf(SQLITE_VARCHAR, size)
+				sqlType = fmt.Sprintf(SqliteVarchar, size)
 			} else {
-				sqlType = SQLITE_TEXT
+				sqlType = SqliteText
 			}
 		case reflect.Struct:
 			if _, ok := dataValue.Interface().(time.Time); ok {
-				sqlType = SQLITE_DATETIME
+				sqlType = SqliteDatetime
 			}
 		default:
 			if _, ok := dataValue.Interface().([]byte); ok {
-				sqlType = SQLITE_BLOB
+				sqlType = SqliteBlob
 			}
 		}
 	}
@@ -93,19 +93,19 @@ func (sqlite3) DataTypeOf(field *StructField) string {
 
 func (s sqlite3) HasIndex(tableName string, indexName string) bool {
 	var count int
-	s.db.QueryRow(fmt.Sprintf(SQLITE_HASINDEX_SQL, indexName), tableName).Scan(&count)
+	s.db.QueryRow(fmt.Sprintf(SqliteHasindexSql, indexName), tableName).Scan(&count)
 	return count > 0
 }
 
 func (s sqlite3) HasTable(tableName string) bool {
 	var count int
-	s.db.QueryRow(SQLITE_HASTABLE_SQL, tableName).Scan(&count)
+	s.db.QueryRow(SqliteHastableSql, tableName).Scan(&count)
 	return count > 0
 }
 
 func (s sqlite3) HasColumn(tableName string, columnName string) bool {
 	var count int
-	s.db.QueryRow(fmt.Sprintf(SQLITE_HASCOLUMN_SQL, columnName, columnName), tableName).Scan(&count)
+	s.db.QueryRow(fmt.Sprintf(SqliteHascolumnSql, columnName, columnName), tableName).Scan(&count)
 	return count > 0
 }
 

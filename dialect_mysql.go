@@ -10,26 +10,26 @@ import (
 )
 
 const (
-	MYSQL_DIALECT_NAME   = "mysql"
-	MYSQL_BOOLEAN_TYPE   = "boolean"
-	MYSQL_INT_TYPE       = "int"
-	MYSQL_AUTO_INCREMENT = "AUTO_INCREMENT"
-	MYSQL_UNSIGNED       = "unsigned"
-	MYSQL_BIGINT         = "bigint"
-	MYSQL_DOUBLE         = "double"
-	MYSQL_LONGTEXT       = "longtext"
-	MYSQL_VARCHAR        = "varchar"
-	MYSQL_TIMESTAMP      = "timestamp"
-	MYSQL_LONGBLOG       = "longblob"
-	MYSQL_VARBINARY      = "varbinary"
+	MysqlDialectName   = "mysql"
+	MysqlBooleanType   = "boolean"
+	MysqlIntType       = "int"
+	MysqlAutoIncrement = "AUTO_INCREMENT"
+	MysqlUnsigned      = "unsigned"
+	MysqlBigint        = "bigint"
+	MysqlDouble        = "double"
+	MysqlLongtext      = "longtext"
+	MysqlVarchar       = "varchar"
+	MysqlTimestamp     = "timestamp"
+	MysqlLongblog      = "longblob"
+	MysqlVarbinary     = "varbinary"
 
-	MYSQL_HAS_FOREIGN_KEY = "SELECT count(*) FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA=? AND TABLE_NAME=? AND CONSTRAINT_NAME=? AND CONSTRAINT_TYPE='FOREIGN KEY'"
-	MYSQL_DROP_INDEX      = "DROP INDEX %v ON %v"
-	MYSQL_SELECT_DB       = "SELECT DATABASE()"
+	MysqlHasForeignKey = "SELECT count(*) FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA=? AND TABLE_NAME=? AND CONSTRAINT_NAME=? AND CONSTRAINT_TYPE='FOREIGN KEY'"
+	MysqlDropIndex     = "DROP INDEX %v ON %v"
+	MysqlSelectDb      = "SELECT DATABASE()"
 )
 
 func (mysql) GetName() string {
-	return MYSQL_DIALECT_NAME
+	return MysqlDialectName
 }
 
 func (mysql) GetQuoter() string {
@@ -44,7 +44,7 @@ func (mysql) DataTypeOf(field *StructField) string {
 	// be a KEY column.
 	//TODO : @Badu : document that if it has auto_increment but it's not an index, we ignore auto_increment
 	if field.IsAutoIncrement() {
-		if !field.HasSetting(set_index) && !field.IsPrimaryKey() {
+		if !field.HasSetting(setIndex) && !field.IsPrimaryKey() {
 			field.UnsetIsAutoIncrement()
 		}
 	}
@@ -52,57 +52,57 @@ func (mysql) DataTypeOf(field *StructField) string {
 	if sqlType == "" {
 		switch dataValue.Kind() {
 		case reflect.Bool:
-			sqlType = MYSQL_BOOLEAN_TYPE
+			sqlType = MysqlBooleanType
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32:
 			if field.IsAutoIncrement() || field.IsPrimaryKey() {
 				field.SetIsAutoIncrement()
-				sqlType = fmt.Sprintf("%s %s", MYSQL_INT_TYPE, MYSQL_AUTO_INCREMENT)
+				sqlType = fmt.Sprintf("%s %s", MysqlIntType, MysqlAutoIncrement)
 			} else {
-				sqlType = MYSQL_INT_TYPE
+				sqlType = MysqlIntType
 			}
 		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uintptr:
 			if field.IsAutoIncrement() || field.IsPrimaryKey() {
 				field.SetIsAutoIncrement()
-				sqlType = fmt.Sprintf("%s %s %s", MYSQL_INT_TYPE, MYSQL_UNSIGNED, MYSQL_AUTO_INCREMENT)
+				sqlType = fmt.Sprintf("%s %s %s", MysqlIntType, MysqlUnsigned, MysqlAutoIncrement)
 			} else {
-				sqlType = fmt.Sprintf("%s %s", MYSQL_INT_TYPE, MYSQL_UNSIGNED)
+				sqlType = fmt.Sprintf("%s %s", MysqlIntType, MysqlUnsigned)
 			}
 		case reflect.Int64:
 			if field.IsAutoIncrement() || field.IsPrimaryKey() {
 				field.SetIsAutoIncrement()
-				sqlType = fmt.Sprintf("%s %s", MYSQL_BIGINT, MYSQL_AUTO_INCREMENT)
+				sqlType = fmt.Sprintf("%s %s", MysqlBigint, MysqlAutoIncrement)
 			} else {
-				sqlType = MYSQL_BIGINT
+				sqlType = MysqlBigint
 			}
 		case reflect.Uint64:
 			if field.IsAutoIncrement() || field.IsPrimaryKey() {
 				field.SetIsAutoIncrement()
-				sqlType = fmt.Sprintf("%s %s %s", MYSQL_BIGINT, MYSQL_UNSIGNED, MYSQL_AUTO_INCREMENT)
+				sqlType = fmt.Sprintf("%s %s %s", MysqlBigint, MysqlUnsigned, MysqlAutoIncrement)
 			} else {
-				sqlType = fmt.Sprintf("%s %s", MYSQL_BIGINT, MYSQL_UNSIGNED)
+				sqlType = fmt.Sprintf("%s %s", MysqlBigint, MysqlUnsigned)
 			}
 		case reflect.Float32, reflect.Float64:
-			sqlType = MYSQL_DOUBLE
+			sqlType = MysqlDouble
 		case reflect.String:
 			if size > 0 && size < 65532 {
-				sqlType = fmt.Sprintf("%s(%d)", MYSQL_VARCHAR, size)
+				sqlType = fmt.Sprintf("%s(%d)", MysqlVarchar, size)
 			} else {
-				sqlType = MYSQL_LONGTEXT
+				sqlType = MysqlLongtext
 			}
 		case reflect.Struct:
 			if _, ok := dataValue.Interface().(time.Time); ok {
-				if field.HasSetting(set_not_null) {
-					sqlType = MYSQL_TIMESTAMP
+				if field.HasSetting(setNotNull) {
+					sqlType = MysqlTimestamp
 				} else {
-					sqlType = MYSQL_TIMESTAMP + " NULL"
+					sqlType = MysqlTimestamp + " NULL"
 				}
 			}
 		default:
 			if _, ok := dataValue.Interface().([]byte); ok {
 				if size > 0 && size < 65532 {
-					sqlType = fmt.Sprintf("%s(%d)", MYSQL_VARBINARY, size)
+					sqlType = fmt.Sprintf("%s(%d)", MysqlVarbinary, size)
 				} else {
-					sqlType = MYSQL_LONGBLOG
+					sqlType = MysqlLongblog
 				}
 			}
 		}
@@ -118,21 +118,21 @@ func (mysql) DataTypeOf(field *StructField) string {
 	return fmt.Sprintf("%v %v", sqlType, additionalType)
 }
 
-func (dialect *mysql) RemoveIndex(tableName string, indexName string) error {
-	q := dialect.GetQuoter()
-	_, err := dialect.db.Exec(fmt.Sprintf(MYSQL_DROP_INDEX, indexName, q+regExpPeriod.ReplaceAllString(tableName, q+"."+q)+q))
+func (m *mysql) RemoveIndex(tableName string, indexName string) error {
+	q := m.GetQuoter()
+	_, err := m.db.Exec(fmt.Sprintf(MysqlDropIndex, indexName, q+regExpPeriod.ReplaceAllString(tableName, q+"."+q)+q))
 	return err
 }
 
-func (dialect mysql) HasForeignKey(tableName string, foreignKeyName string) bool {
+func (m mysql) HasForeignKey(tableName string, foreignKeyName string) bool {
 	var count int
 
-	dialect.db.QueryRow(MYSQL_HAS_FOREIGN_KEY, dialect.CurrentDatabase(), tableName, foreignKeyName).Scan(&count)
+	m.db.QueryRow(MysqlHasForeignKey, m.CurrentDatabase(), tableName, foreignKeyName).Scan(&count)
 	return count > 0
 }
 
-func (dialect mysql) CurrentDatabase() (name string) {
-	dialect.db.QueryRow(MYSQL_SELECT_DB).Scan(&name)
+func (m mysql) CurrentDatabase() (name string) {
+	m.db.QueryRow(MysqlSelectDb).Scan(&name)
 	return
 }
 
@@ -140,8 +140,8 @@ func (mysql) SelectFromDummyTable() string {
 	return "FROM DUAL"
 }
 
-func (dialect mysql) BuildForeignKeyName(tableName, field, dest string) string {
-	keyName := dialect.commonDialect.BuildForeignKeyName(tableName, field, dest)
+func (m mysql) BuildForeignKeyName(tableName, field, dest string) string {
+	keyName := m.commonDialect.BuildForeignKeyName(tableName, field, dest)
 	if utf8.RuneCountInString(keyName) <= 64 {
 		return keyName
 	}
